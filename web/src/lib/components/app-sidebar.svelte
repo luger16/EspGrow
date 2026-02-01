@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { page } from "$app/state";
+	import { settings, updateSettings, initTheme } from "$lib/stores/settings.svelte";
 	import SproutIcon from "@lucide/svelte/icons/sprout";
 	import LayoutDashboardIcon from "@lucide/svelte/icons/layout-dashboard";
 	import ZapIcon from "@lucide/svelte/icons/zap";
@@ -17,16 +18,17 @@
 		{ title: "Settings", url: "/settings", icon: SettingsIcon },
 	];
 
-	let isDark = $state(false);
+	const isDark = $derived(
+		settings.theme === "dark" ||
+			(settings.theme === "system" && typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+	);
 
 	$effect(() => {
-		// Initialize from document on mount
-		isDark = document.documentElement.classList.contains("dark");
+		initTheme();
 	});
 
 	function toggleDarkMode() {
-		isDark = !isDark;
-		document.documentElement.classList.toggle("dark", isDark);
+		updateSettings({ theme: isDark ? "light" : "dark" });
 	}
 </script>
 

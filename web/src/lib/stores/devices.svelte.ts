@@ -63,3 +63,10 @@ export function removeDevice(deviceId: string): void {
 		devices.splice(index, 1);
 	}
 }
+
+export function updateDevice(deviceId: string, updates: Partial<Omit<Device, "id">>): void {
+	const device = devices.find((d) => d.id === deviceId);
+	if (device) {
+		Object.assign(device, updates);
+	}
+}

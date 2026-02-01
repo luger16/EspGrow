@@ -66,3 +66,10 @@ export function removeSensor(sensorId: string): void {
 		delete sensorReadings[sensorId];
 	}
 }
+
+export function updateSensor(sensorId: string, updates: Partial<Omit<Sensor, "id">>): void {
+	const sensor = sensors.find((s) => s.id === sensorId);
+	if (sensor) {
+		Object.assign(sensor, updates);
+	}
+}
