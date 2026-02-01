@@ -29,3 +29,16 @@ export interface Device {
 	isOn: boolean;
 	controlMode: DeviceControlMode;
 }
+
+export type ComparisonOperator = ">" | ">=" | "<" | "<=" | "=";
+
+export interface AutomationRule {
+	id: string;
+	name: string;
+	enabled: boolean;
+	sensorId: string;
+	operator: ComparisonOperator;
+	threshold: number;
+	deviceId: string;
+	action: "turn_on" | "turn_off";
+}
