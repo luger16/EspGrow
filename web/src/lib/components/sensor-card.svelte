@@ -8,7 +8,11 @@
 	import LeafIcon from "@lucide/svelte/icons/leaf";
 	import type { Component } from "svelte";
 
-	let { sensor, reading }: { sensor: Sensor; reading?: SensorReading } = $props();
+	let {
+		sensor,
+		reading,
+		onclick,
+	}: { sensor: Sensor; reading?: SensorReading; onclick?: () => void } = $props();
 
 	const iconMap: Record<Sensor["type"], Component> = {
 		temperature: ThermometerIcon,
@@ -22,14 +26,16 @@
 	const displayValue = $derived(reading ? `${reading.value}${sensor.unit}` : "—");
 </script>
 
-<Card.Root class="py-4">
-	<Card.Content class="flex flex-col gap-3 px-4">
-		<div class="flex items-center justify-between gap-2">
-			<span class="text-sm font-medium">{sensor.name}</span>
-			<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-				<Icon class="size-4 text-muted-foreground" />
+<button type="button" class="w-full text-left" {onclick}>
+	<Card.Root class="py-4 transition-colors hover:bg-muted/50">
+		<Card.Content class="flex flex-col gap-3 px-4">
+			<div class="flex items-center justify-between gap-2">
+				<span class="text-sm font-medium">{sensor.name}</span>
+				<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+					<Icon class="size-4 text-muted-foreground" />
+				</div>
 			</div>
-		</div>
-		<span class="text-2xl font-semibold tabular-nums">{displayValue}</span>
-	</Card.Content>
-</Card.Root>
+			<span class="text-2xl font-semibold tabular-nums">{displayValue}</span>
+		</Card.Content>
+	</Card.Root>
+</button>

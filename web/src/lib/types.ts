@@ -15,6 +15,11 @@ export interface SensorReading {
 	timestamp: Date;
 }
 
+export interface HistoricalReading {
+	date: Date;
+	value: number;
+}
+
 export type DeviceType = "fan" | "light" | "heater" | "pump" | "humidifier";
 export type DeviceControlMethod = "relay" | "shelly" | "tasmota";
 export type DeviceControlMode = "manual" | "automatic";

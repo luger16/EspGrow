@@ -1,4 +1,22 @@
-import type { Sensor, SensorReading } from "$lib/types";
+import type { Sensor, SensorReading, HistoricalReading } from "$lib/types";
+
+function generateHistoricalData(
+	baseValue: number,
+	variance: number,
+	days: number = 7
+): HistoricalReading[] {
+	const data: HistoricalReading[] = [];
+	const now = new Date();
+
+	for (let i = days * 24; i >= 0; i--) {
+		const date = new Date(now.getTime() - i * 60 * 60 * 1000);
+		const randomVariance = (Math.random() - 0.5) * 2 * variance;
+		const value = Math.round((baseValue + randomVariance) * 10) / 10;
+		data.push({ date, value });
+	}
+
+	return data;
+}
 
 export const sensors = $state<Sensor[]>([
 	{
@@ -72,4 +90,16 @@ export function updateSensor(sensorId: string, updates: Partial<Omit<Sensor, "id
 	if (sensor) {
 		Object.assign(sensor, updates);
 	}
+}
+
+export const sensorHistory: Record<string, HistoricalReading[]> = {
+	"sensor-1": generateHistoricalData(24.5, 3, 7),
+	"sensor-2": generateHistoricalData(62, 10, 7),
+	"sensor-3": generateHistoricalData(850, 150, 7),
+	"sensor-4": generateHistoricalData(420, 100, 7),
+	"sensor-5": generateHistoricalData(45, 15, 7),
+};
+
+export function getSensorHistory(sensorId: string): HistoricalReading[] {
+	return sensorHistory[sensorId] ?? [];
 }
