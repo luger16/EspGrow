@@ -18,26 +18,17 @@
 		soil_moisture: LeafIcon,
 	};
 
-	const typeLabels: Record<Sensor["type"], string> = {
-		temperature: "Temperature",
-		humidity: "Humidity",
-		co2: "CO₂",
-		light: "Light",
-		soil_moisture: "Soil",
-	};
-
 	const Icon = $derived(iconMap[sensor.type]);
 	const displayValue = $derived(reading ? `${reading.value}${sensor.unit}` : "—");
 </script>
 
-<Card.Root class="flex flex-col">
-	<Card.Content class="flex items-center gap-4 p-4">
-		<div class="bg-muted flex size-10 shrink-0 items-center justify-center rounded-lg">
-			<Icon class="text-muted-foreground size-5" />
-		</div>
-		<div class="flex flex-1 flex-col gap-0.5">
-			<span class="font-medium">{sensor.name}</span>
-			<span class="text-muted-foreground text-xs">{typeLabels[sensor.type]}</span>
+<Card.Root class="py-4">
+	<Card.Content class="flex flex-col gap-3 px-4">
+		<div class="flex items-center justify-between gap-2">
+			<span class="text-sm font-medium">{sensor.name}</span>
+			<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+				<Icon class="size-4 text-muted-foreground" />
+			</div>
 		</div>
 		<span class="text-2xl font-semibold tabular-nums">{displayValue}</span>
 	</Card.Content>

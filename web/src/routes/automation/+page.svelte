@@ -38,7 +38,11 @@
 			<AddRuleModal />
 		</div>
 		{#if rules.length === 0}
-			<p class="text-sm text-muted-foreground">No automation rules configured.</p>
+			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+				<ZapIcon class="size-8 text-muted-foreground/50" />
+				<p class="mt-3 text-sm font-medium">No automation rules</p>
+				<p class="mt-1 text-xs text-muted-foreground">Create rules to automate your devices based on sensor readings</p>
+			</div>
 		{:else}
 			<div class="divide-y divide-border rounded-lg border">
 				{#each rules as rule (rule.id)}

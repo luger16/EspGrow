@@ -151,7 +151,11 @@
 			<AddSensorModal />
 		</div>
 		{#if sensors.length === 0}
-			<p class="text-sm text-muted-foreground">No sensors configured.</p>
+			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+				<ThermometerIcon class="size-8 text-muted-foreground/50" />
+				<p class="mt-3 text-sm font-medium">No sensors</p>
+				<p class="mt-1 text-xs text-muted-foreground">Add a sensor to start monitoring your grow tent</p>
+			</div>
 		{:else}
 			<div class="divide-y divide-border rounded-lg border">
 				{#each sensors as sensor (sensor.id)}
@@ -181,7 +185,11 @@
 			<AddDeviceModal />
 		</div>
 		{#if devices.length === 0}
-			<p class="text-sm text-muted-foreground">No devices configured.</p>
+			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+				<FanIcon class="size-8 text-muted-foreground/50" />
+				<p class="mt-3 text-sm font-medium">No devices</p>
+				<p class="mt-1 text-xs text-muted-foreground">Add a device to control fans, lights, or other equipment</p>
+			</div>
 		{:else}
 			<div class="divide-y divide-border rounded-lg border">
 				{#each devices as device (device.id)}

@@ -2,6 +2,7 @@
 	import "./layout.css";
 	import favicon from "$lib/assets/favicon.svg";
 	import AppSidebar from "$lib/components/app-sidebar.svelte";
+	import BottomTabs from "$lib/components/bottom-tabs.svelte";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 
 	let { children } = $props();
@@ -12,8 +13,11 @@
 </svelte:head>
 
 <Sidebar.Provider>
-	<AppSidebar />
-	<Sidebar.Inset>
+	<div class="hidden md:contents">
+		<AppSidebar />
+	</div>
+	<Sidebar.Inset class="pb-20 md:pb-0">
 		{@render children()}
 	</Sidebar.Inset>
+	<BottomTabs />
 </Sidebar.Provider>

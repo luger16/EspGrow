@@ -28,8 +28,8 @@
 	}
 </script>
 
-<Card.Root class="flex flex-col">
-	<Card.Content class="flex items-center gap-4 p-4">
+<Card.Root class="flex flex-col py-4">
+	<Card.Content class="flex items-center gap-4 px-4">
 		<div
 			class="flex size-10 shrink-0 items-center justify-center rounded-lg {device.isOn
 				? 'bg-primary/10 text-primary'
