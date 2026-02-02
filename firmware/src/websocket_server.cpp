@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <LittleFS.h>
 
 namespace WebSocketServer {
 
@@ -51,9 +52,9 @@ void init(uint16_t port) {
     ws->onEvent(onWsEvent);
     server->addHandler(ws);
     
-    server->on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-        request->send(200, "text/plain", "EspGrow WebSocket Server");
-    });
+    server->serveStatic("/", LittleFS, "/")
+        .setDefaultFile("index.html")
+        .setCacheControl("max-age=86400");
     
     server->begin();
     Serial.printf("[WS] Server started on port %d\n", port);
