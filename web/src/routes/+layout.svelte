@@ -7,6 +7,7 @@
 	import { initTheme } from "$lib/stores/settings.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { initSensorWebSocket } from "$lib/stores/sensors.svelte";
+	import { initDeviceWebSocket } from "$lib/stores/devices.svelte";
 	import { onMount } from "svelte";
 
 	let { children } = $props();
@@ -15,6 +16,7 @@
 		initTheme();
 		websocket.connect();
 		initSensorWebSocket();
+		initDeviceWebSocket();
 		return () => websocket.disconnect();
 	});
 </script>

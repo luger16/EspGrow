@@ -2,6 +2,7 @@
 #include "storage.h"
 #include "wifi_manager.h"
 #include "websocket_server.h"
+#include "device_controller.h"
 #include <ArduinoJson.h>
 
 namespace {
@@ -23,6 +24,26 @@ namespace {
             JsonDocument response;
             response["type"] = "pong";
             response["timestamp"] = millis();
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
+        }
+        else if (strcmp(type, "device_control") == 0) {
+            const char* method = doc["method"];
+            const char* target = doc["target"];
+            bool on = doc["on"];
+            
+            bool success = DeviceController::control(
+                method ? method : "",
+                target ? target : "",
+                on
+            );
+            
+            JsonDocument response;
+            response["type"] = "device_status";
+            response["target"] = target;
+            response["on"] = on;
+            response["success"] = success;
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
@@ -69,6 +90,7 @@ void setup() {
     }
     
     WiFiManager::init();
+    DeviceController::init();
     
     WebSocketServer::onMessage(handleMessage);
 }
@@ -78,7 +100,13 @@ void loop() {
     
     if (WiFiManager::isConnected()) {
         static bool wsStarted = false;
-        if (!wsStarted) {
+        static unsigned long connectedAt = 0;
+        
+        if (!wsStarted && connectedAt == 0) {
+            connectedAt = millis();
+        }
+        
+        if (!wsStarted && millis() - connectedAt >= 500) {
             WebSocketServer::init(80);
             wsStarted = true;
         }
