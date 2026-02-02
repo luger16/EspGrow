@@ -20,13 +20,17 @@ EspGrow is a complete monitoring and automation system for indoor grow tents tha
 
 ### Roadmap
 
-- [ ] SQLite Database — Persistent storage for sensor readings and automation rules
 - [ ] Data retention (rolling window, 7-14 days)
-- [ ] Push notifications
+- [ ] Push notifications / alerts
 - [ ] PWA caching (IndexedDB)
-- [ ] Grow journal
+- [ ] Sensor calibration UI
+- [ ] Automation history/logs
 - [ ] OTA firmware updates
 - [ ] Multi-condition automation rules
+- [ ] Data export / config backup
+- [ ] Grow journal
+- [ ] SQLite database
+- [ ] Customizable dashboard (sensor/device naming and reordering)
 
 ### Hardware
 
