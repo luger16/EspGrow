@@ -10,6 +10,7 @@
 #include "history.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
+#include <map>
 
 namespace {
     unsigned long lastBroadcast = 0;
@@ -339,7 +340,26 @@ void loop() {
         }
         
         if (lastSensorData.valid) {
-            Automation::loop(lastSensorData.temperature, lastSensorData.humidity, lastSensorData.co2);
+            std::map<String, float> sensorReadings;
+            size_t sensorCount;
+            const char** sensorIds = SensorConfig::getSensorIds(sensorCount);
+            
+            for (size_t i = 0; i < sensorCount; i++) {
+                SensorConfig::Sensor* sensor = SensorConfig::getSensor(sensorIds[i]);
+                if (sensor) {
+                    if (strcmp(sensor->type, "temperature") == 0) {
+                        sensorReadings[String(sensor->id)] = lastSensorData.temperature;
+                    } else if (strcmp(sensor->type, "humidity") == 0) {
+                        sensorReadings[String(sensor->id)] = lastSensorData.humidity;
+                    } else if (strcmp(sensor->type, "co2") == 0) {
+                        sensorReadings[String(sensor->id)] = lastSensorData.co2;
+                    } else if (strcmp(sensor->type, "vpd") == 0) {
+                        sensorReadings[String(sensor->id)] = lastSensorData.vpd;
+                    }
+                }
+            }
+            
+            Automation::loop(sensorReadings);
         }
     }
 }

@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <map>
 
 namespace Automation {
 
@@ -19,7 +20,7 @@ struct Rule {
 };
 
 void init();
-void loop(float temperature, float humidity, float co2);
+void loop(const std::map<String, float>& sensorReadings);
 
 bool addRule(JsonDocument& doc);
 bool updateRule(const char* ruleId, JsonDocument& doc);

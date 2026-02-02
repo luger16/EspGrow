@@ -2,6 +2,7 @@
 #include "storage.h"
 #include "device_controller.h"
 #include <vector>
+#include <map>
 
 namespace Automation {
 
@@ -20,10 +21,11 @@ namespace {
         return false;
     }
     
-    float getSensorValue(const char* sensorId, float temperature, float humidity, float co2) {
-        if (strcmp(sensorId, "temperature") == 0) return temperature;
-        if (strcmp(sensorId, "humidity") == 0) return humidity;
-        if (strcmp(sensorId, "co2") == 0) return co2;
+    float getSensorValue(const char* sensorId, const std::map<String, float>& sensorReadings) {
+        auto it = sensorReadings.find(String(sensorId));
+        if (it != sensorReadings.end()) {
+            return it->second;
+        }
         return 0;
     }
     
@@ -84,14 +86,14 @@ void init() {
     Serial.println("[Automation] Initialized");
 }
 
-void loop(float temperature, float humidity, float co2) {
+void loop(const std::map<String, float>& sensorReadings) {
     if (millis() - lastEvaluation < EVAL_INTERVAL) return;
     lastEvaluation = millis();
     
     for (const auto& rule : rules) {
         if (!rule.enabled) continue;
         
-        float value = getSensorValue(rule.sensorId, temperature, humidity, co2);
+        float value = getSensorValue(rule.sensorId, sensorReadings);
         bool shouldTrigger = evaluateCondition(value, rule.op, rule.threshold);
         
         if (shouldTrigger) {
