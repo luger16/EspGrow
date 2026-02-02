@@ -4,12 +4,27 @@
 #include "websocket_server.h"
 #include "device_controller.h"
 #include "sensors.h"
+#include "automation.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
 
 namespace {
     unsigned long lastBroadcast = 0;
     const unsigned long BROADCAST_INTERVAL = 5000;
+    Sensors::SensorData lastSensorData;
+
+    void broadcastRules() {
+        JsonDocument doc;
+        doc["type"] = "rules";
+        
+        String rulesJson;
+        Automation::getRulesJson(rulesJson);
+        doc["data"] = serialized(rulesJson);
+        
+        String out;
+        serializeJson(doc, out);
+        WebSocketServer::broadcast(out);
+    }
 
     void handleMessage(const String& message) {
         JsonDocument doc;
@@ -50,6 +65,51 @@ namespace {
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
+        else if (strcmp(type, "get_rules") == 0) {
+            broadcastRules();
+        }
+        else if (strcmp(type, "add_rule") == 0) {
+            JsonDocument ruleDoc;
+            ruleDoc["id"] = doc["id"];
+            ruleDoc["name"] = doc["name"];
+            ruleDoc["enabled"] = doc["enabled"];
+            ruleDoc["sensorId"] = doc["sensorId"];
+            ruleDoc["operator"] = doc["operator"];
+            ruleDoc["threshold"] = doc["threshold"];
+            ruleDoc["deviceId"] = doc["deviceId"];
+            ruleDoc["deviceMethod"] = doc["deviceMethod"];
+            ruleDoc["deviceTarget"] = doc["deviceTarget"];
+            ruleDoc["action"] = doc["action"];
+            
+            Automation::addRule(ruleDoc);
+            broadcastRules();
+        }
+        else if (strcmp(type, "update_rule") == 0) {
+            const char* ruleId = doc["id"];
+            JsonDocument updates;
+            if (doc.containsKey("name")) updates["name"] = doc["name"];
+            if (doc.containsKey("enabled")) updates["enabled"] = doc["enabled"];
+            if (doc.containsKey("sensorId")) updates["sensorId"] = doc["sensorId"];
+            if (doc.containsKey("operator")) updates["operator"] = doc["operator"];
+            if (doc.containsKey("threshold")) updates["threshold"] = doc["threshold"];
+            if (doc.containsKey("deviceId")) updates["deviceId"] = doc["deviceId"];
+            if (doc.containsKey("deviceMethod")) updates["deviceMethod"] = doc["deviceMethod"];
+            if (doc.containsKey("deviceTarget")) updates["deviceTarget"] = doc["deviceTarget"];
+            if (doc.containsKey("action")) updates["action"] = doc["action"];
+            
+            Automation::updateRule(ruleId, updates);
+            broadcastRules();
+        }
+        else if (strcmp(type, "remove_rule") == 0) {
+            const char* ruleId = doc["id"];
+            Automation::removeRule(ruleId);
+            broadcastRules();
+        }
+        else if (strcmp(type, "toggle_rule") == 0) {
+            const char* ruleId = doc["id"];
+            Automation::toggleRule(ruleId);
+            broadcastRules();
+        }
     }
 
     void broadcastSensorData() {
@@ -57,6 +117,8 @@ namespace {
 
         Sensors::SensorData sensor = Sensors::read();
         if (!sensor.valid) return;
+        
+        lastSensorData = sensor;
 
         JsonDocument doc;
         doc["type"] = "sensors";
@@ -97,6 +159,7 @@ void setup() {
     WiFiManager::init();
     DeviceController::init();
     Sensors::init();
+    Automation::init();
     
     WebSocketServer::onMessage(handleMessage);
 }
@@ -122,6 +185,10 @@ void loop() {
         if (millis() - lastBroadcast >= BROADCAST_INTERVAL) {
             lastBroadcast = millis();
             broadcastSensorData();
+        }
+        
+        if (lastSensorData.valid) {
+            Automation::loop(lastSensorData.temperature, lastSensorData.humidity, lastSensorData.co2);
         }
     }
 }

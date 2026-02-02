@@ -1,59 +1,64 @@
 import type { AutomationRule } from "$lib/types";
+import { websocket } from "./websocket.svelte";
+import { devices } from "./devices.svelte";
 
-export const rules = $state<AutomationRule[]>([
-	{
-		id: "rule-1",
-		name: "High Temperature Fan",
-		enabled: true,
-		sensorId: "sensor-1",
-		operator: ">",
-		threshold: 28,
-		deviceId: "device-1",
-		action: "turn_on",
-	},
-	{
-		id: "rule-2",
-		name: "Low Humidity Humidifier",
-		enabled: true,
-		sensorId: "sensor-2",
-		operator: "<",
-		threshold: 50,
-		deviceId: "device-4",
-		action: "turn_on",
-	},
-	{
-		id: "rule-3",
-		name: "Night Heater",
-		enabled: false,
-		sensorId: "sensor-1",
-		operator: "<",
-		threshold: 18,
-		deviceId: "device-3",
-		action: "turn_on",
-	},
-]);
+export const rules = $state<AutomationRule[]>([]);
+
+function getDeviceTarget(deviceId: string): { method: string; target: string } {
+	const device = devices.find((d) => d.id === deviceId);
+	if (!device) return { method: "", target: "" };
+	
+	if (device.controlMethod === "relay") {
+		return { method: "relay", target: String(device.gpioPin ?? 0) };
+	}
+	return { method: device.controlMethod, target: device.ipAddress ?? "" };
+}
 
 export function addRule(rule: AutomationRule): void {
-	rules.push(rule);
+	const { method, target } = getDeviceTarget(rule.deviceId);
+	
+	websocket.send("add_rule", {
+		id: rule.id,
+		name: rule.name,
+		enabled: rule.enabled,
+		sensorId: rule.sensorId,
+		operator: rule.operator,
+		threshold: rule.threshold,
+		deviceId: rule.deviceId,
+		deviceMethod: method,
+		deviceTarget: target,
+		action: rule.action,
+	});
 }
 
 export function updateRule(ruleId: string, updates: Partial<Omit<AutomationRule, "id">>): void {
-	const rule = rules.find((r) => r.id === ruleId);
-	if (rule) {
-		Object.assign(rule, updates);
+	const payload: Record<string, unknown> = { id: ruleId, ...updates };
+	
+	if (updates.deviceId) {
+		const { method, target } = getDeviceTarget(updates.deviceId);
+		payload.deviceMethod = method;
+		payload.deviceTarget = target;
 	}
+	
+	websocket.send("update_rule", payload);
 }
 
 export function removeRule(ruleId: string): void {
-	const index = rules.findIndex((r) => r.id === ruleId);
-	if (index !== -1) {
-		rules.splice(index, 1);
-	}
+	websocket.send("remove_rule", { id: ruleId });
 }
 
 export function toggleRule(ruleId: string): void {
-	const rule = rules.find((r) => r.id === ruleId);
-	if (rule) {
-		rule.enabled = !rule.enabled;
-	}
+	websocket.send("toggle_rule", { id: ruleId });
+}
+
+export function initRulesWebSocket(): void {
+	websocket.on("rules", (data: unknown) => {
+		const msg = data as { data: AutomationRule[] };
+		if (Array.isArray(msg.data)) {
+			rules.length = 0;
+			rules.push(...msg.data);
+		}
+	});
+	
+	websocket.send("get_rules", {});
 }
