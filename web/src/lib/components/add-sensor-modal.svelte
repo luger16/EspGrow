@@ -19,6 +19,7 @@
 		{ value: "scd40", label: "SCD40 (CO₂)", defaultType: "co2", defaultUnit: "ppm" },
 		{ value: "as7341", label: "AS7341 (Light)", defaultType: "light", defaultUnit: "PPFD" },
 		{ value: "soil_capacitive", label: "Capacitive Soil Moisture", defaultType: "soil_moisture", defaultUnit: "%" },
+		{ value: "calculated", label: "Calculated (VPD)", defaultType: "vpd", defaultUnit: "kPa" },
 	];
 
 	const sensorTypeOptions: { value: Sensor["type"]; label: string; unit: string }[] = [
@@ -27,6 +28,7 @@
 		{ value: "co2", label: "CO₂", unit: "ppm" },
 		{ value: "light", label: "Light", unit: "PPFD" },
 		{ value: "soil_moisture", label: "Soil Moisture", unit: "%" },
+		{ value: "vpd", label: "VPD", unit: "kPa" },
 	];
 
 	function handleHardwareChange(value: string | undefined) {

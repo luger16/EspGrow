@@ -6,6 +6,7 @@
 	import CloudIcon from "@lucide/svelte/icons/cloud";
 	import SunIcon from "@lucide/svelte/icons/sun";
 	import LeafIcon from "@lucide/svelte/icons/leaf";
+	import GaugeIcon from "@lucide/svelte/icons/gauge";
 	import type { Component } from "svelte";
 
 	let {
@@ -20,6 +21,7 @@
 		co2: CloudIcon,
 		light: SunIcon,
 		soil_moisture: LeafIcon,
+		vpd: GaugeIcon,
 	};
 
 	const Icon = $derived(iconMap[sensor.type]);

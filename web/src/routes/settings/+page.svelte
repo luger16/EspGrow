@@ -22,6 +22,7 @@
 	import FlameIcon from "@lucide/svelte/icons/flame";
 	import DropletsIcon from "@lucide/svelte/icons/droplets";
 	import WifiIcon from "@lucide/svelte/icons/wifi";
+	import GaugeIcon from "@lucide/svelte/icons/gauge";
 	import type { Sensor, Device } from "$lib/types";
 	import type { Component } from "svelte";
 
@@ -31,6 +32,7 @@
 		co2: CloudIcon,
 		light: SunIcon,
 		soil_moisture: SproutIcon,
+		vpd: GaugeIcon,
 	};
 
 	const deviceIcons: Record<Device["type"], Component> = {
@@ -46,6 +48,7 @@
 		scd40: "SCD40",
 		as7341: "AS7341",
 		soil_capacitive: "Capacitive",
+		calculated: "Calculated",
 	};
 
 	const controlMethodLabels: Record<Device["controlMethod"], string> = {

@@ -1,11 +1,11 @@
-export type SensorType = "temperature" | "humidity" | "co2" | "light" | "soil_moisture";
+export type SensorType = "temperature" | "humidity" | "co2" | "light" | "soil_moisture" | "vpd";
 
 export interface Sensor {
 	id: string;
 	name: string;
 	type: SensorType;
 	unit: string;
-	hardwareType: "sht41" | "scd40" | "as7341" | "soil_capacitive";
+	hardwareType: "sht41" | "scd40" | "as7341" | "soil_capacitive" | "calculated";
 	address?: string;
 }
 
