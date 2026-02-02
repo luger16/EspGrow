@@ -6,7 +6,7 @@
 	import { AreaChart } from "layerchart";
 	import { curveNatural } from "d3-shape";
 	import type { Sensor } from "$lib/types";
-	import { getSensorHistory } from "$lib/stores/sensors.svelte";
+	import { getSensorHistory, requestHistory } from "$lib/stores/sensors.svelte";
 
 	let {
 		sensor,
@@ -27,21 +27,13 @@
 		{ value: "7d", label: "7d" },
 	];
 
-	const history = $derived(getSensorHistory(sensor.id));
+	$effect(() => {
+		if (open && sensor) {
+			requestHistory(sensor.id, timeRange);
+		}
+	});
 
-	const filteredData = $derived(
-		history.filter((item) => {
-			const now = new Date();
-			let hoursToSubtract = 24;
-			if (timeRange === "7d") {
-				hoursToSubtract = 24 * 7;
-			} else if (timeRange === "12h") {
-				hoursToSubtract = 12;
-			}
-			const cutoff = new Date(now.getTime() - hoursToSubtract * 60 * 60 * 1000);
-			return item.date >= cutoff;
-		})
-	);
+	const history = $derived(getSensorHistory(sensor.id, timeRange));
 
 	const chartConfig = {
 		value: { label: "Value", color: "var(--chart-1)" },
@@ -72,7 +64,7 @@
 		</div>
 		<Chart.ChartContainer config={chartConfig} class="aspect-2/1 w-full">
 			<AreaChart
-				data={filteredData}
+				data={history}
 				x="date"
 				xScale={scaleUtc()}
 				y="value"

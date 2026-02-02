@@ -1,49 +1,40 @@
 import type { Sensor, SensorReading, HistoricalReading } from "$lib/types";
 import { websocket } from "./websocket.svelte";
 
-function generateHistoricalData(
-	baseValue: number,
-	variance: number,
-	days: number = 7
-): HistoricalReading[] {
-	const data: HistoricalReading[] = [];
-	const now = new Date();
+export const sensors = $state<Sensor[]>([]);
+export const sensorReadings = $state<Record<string, SensorReading>>({});
+export const sensorHistory = $state<Record<string, Record<string, HistoricalReading[]>>>({});
 
-	for (let i = days * 24; i >= 0; i--) {
-		const date = new Date(now.getTime() - i * 60 * 60 * 1000);
-		const randomVariance = (Math.random() - 0.5) * 2 * variance;
-		const value = Math.round((baseValue + randomVariance) * 10) / 10;
-		data.push({ date, value });
+type HistoryRange = "12h" | "24h" | "7d";
+
+function decodeBase64(base64: string): Uint8Array {
+	const binaryString = atob(base64);
+	const bytes = new Uint8Array(binaryString.length);
+	for (let i = 0; i < binaryString.length; i++) {
+		bytes[i] = binaryString.charCodeAt(i);
 	}
-
-	return data;
+	return bytes;
 }
 
-export const sensors = $state<Sensor[]>([
-	{
-		id: "temperature",
-		name: "Temperature",
-		type: "temperature",
-		unit: "°C",
-		hardwareType: "sht41",
-	},
-	{
-		id: "humidity",
-		name: "Humidity",
-		type: "humidity",
-		unit: "%",
-		hardwareType: "sht41",
-	},
-	{
-		id: "co2",
-		name: "CO₂",
-		type: "co2",
-		unit: "ppm",
-		hardwareType: "scd40",
-	},
-]);
-
-export const sensorReadings = $state<Record<string, SensorReading>>({});
+function decodeHistoryPoints(data: Uint8Array): HistoricalReading[] {
+	const pointSize = 8;
+	const points: HistoricalReading[] = [];
+	const view = new DataView(data.buffer);
+	
+	for (let i = 0; i < data.length; i += pointSize) {
+		const timestamp = view.getUint32(i, true);
+		const value = view.getFloat32(i + 4, true);
+		
+		if (timestamp > 0) {
+			points.push({
+				date: new Date(timestamp * 1000),
+				value: Math.round(value * 10) / 10,
+			});
+		}
+	}
+	
+	return points;
+}
 
 export function updateSensorReading(sensorId: string, value: number): void {
 	sensorReadings[sensorId] = {
@@ -54,47 +45,82 @@ export function updateSensorReading(sensorId: string, value: number): void {
 }
 
 export function initSensorWebSocket(): void {
+	websocket.on("sensor_config", (data: unknown) => {
+		const msg = data as { data: Sensor[] };
+		if (Array.isArray(msg.data)) {
+			sensors.length = 0;
+			sensors.push(...msg.data);
+		}
+	});
+
 	websocket.on("sensors", (data: unknown) => {
 		const msg = data as { data: Record<string, number> };
 		if (msg.data) {
-			Object.entries(msg.data).forEach(([key, value]) => {
+			Object.entries(msg.data).forEach(([sensorType, value]) => {
 				if (typeof value === "number") {
-					updateSensorReading(key, value);
+					const matchingSensors = sensors.filter((s) => s.type === sensorType);
+					for (const sensor of matchingSensors) {
+						updateSensorReading(sensor.id, value);
+					}
 				}
 			});
 		}
 	});
+
+	websocket.on("history", (data: unknown) => {
+		const msg = data as {
+			sensorId: string;
+			range: HistoryRange;
+			data: string;
+			count: number;
+		};
+		
+		if (msg.sensorId && msg.range && msg.data) {
+			const bytes = decodeBase64(msg.data);
+			const points = decodeHistoryPoints(bytes);
+			
+			if (!sensorHistory[msg.sensorId]) {
+				sensorHistory[msg.sensorId] = {};
+			}
+			sensorHistory[msg.sensorId][msg.range] = points;
+		}
+	});
+
+	websocket.send("get_sensors", {});
 }
 
 export function getSensorReading(sensorId: string): SensorReading | undefined {
 	return sensorReadings[sensorId];
 }
 
+export function requestHistory(sensorId: string, range: HistoryRange): void {
+	websocket.send("get_history", { sensorId, range });
+}
+
+export function getSensorHistory(sensorId: string, range: HistoryRange = "7d"): HistoricalReading[] {
+	return sensorHistory[sensorId]?.[range] ?? [];
+}
+
 export function addSensor(sensor: Sensor): void {
-	sensors.push(sensor);
+	websocket.send("add_sensor", {
+		id: sensor.id,
+		name: sensor.name,
+		sensorType: sensor.type,
+		unit: sensor.unit,
+		hardwareType: sensor.hardwareType,
+	});
 }
 
 export function removeSensor(sensorId: string): void {
-	const index = sensors.findIndex((s) => s.id === sensorId);
-	if (index !== -1) {
-		sensors.splice(index, 1);
-		delete sensorReadings[sensorId];
-	}
+	websocket.send("remove_sensor", { id: sensorId });
 }
 
 export function updateSensor(sensorId: string, updates: Partial<Omit<Sensor, "id">>): void {
-	const sensor = sensors.find((s) => s.id === sensorId);
-	if (sensor) {
-		Object.assign(sensor, updates);
-	}
-}
-
-export const sensorHistory: Record<string, HistoricalReading[]> = {
-	temperature: generateHistoricalData(24.5, 3, 7),
-	humidity: generateHistoricalData(62, 10, 7),
-	co2: generateHistoricalData(850, 150, 7),
-};
-
-export function getSensorHistory(sensorId: string): HistoricalReading[] {
-	return sensorHistory[sensorId] ?? [];
+	websocket.send("update_sensor", {
+		id: sensorId,
+		name: updates.name,
+		sensorType: updates.type,
+		unit: updates.unit,
+		hardwareType: updates.hardwareType,
+	});
 }

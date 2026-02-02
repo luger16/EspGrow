@@ -13,6 +13,7 @@ const state = $state<WebSocketState>({
 let ws: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 const handlers = new Map<string, MessageHandler[]>();
+let pendingMessages: Array<{ type: string; payload?: Record<string, unknown> }> = [];
 
 function getWebSocketUrl(): string {
 	if (typeof window === "undefined") return "";
@@ -28,7 +29,6 @@ export function connect(url?: string): void {
 
 	const isDevModeWithoutExplicitUrl = !url && import.meta.env.DEV;
 	if (isDevModeWithoutExplicitUrl) {
-		console.log("[WS] Skipping connection in dev mode");
 		return;
 	}
 
@@ -37,12 +37,14 @@ export function connect(url?: string): void {
 	ws.onopen = () => {
 		state.connected = true;
 		state.error = null;
-		console.log("[WS] Connected");
+		for (const msg of pendingMessages) {
+			ws!.send(JSON.stringify({ type: msg.type, ...msg.payload }));
+		}
+		pendingMessages = [];
 	};
 
 	ws.onclose = () => {
 		state.connected = false;
-		console.log("[WS] Disconnected, reconnecting in 3s...");
 		reconnectTimeout = setTimeout(() => connect(url), 3000);
 	};
 
@@ -58,9 +60,7 @@ export function connect(url?: string): void {
 			if (typeHandlers) {
 				typeHandlers.forEach((handler) => handler(data));
 			}
-		} catch {
-			console.error("[WS] Failed to parse message");
-		}
+		} catch {}
 	};
 }
 
@@ -79,6 +79,8 @@ export function disconnect(): void {
 export function send(type: string, payload?: Record<string, unknown>): void {
 	if (ws?.readyState === WebSocket.OPEN) {
 		ws.send(JSON.stringify({ type, ...payload }));
+	} else {
+		pendingMessages.push({ type, payload });
 	}
 }
 

@@ -1,44 +1,7 @@
 import type { Device } from "$lib/types";
 import { websocket } from "./websocket.svelte";
 
-export const devices = $state<Device[]>([
-	{
-		id: "device-1",
-		name: "Exhaust Fan",
-		type: "fan",
-		controlMethod: "relay",
-		gpioPin: 16,
-		isOn: false,
-		controlMode: "automatic",
-	},
-	{
-		id: "device-2",
-		name: "Grow Light",
-		type: "light",
-		controlMethod: "shelly",
-		ipAddress: "192.168.1.50",
-		isOn: false,
-		controlMode: "automatic",
-	},
-	{
-		id: "device-3",
-		name: "Space Heater",
-		type: "heater",
-		controlMethod: "tasmota",
-		ipAddress: "192.168.0.74",
-		isOn: false,
-		controlMode: "manual",
-	},
-	{
-		id: "device-4",
-		name: "Humidifier",
-		type: "humidifier",
-		controlMethod: "relay",
-		gpioPin: 17,
-		isOn: false,
-		controlMode: "automatic",
-	},
-]);
+export const devices = $state<Device[]>([]);
 
 function getDeviceTarget(device: Device): string {
 	if (device.controlMethod === "relay") {
@@ -79,32 +42,65 @@ export function setDeviceControlMode(deviceId: string, mode: Device["controlMode
 	const device = devices.find((d) => d.id === deviceId);
 	if (device) {
 		device.controlMode = mode;
+		websocket.send("update_device", {
+			id: deviceId,
+			controlMode: mode,
+		});
 	}
 }
 
 export function addDevice(device: Device): void {
-	devices.push(device);
+	websocket.send("add_device", {
+		id: device.id,
+		name: device.name,
+		deviceType: device.type,
+		controlMethod: device.controlMethod,
+		gpioPin: device.gpioPin,
+		ipAddress: device.ipAddress,
+		controlMode: device.controlMode,
+	});
 }
 
 export function removeDevice(deviceId: string): void {
-	const index = devices.findIndex((d) => d.id === deviceId);
-	if (index !== -1) {
-		devices.splice(index, 1);
-	}
+	websocket.send("remove_device", { id: deviceId });
 }
 
 export function updateDevice(deviceId: string, updates: Partial<Omit<Device, "id">>): void {
-	const device = devices.find((d) => d.id === deviceId);
-	if (device) {
-		Object.assign(device, updates);
-	}
+	websocket.send("update_device", {
+		id: deviceId,
+		name: updates.name,
+		deviceType: updates.type,
+		controlMethod: updates.controlMethod,
+		gpioPin: updates.gpioPin,
+		ipAddress: updates.ipAddress,
+		controlMode: updates.controlMode,
+	});
 }
 
 export function initDeviceWebSocket(): void {
-	websocket.on("device_status", (data: unknown) => {
-		const msg = data as { target: string; on: boolean; success: boolean };
-		if (!msg.success) {
-			console.error("[Devices] Control failed for", msg.target);
+	websocket.on("devices", (data: unknown) => {
+		const msg = data as { data: Device[] };
+		if (Array.isArray(msg.data)) {
+			devices.length = 0;
+			msg.data.forEach((d) => {
+				devices.push({
+					...d,
+					isOn: false,
+				});
+			});
 		}
 	});
+
+	websocket.on("device_status", (data: unknown) => {
+		const msg = data as { target: string; on: boolean; success: boolean };
+		if (msg.success) {
+			const device = devices.find((d) => 
+				(d.controlMethod === "relay" && String(d.gpioPin) === msg.target) ||
+				(d.ipAddress === msg.target)
+			);
+			if (device) device.isOn = msg.on;
+		}
+	});
+
+	websocket.send("get_devices", {});
 }
