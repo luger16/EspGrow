@@ -263,10 +263,23 @@ namespace {
         
         lastSensorData = sensor;
 
-        History::record("temperature", sensor.temperature);
-        History::record("humidity", sensor.humidity);
-        History::record("co2", sensor.co2);
-        History::record("vpd", sensor.vpd);
+        // Record history for each configured sensor
+        size_t sensorCount;
+        const char** sensorIds = SensorConfig::getSensorIds(sensorCount);
+        for (size_t i = 0; i < sensorCount; i++) {
+            SensorConfig::Sensor* sensorCfg = SensorConfig::getSensor(sensorIds[i]);
+            if (sensorCfg) {
+                if (strcmp(sensorCfg->type, "temperature") == 0) {
+                    History::record(sensorCfg->id, sensor.temperature);
+                } else if (strcmp(sensorCfg->type, "humidity") == 0) {
+                    History::record(sensorCfg->id, sensor.humidity);
+                } else if (strcmp(sensorCfg->type, "co2") == 0) {
+                    History::record(sensorCfg->id, sensor.co2);
+                } else if (strcmp(sensorCfg->type, "vpd") == 0) {
+                    History::record(sensorCfg->id, sensor.vpd);
+                }
+            }
+        }
 
         JsonDocument doc;
         doc["type"] = "sensors";
