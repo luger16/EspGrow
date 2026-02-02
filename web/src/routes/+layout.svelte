@@ -4,8 +4,14 @@
 	import AppSidebar from "$lib/components/app-sidebar.svelte";
 	import BottomTabs from "$lib/components/bottom-tabs.svelte";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
+	import { initTheme } from "$lib/stores/settings.svelte";
+	import { onMount } from "svelte";
 
 	let { children } = $props();
+
+	onMount(() => {
+		initTheme();
+	});
 </script>
 
 <svelte:head>
@@ -13,9 +19,7 @@
 </svelte:head>
 
 <Sidebar.Provider>
-	<div class="hidden md:contents">
-		<AppSidebar />
-	</div>
+	<AppSidebar />
 	<Sidebar.Inset class="pb-20 md:pb-0">
 		{@render children()}
 	</Sidebar.Inset>
