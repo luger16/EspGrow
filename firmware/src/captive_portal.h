@@ -17,5 +17,6 @@ void start(const Config& config, SuccessCallback onSuccess);
 void stop();
 void loop();
 bool isActive();
+bool isConnected();
 
 }

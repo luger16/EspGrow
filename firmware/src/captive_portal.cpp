@@ -1,13 +1,14 @@
 #include "captive_portal.h"
+#include "websocket_server.h"
 #include <WiFi.h>
 #include <DNSServer.h>
-#include <WebServer.h>
+#include <ESPAsyncWebServer.h>
 
 namespace CaptivePortal {
 
 namespace {
     DNSServer dnsServer;
-    WebServer webServer(80);
+    AsyncWebServer* server = nullptr;
     SuccessCallback successCallback;
     Config currentConfig;
     bool portalActive = false;
@@ -23,7 +24,6 @@ namespace {
 
     void setupAP();
     void scanNetworks();
-    void attemptConnection();
 
     String generateHTML() {
         String html = R"(<!DOCTYPE html>
@@ -71,6 +71,17 @@ button:disabled{opacity:0.5}
         return html;
     }
 
+    String generateConnectingHTML() {
+        return R"(<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="refresh" content="5;url=/">
+<title>Connecting...</title>
+<style>body{font-family:system-ui;background:#111;color:#fff;padding:40px;text-align:center}</style>
+</head><body><h2>Connecting...</h2><p>Please wait</p></body></html>)";
+    }
+
     void scanNetworks() {
         Serial.println("[Portal] Scanning...");
         WiFi.mode(WIFI_AP_STA);
@@ -78,7 +89,6 @@ button:disabled{opacity:0.5}
         int n = WiFi.scanNetworks();
         networkCount = min(n, 16);
         
-        // Sort by signal strength
         int indices[16];
         for (int i = 0; i < networkCount; i++) indices[i] = i;
         for (int i = 0; i < networkCount; i++) {
@@ -97,40 +107,6 @@ button:disabled{opacity:0.5}
         
         WiFi.scanDelete();
         Serial.printf("[Portal] Found %d networks\n", networkCount);
-    }
-
-    void handleRoot() {
-        webServer.send(200, "text/html", generateHTML());
-    }
-
-    void handleScan() {
-        scanNetworks();
-        setupAP();
-        webServer.sendHeader("Location", "/", true);
-        webServer.send(302, "text/plain", "");
-    }
-
-    void handleConnect() {
-        pendingSSID = webServer.arg("ssid");
-        pendingPassword = webServer.arg("password");
-        connectionPending = true;
-        connectionStartTime = millis();
-        lastError = "";
-        
-        Serial.printf("[Portal] Connecting to: %s\n", pendingSSID.c_str());
-        webServer.send(200, "text/html", R"(<!DOCTYPE html>
-<html><head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="5;url=/">
-<title>Connecting...</title>
-<style>body{font-family:system-ui;background:#111;color:#fff;padding:40px;text-align:center}</style>
-</head><body><h2>Connecting...</h2><p>Please wait</p></body></html>)");
-    }
-
-    void handleCaptivePortal() {
-        webServer.sendHeader("Location", "http://" + WiFi.softAPIP().toString(), true);
-        webServer.send(302, "text/plain", "");
     }
 
     void setupAP() {
@@ -170,12 +146,6 @@ button:disabled{opacity:0.5}
             if (successCallback) {
                 successCallback(pendingSSID, pendingPassword);
             }
-            // Restart AP+STA for status page
-            setupAP();
-            WiFi.mode(WIFI_AP_STA);
-            WiFi.begin(pendingSSID.c_str(), pendingPassword.c_str());
-            unsigned long t = millis();
-            while (WiFi.status() != WL_CONNECTED && (millis() - t) < 5000) delay(100);
         } else {
             Serial.println("[Portal] Failed");
             lastError = "Connection failed. Check password.";
@@ -198,17 +168,43 @@ void start(const Config& config, SuccessCallback onSuccess) {
     scanNetworks();
     setupAP();
     
-    webServer.on("/", HTTP_GET, handleRoot);
-    webServer.on("/scan", HTTP_GET, handleScan);
-    webServer.on("/connect", HTTP_POST, handleConnect);
+    server = WebSocketServer::getServer(80);
     
-    // Captive portal detection
-    webServer.on("/generate_204", HTTP_GET, handleCaptivePortal);
-    webServer.on("/hotspot-detect.html", HTTP_GET, handleCaptivePortal);
-    webServer.on("/fwlink", HTTP_GET, handleCaptivePortal);
-    webServer.onNotFound(handleCaptivePortal);
+    server->on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
+        scanNetworks();
+        setupAP();
+        request->redirect("/");
+    });
     
-    webServer.begin();
+    server->on("/connect", HTTP_POST, [](AsyncWebServerRequest *request){
+        if (request->hasParam("ssid", true)) {
+            pendingSSID = request->getParam("ssid", true)->value();
+        }
+        if (request->hasParam("password", true)) {
+            pendingPassword = request->getParam("password", true)->value();
+        }
+        connectionPending = true;
+        connectionStartTime = millis();
+        lastError = "";
+        
+        Serial.printf("[Portal] Connecting to: %s\n", pendingSSID.c_str());
+        request->send(200, "text/html", generateConnectingHTML());
+    });
+    
+    server->on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->redirect("http://" + WiFi.softAPIP().toString());
+    });
+    server->on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->redirect("http://" + WiFi.softAPIP().toString());
+    });
+    server->on("/fwlink", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->redirect("http://" + WiFi.softAPIP().toString());
+    });
+    
+    server->onNotFound([](AsyncWebServerRequest *request){
+        request->send(200, "text/html", generateHTML());
+    });
+    
     portalActive = true;
     Serial.printf("[Portal] Ready: %s\n", config.apName);
 }
@@ -216,7 +212,6 @@ void start(const Config& config, SuccessCallback onSuccess) {
 void stop() {
     if (!portalActive) return;
     Serial.println("[Portal] Stopping...");
-    webServer.stop();
     dnsServer.stop();
     WiFi.softAPdisconnect(true);
     portalActive = false;
@@ -225,7 +220,6 @@ void stop() {
 void loop() {
     if (!portalActive) return;
     dnsServer.processNextRequest();
-    webServer.handleClient();
     if (connectionPending && (millis() - connectionStartTime) > 500) {
         attemptConnection();
     }
@@ -233,6 +227,10 @@ void loop() {
 
 bool isActive() {
     return portalActive;
+}
+
+bool isConnected() {
+    return WiFi.status() == WL_CONNECTED;
 }
 
 }

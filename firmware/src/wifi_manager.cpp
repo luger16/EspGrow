@@ -117,8 +117,8 @@ void loop() {
     if (provisioningActive) {
         CaptivePortal::loop();
         
-        if (CaptivePortal::isActive() && WiFi.status() == WL_CONNECTED) {
-            Serial.println("[WiFi] Connected via portal, stopping provisioning...");
+        if (CaptivePortal::isConnected()) {
+            Serial.println("[WiFi] Provisioning complete");
             CaptivePortal::stop();
             provisioningActive = false;
         }

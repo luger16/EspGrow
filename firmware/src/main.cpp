@@ -3,6 +3,7 @@
 #include "wifi_manager.h"
 #include "websocket_server.h"
 #include "device_controller.h"
+#include "sensors.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
 
@@ -54,14 +55,17 @@ namespace {
     void broadcastSensorData() {
         if (!WebSocketServer::hasClients()) return;
 
+        Sensors::SensorData sensor = Sensors::read();
+        if (!sensor.valid) return;
+
         JsonDocument doc;
         doc["type"] = "sensors";
         
         JsonObject data = doc["data"].to<JsonObject>();
-        data["temperature"] = 24.5 + (random(-10, 10) / 10.0);
-        data["humidity"] = 55.0 + (random(-50, 50) / 10.0);
-        data["co2"] = 800 + random(-50, 50);
-        data["vpd"] = 1.2 + (random(-2, 2) / 10.0);
+        data["temperature"] = sensor.temperature;
+        data["humidity"] = sensor.humidity;
+        data["co2"] = sensor.co2;
+        data["vpd"] = sensor.vpd;
         
         doc["timestamp"] = millis();
 
@@ -92,28 +96,25 @@ void setup() {
     
     WiFiManager::init();
     DeviceController::init();
+    Sensors::init();
     
     WebSocketServer::onMessage(handleMessage);
 }
 
 void loop() {
+    static bool wsInitialized = false;
+    
     WiFiManager::loop();
     
     if (WiFiManager::isConnected()) {
-        static bool wsStarted = false;
-        static unsigned long connectedAt = 0;
-        
-        if (!wsStarted && connectedAt == 0) {
-            connectedAt = millis();
-        }
-        
-        if (!wsStarted && millis() - connectedAt >= 500) {
+        if (!wsInitialized) {
             if (MDNS.begin("espgrow")) {
                 Serial.println("[mDNS] Started: espgrow.local");
                 MDNS.addService("http", "tcp", 80);
             }
-            WebSocketServer::init(80);
-            wsStarted = true;
+            
+            WebSocketServer::init();
+            wsInitialized = true;
         }
         
         WebSocketServer::loop();

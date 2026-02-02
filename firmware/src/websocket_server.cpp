@@ -10,8 +10,9 @@ namespace {
     AsyncWebServer* server = nullptr;
     AsyncWebSocket* ws = nullptr;
     MessageCallback messageCallback;
+    bool initialized = false;
 
-    void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, 
+    void onWsEvent(AsyncWebSocket* wsServer, AsyncWebSocketClient* client, 
                    AwsEventType type, void* arg, uint8_t* data, size_t len) {
         switch (type) {
             case WS_EVT_CONNECT:
@@ -45,10 +46,25 @@ namespace {
     }
 }
 
-void init(uint16_t port) {
-    server = new AsyncWebServer(port);
-    ws = new AsyncWebSocket("/ws");
+AsyncWebServer* getServer(uint16_t port) {
+    if (!server) {
+        server = new AsyncWebServer(port);
+        server->begin();
+        Serial.printf("[Server] Started on port %d\n", port);
+    }
+    return server;
+}
+
+void init() {
+    if (initialized) return;
     
+    if (!server) {
+        server = new AsyncWebServer(80);
+        server->begin();
+        Serial.println("[Server] Started on port 80");
+    }
+    
+    ws = new AsyncWebSocket("/ws");
     ws->onEvent(onWsEvent);
     server->addHandler(ws);
     
@@ -56,8 +72,12 @@ void init(uint16_t port) {
         .setDefaultFile("index.html")
         .setCacheControl("max-age=86400");
     
-    server->begin();
-    Serial.printf("[WS] Server started on port %d\n", port);
+    server->onNotFound([](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/index.html", "text/html");
+    });
+    
+    initialized = true;
+    Serial.println("[WS] WebSocket and static routes configured");
 }
 
 void loop() {
