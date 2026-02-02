@@ -4,6 +4,7 @@
 #include "websocket_server.h"
 #include "device_controller.h"
 #include <ArduinoJson.h>
+#include <ESPmDNS.h>
 
 namespace {
     unsigned long lastBroadcast = 0;
@@ -107,6 +108,10 @@ void loop() {
         }
         
         if (!wsStarted && millis() - connectedAt >= 500) {
+            if (MDNS.begin("espgrow")) {
+                Serial.println("[mDNS] Started: espgrow.local");
+                MDNS.addService("http", "tcp", 80);
+            }
             WebSocketServer::init(80);
             wsStarted = true;
         }
