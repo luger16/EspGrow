@@ -7,7 +7,10 @@ const config = {
 			pages: 'build',
 			assets: 'build',
 			fallback: 'index.html',
-			precompress: true,
+			precompress: {
+				gzip: true,
+				brotli: false
+			},
 		}),
 	}
 };
