@@ -8,9 +8,9 @@ const config = {
 			assets: 'build',
 			fallback: 'index.html',
 			precompress: {
-				gzip: true,
-				brotli: false
-			},
+				brotli: false,
+				gzip: true
+			}
 		}),
 	}
 };
