@@ -35,6 +35,17 @@
 
 	const history = $derived(getSensorHistory(sensor.id, timeRange));
 
+	// Check if data spans the full requested interval
+	const intervalHours = $derived({ "12h": 12, "24h": 24, "7d": 168 }[timeRange]);
+	const hasData = $derived(history.length > 0);
+	const hasFullInterval = $derived(() => {
+		if (!hasData) return false;
+		const now = new Date();
+		const oldestTimestamp = history[0].date.getTime();
+		const requiredMs = intervalHours * 60 * 60 * 1000;
+		return now.getTime() - oldestTimestamp >= requiredMs;
+	});
+
 	const chartConfig = {
 		value: { label: "Value", color: "var(--chart-1)" },
 	} satisfies Chart.ChartConfig;
@@ -62,52 +73,65 @@
 				</Dialog.Close>
 			</div>
 		</div>
-		<Chart.ChartContainer config={chartConfig} class="aspect-2/1 w-full">
-			<AreaChart
-				data={history}
-				x="date"
-				xScale={scaleUtc()}
-				y="value"
-				props={{
-					area: {
-						curve: curveNatural,
-						"fill-opacity": 0.4,
-						line: { class: "stroke-1" },
-					},
-					xAxis: {
-						ticks: timeRange === "12h" ? 6 : timeRange === "24h" ? 8 : 7,
-						format: (v: Date) => {
-							if (timeRange === "7d") {
-								return v.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-							}
-							return v.toLocaleTimeString("en-US", { hour: "numeric" });
+		{#if !hasData}
+			<div class="text-muted-foreground flex aspect-2/1 w-full items-center justify-center text-sm">
+				No data available for this time range
+			</div>
+		{:else}
+			{#if !hasFullInterval()}
+				<div
+					class="bg-muted text-muted-foreground mb-2 rounded-md border px-3 py-2 text-sm"
+				>
+					<strong>Note:</strong> Data is incomplete for this time range. Showing available data.
+				</div>
+			{/if}
+			<Chart.ChartContainer config={chartConfig} class="aspect-2/1 w-full">
+				<AreaChart
+					data={history}
+					x="date"
+					xScale={scaleUtc()}
+					y="value"
+					props={{
+						area: {
+							curve: curveNatural,
+							"fill-opacity": 0.4,
+							line: { class: "stroke-1" },
 						},
-					},
-					yAxis: {
-						format: (v: number) => `${v}`,
-					},
-				}}
-			>
-				{#snippet tooltip()}
-					<Chart.Tooltip
-						labelFormatter={(v: Date) => {
-							if (timeRange === "7d") {
+						xAxis: {
+							ticks: timeRange === "12h" ? 6 : timeRange === "24h" ? 8 : 7,
+							format: (v: Date) => {
+								if (timeRange === "7d") {
+									return v.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+								}
+								return v.toLocaleTimeString("en-US", { hour: "numeric" });
+							},
+						},
+						yAxis: {
+							format: (v: number) => `${v}`,
+						},
+					}}
+				>
+					{#snippet tooltip()}
+						<Chart.Tooltip
+							labelFormatter={(v: Date) => {
+								if (timeRange === "7d") {
+									return v.toLocaleString("en-US", {
+										weekday: "short",
+										month: "short",
+										day: "numeric",
+										hour: "numeric",
+										minute: "2-digit",
+									});
+								}
 								return v.toLocaleString("en-US", {
-									weekday: "short",
-									month: "short",
-									day: "numeric",
 									hour: "numeric",
 									minute: "2-digit",
 								});
-							}
-							return v.toLocaleString("en-US", {
-								hour: "numeric",
-								minute: "2-digit",
-							});
-						}}
-					/>
-				{/snippet}
-			</AreaChart>
-		</Chart.ChartContainer>
+							}}
+						/>
+					{/snippet}
+				</AreaChart>
+			</Chart.ChartContainer>
+		{/if}
 	</Dialog.Content>
 </Dialog.Root>
