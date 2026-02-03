@@ -32,6 +32,7 @@
 	];
 
 	const selectedSensor = $derived(sensors.find((s) => s.id === sensorId));
+	const canCreateRule = $derived(sensors.length > 0 && devices.length > 0);
 
 	function handleSubmit() {
 		const rule: AutomationRule = {
@@ -64,7 +65,7 @@
 <Dialog.Root bind:open>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="sm">
+			<Button {...props} variant="outline" size="sm" disabled={!canCreateRule}>
 				<PlusIcon class="size-4" />
 				Add Rule
 			</Button>

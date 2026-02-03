@@ -21,11 +21,12 @@
 	let address = $state("");
 	let showDeleteConfirm = $state(false);
 
-	const hardwareOptions: { value: Sensor["hardwareType"]; label: string; defaultType: Sensor["type"]; defaultUnit: string }[] = [
-		{ value: "sht41", label: "SHT41 (Temp + Humidity)", defaultType: "temperature", defaultUnit: "°C" },
-		{ value: "scd40", label: "SCD40 (CO₂)", defaultType: "co2", defaultUnit: "ppm" },
-		{ value: "as7341", label: "AS7341 (Light)", defaultType: "light", defaultUnit: "PPFD" },
-		{ value: "soil_capacitive", label: "Capacitive Soil Moisture", defaultType: "soil_moisture", defaultUnit: "%" },
+	const hardwareOptions: { value: Sensor["hardwareType"]; label: string; types: Sensor["type"][] }[] = [
+		{ value: "sht41", label: "SHT41 (Temp + Humidity)", types: ["temperature", "humidity"] },
+		{ value: "scd40", label: "SCD40 (CO₂ + Temp + Humidity)", types: ["co2", "temperature", "humidity"] },
+		{ value: "as7341", label: "AS7341 (Light Spectrum)", types: ["light"] },
+		{ value: "soil_capacitive", label: "Capacitive Soil Moisture", types: ["soil_moisture"] },
+		{ value: "calculated", label: "Calculated (VPD)", types: ["vpd"] },
 	];
 
 	const sensorTypeOptions: { value: Sensor["type"]; label: string; unit: string }[] = [
@@ -34,7 +35,16 @@
 		{ value: "co2", label: "CO₂", unit: "ppm" },
 		{ value: "light", label: "Light", unit: "PPFD" },
 		{ value: "soil_moisture", label: "Soil Moisture", unit: "%" },
+		{ value: "vpd", label: "VPD", unit: "kPa" },
 	];
+
+	const availableSensorTypes = $derived(
+		hardwareOptions.find((o) => o.value === hardwareType)?.types ?? []
+	);
+
+	const filteredSensorTypeOptions = $derived(
+		sensorTypeOptions.filter((opt) => availableSensorTypes.includes(opt.value))
+	);
 
 	$effect(() => {
 		if (open) {
@@ -49,8 +59,9 @@
 		if (!value) return;
 		hardwareType = value as Sensor["hardwareType"];
 		const option = hardwareOptions.find((o) => o.value === value);
-		if (option) {
-			sensorType = option.defaultType;
+		if (option && option.types.length > 0) {
+			// Set to first available sensor type for this hardware
+			sensorType = option.types[0];
 		}
 	}
 
@@ -104,7 +115,7 @@
 						<span>{sensorTypeOptions.find((o) => o.value === sensorType)?.label}</span>
 					</Select.Trigger>
 					<Select.Content>
-						{#each sensorTypeOptions as option (option.value)}
+						{#each filteredSensorTypeOptions as option (option.value)}
 							<Select.Item value={option.value}>{option.label}</Select.Item>
 						{/each}
 					</Select.Content>
