@@ -14,6 +14,7 @@ namespace {
     bool portalActive = false;
     
     String scannedNetworks[16];
+    int scannedRSSI[16];
     int networkCount = 0;
     
     String lastError;
@@ -33,34 +34,44 @@ namespace {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>EspGrow WiFi</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#111;color:#fff;padding:20px;min-height:100vh}
-h1{color:#22c55e;margin-bottom:20px;font-size:22px}
-.error{background:#7f1d1d;padding:12px;border-radius:6px;margin-bottom:16px}
-select,input,button{width:100%;padding:12px;border-radius:6px;font-size:16px;margin-bottom:12px;border:1px solid #333}
-select,input{background:#222;color:#fff}
-select:focus,input:focus{outline:none;border-color:#22c55e}
-button{background:#22c55e;color:#000;font-weight:600;border:none;cursor:pointer}
-button:disabled{opacity:0.5}
-.secondary{background:#333;color:#fff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font:16px system-ui,sans-serif;padding:20px;background:#fff;color:#000}
+h1{font-size:20px;margin-bottom:20px}
+.error{background:#f88;padding:10px;margin-bottom:15px;border-radius:8px}
+.network{padding:14px 16px;margin-bottom:10px;border:2px solid #e5e5e5;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s}
+.network:hover{background:#f9f9f9;border-color:#d0d0d0}
+.network.selected{background:#f5f5f5;border-color:#999;font-weight:500}
+.network span:first-child{font-weight:500}
+.network span:last-child{font-size:14px;color:#666}
+input,button{width:100%;padding:12px;margin-bottom:10px;border:2px solid #e5e5e5;font-size:16px;border-radius:8px}
+input:focus{outline:none;border-color:#000}
+button{background:#000;color:#fff;cursor:pointer;border:none;font-weight:500}
+button:hover{background:#333}
+.secondary{background:#fff;color:#000;border:2px solid #e5e5e5}
+.secondary:hover{background:#f9f9f9;border-color:#d0d0d0}
 </style>
+<script>
+function select(ssid,el){
+document.querySelectorAll('.network').forEach(n=>n.classList.remove('selected'));
+el.classList.add('selected');
+document.getElementById('ssid').value=ssid;
+}
+</script>
 </head>
 <body>
-<h1>EspGrow WiFi Setup</h1>
+<h1>WiFi Setup</h1>
 )";
         if (lastError.length() > 0) {
             html += "<div class=\"error\">" + lastError + "</div>";
         }
-
-        html += R"(<form method="POST" action="/connect">
-<select name="ssid" required>
-<option value="">Select network...</option>
-)";
+        html += "<form method=\"POST\" action=\"/connect\"><div>";
+        
         for (int i = 0; i < networkCount; i++) {
-            html += "<option value=\"" + scannedNetworks[i] + "\">" + scannedNetworks[i] + "</option>";
+            html += "<div class=\"network\" onclick=\"select('" + scannedNetworks[i] + "',this)\"><span>" + scannedNetworks[i] + "</span><span>" + String(scannedRSSI[i]) + " dBm</span></div>";
         }
 
-        html += R"(</select>
+        html += R"(</div>
+<input type="hidden" id="ssid" name="ssid" required>
 <input type="password" name="password" placeholder="Password">
 <button type="submit">Connect</button>
 </form>
@@ -76,23 +87,29 @@ button:disabled{opacity:0.5}
 <html><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="refresh" content="5;url=/">
 <title>Connecting...</title>
-<style>body{font-family:system-ui;background:#111;color:#fff;padding:40px;text-align:center}</style>
-</head><body><h2>Connecting...</h2><p>Please wait</p></body></html>)";
+<style>body{font-family:system-ui;background:#fff;color:#000;padding:40px;text-align:center}h2{margin-bottom:16px}p{color:#666;margin-top:20px}</style>
+</head><body><h2>Connecting...</h2><p>Device will restart</p><p style="margin-top:30px">Visit <strong>espgrow.local</strong> once connected</p></body></html>)";
     }
+
+
 
     void scanNetworks() {
         Serial.println("[Portal] Scanning...");
         WiFi.mode(WIFI_AP_STA);
         
         int n = WiFi.scanNetworks();
-        networkCount = min(n, 16);
         
         int indices[16];
-        for (int i = 0; i < networkCount; i++) indices[i] = i;
-        for (int i = 0; i < networkCount; i++) {
-            for (int j = i + 1; j < networkCount; j++) {
+        int validCount = 0;
+        for (int i = 0; i < n && i < 16; i++) {
+            if (WiFi.RSSI(i) > -75) {
+                indices[validCount++] = i;
+            }
+        }
+        
+        for (int i = 0; i < validCount; i++) {
+            for (int j = i + 1; j < validCount; j++) {
                 if (WiFi.RSSI(indices[j]) > WiFi.RSSI(indices[i])) {
                     int tmp = indices[i];
                     indices[i] = indices[j];
@@ -101,8 +118,10 @@ button:disabled{opacity:0.5}
             }
         }
         
+        networkCount = min(validCount, 5);
         for (int i = 0; i < networkCount; i++) {
             scannedNetworks[i] = WiFi.SSID(indices[i]);
+            scannedRSSI[i] = WiFi.RSSI(indices[i]);
         }
         
         WiFi.scanDelete();
