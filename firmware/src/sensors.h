@@ -5,11 +5,12 @@
 namespace Sensors {
 
 struct SensorData {
-    float temperature;  // Celsius (from SHT41, falls back to SCD40)
-    float humidity;     // % RH (from SHT41, falls back to SCD40)
-    uint16_t co2;       // ppm (from SCD40)
-    float vpd;          // kPa (calculated)
-    bool valid;         // true if at least one sensor read succeeded
+    float temperature;    // Celsius (from SHT41, falls back to SCD40)
+    float humidity;       // % RH (from SHT41, falls back to SCD40)
+    uint16_t co2;         // ppm (from SCD40)
+    float vpd;            // kPa (calculated)
+    float soilMoisture;   // 0-100% (from capacitive sensor)
+    bool valid;
 };
 
 // Initialize I2C and sensors

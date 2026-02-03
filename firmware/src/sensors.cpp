@@ -3,6 +3,10 @@
 #include <SensirionI2cSht4x.h>
 #include <SensirionI2CScd4x.h>
 
+#define SOIL_SENSOR_PIN 1
+#define SOIL_DRY_VALUE 2800
+#define SOIL_WET_VALUE 1400
+
 namespace {
     SensirionI2cSht4x sht41;
     SensirionI2CScd4x scd40;
@@ -14,6 +18,19 @@ namespace {
         float svp = 0.6108 * exp((17.27 * tempC) / (tempC + 237.3));
         float avp = svp * (rhPercent / 100.0);
         return svp - avp;
+    }
+    
+    bool readSoilMoisture(float& moisture) {
+        int raw = analogRead(SOIL_SENSOR_PIN);
+        
+        // ADC returns 0 if pin not connected or failed read
+        if (raw == 0) {
+            return false;
+        }
+        
+        int clamped = constrain(raw, SOIL_WET_VALUE, SOIL_DRY_VALUE);
+        moisture = map(clamped, SOIL_DRY_VALUE, SOIL_WET_VALUE, 0, 100);
+        return true;
     }
 }
 
@@ -52,7 +69,7 @@ bool init(int sda, int scl) {
 }
 
 SensorData read() {
-    SensorData data = {0, 0, 0, 0, false};
+    SensorData data = {0, 0, 0, 0, 0, false};
     
     if (sht41Found) {
         float temp, hum;
@@ -82,6 +99,12 @@ SensorData read() {
     
     if (data.valid && data.humidity > 0) {
         data.vpd = calculateVPD(data.temperature, data.humidity);
+    }
+    
+    float soilMoisture;
+    if (readSoilMoisture(soilMoisture)) {
+        data.soilMoisture = soilMoisture;
+        data.valid = true;
     }
     
     return data;

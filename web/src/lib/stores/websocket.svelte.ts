@@ -60,7 +60,9 @@ export function connect(url?: string): void {
 			if (typeHandlers) {
 				typeHandlers.forEach((handler) => handler(data));
 			}
-		} catch {}
+		} catch (err) {
+			console.error("WebSocket parse error:", err);
+		}
 	};
 }
 

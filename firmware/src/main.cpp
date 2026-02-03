@@ -277,6 +277,8 @@ namespace {
                     History::record(sensorCfg->id, sensor.co2);
                 } else if (strcmp(sensorCfg->type, "vpd") == 0) {
                     History::record(sensorCfg->id, sensor.vpd);
+                } else if (strcmp(sensorCfg->type, "soil_moisture") == 0) {
+                    History::record(sensorCfg->id, sensor.soilMoisture);
                 }
             }
         }
@@ -289,6 +291,7 @@ namespace {
         data["humidity"] = sensor.humidity;
         data["co2"] = sensor.co2;
         data["vpd"] = sensor.vpd;
+        data["soil_moisture"] = sensor.soilMoisture;
         
         doc["timestamp"] = millis();
 
@@ -368,6 +371,8 @@ void loop() {
                         sensorReadings[String(sensor->id)] = lastSensorData.co2;
                     } else if (strcmp(sensor->type, "vpd") == 0) {
                         sensorReadings[String(sensor->id)] = lastSensorData.vpd;
+                    } else if (strcmp(sensor->type, "soil_moisture") == 0) {
+                        sensorReadings[String(sensor->id)] = lastSensorData.soilMoisture;
                     }
                 }
             }
