@@ -30,7 +30,7 @@ web-check:
 # Sync built web UI into ESP filesystem staging area
 fs-sync: web-build
     rm -rf firmware/data/_app firmware/data/*.html
-    rsync -av --exclude='*.json' --exclude='history/' web/build/ firmware/data/
+    rsync -av --exclude='history/' web/build/ firmware/data/
 
 # Upload filesystem (web UI only)
 fs-upload board=board: fs-sync
