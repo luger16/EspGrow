@@ -101,14 +101,6 @@ export function on(type: string, handler: MessageHandler): () => void {
 	};
 }
 
-export function isConnected(): boolean {
-	return state.connected;
-}
-
-export function getError(): string | null {
-	return state.error;
-}
-
 export const websocket = {
 	get connected() {
 		return state.connected;

@@ -25,19 +25,6 @@ export function toggleDevice(deviceId: string): void {
 	device.isOn = newState;
 }
 
-export function setDeviceState(deviceId: string, on: boolean): void {
-	const device = devices.find((d) => d.id === deviceId);
-	if (!device) return;
-
-	websocket.send("device_control", {
-		method: device.controlMethod,
-		target: getDeviceTarget(device),
-		on,
-	});
-	
-	device.isOn = on;
-}
-
 export function addDevice(device: Device): void {
 	websocket.send("add_device", {
 		id: device.id,
@@ -46,7 +33,6 @@ export function addDevice(device: Device): void {
 		controlMethod: device.controlMethod,
 		gpioPin: device.gpioPin,
 		ipAddress: device.ipAddress,
-		controlMode: device.controlMode,
 	});
 }
 

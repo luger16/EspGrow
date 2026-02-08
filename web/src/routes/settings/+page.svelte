@@ -6,7 +6,6 @@
 	import EditDeviceModal from "$lib/components/edit-device-modal.svelte";
 	import * as Select from "$lib/components/ui/select/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
-	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { sensors } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
@@ -21,7 +20,6 @@
 	import LightbulbIcon from "@lucide/svelte/icons/lightbulb";
 	import FlameIcon from "@lucide/svelte/icons/flame";
 	import DropletsIcon from "@lucide/svelte/icons/droplets";
-	import WifiIcon from "@lucide/svelte/icons/wifi";
 	import GaugeIcon from "@lucide/svelte/icons/gauge";
 	import type { Sensor, Device } from "$lib/types";
 	import type { Component } from "svelte";
@@ -70,44 +68,13 @@
 
 	let editingSensorId = $state<string | null>(null);
 	let editingDeviceId = $state<string | null>(null);
-	let esp32IpInput = $state(settings.esp32IpAddress);
 
 	const editingSensor = $derived(sensors.find((s) => s.id === editingSensorId));
 	const editingDevice = $derived(devices.find((d) => d.id === editingDeviceId));
-
-	function saveEsp32Ip() {
-		updateSettings({ esp32IpAddress: esp32IpInput });
-	}
 </script>
 
 <PageHeader title="Settings" />
 <div class="flex flex-1 flex-col gap-6 p-4 pt-0">
-	<section>
-		<h2 class="mb-3 text-sm font-medium text-muted-foreground">ESP32 Connection</h2>
-		<div class="rounded-lg border p-4">
-			<div class="flex items-end gap-3">
-				<div class="flex-1">
-					<Label for="esp32-ip">IP Address</Label>
-					<div class="relative mt-1.5">
-						<WifiIcon class="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-						<Input
-							id="esp32-ip"
-							bind:value={esp32IpInput}
-							placeholder="e.g. 192.168.1.100"
-							class="pl-9"
-						/>
-					</div>
-				</div>
-				<Button onclick={saveEsp32Ip} disabled={esp32IpInput === settings.esp32IpAddress}>Save</Button>
-			</div>
-			{#if settings.esp32IpAddress}
-				<p class="mt-2 text-xs text-muted-foreground">
-					Connected to: {settings.esp32IpAddress}
-				</p>
-			{/if}
-		</div>
-	</section>
-
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Preferences</h2>
 		<div class="divide-y divide-border rounded-lg border">

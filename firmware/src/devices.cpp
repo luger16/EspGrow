@@ -21,7 +21,6 @@ namespace {
             obj["controlMethod"] = device.controlMethod;
             obj["gpioPin"] = device.gpioPin;
             obj["ipAddress"] = device.ipAddress;
-            obj["controlMode"] = device.controlMode;
         }
         
         Storage::writeJson(DEVICES_PATH, doc);
@@ -44,7 +43,7 @@ namespace {
             strlcpy(device.controlMethod, obj["controlMethod"] | "", sizeof(device.controlMethod));
             device.gpioPin = obj["gpioPin"] | 0;
             strlcpy(device.ipAddress, obj["ipAddress"] | "", sizeof(device.ipAddress));
-            strlcpy(device.controlMode, obj["controlMode"] | "manual", sizeof(device.controlMode));
+            strlcpy(device.controlMode, "manual", sizeof(device.controlMode));
             
             devices.push_back(device);
         }
@@ -66,7 +65,7 @@ bool addDevice(JsonDocument& doc) {
     strlcpy(device.controlMethod, doc["controlMethod"] | "", sizeof(device.controlMethod));
     device.gpioPin = doc["gpioPin"] | 0;
     strlcpy(device.ipAddress, doc["ipAddress"] | "", sizeof(device.ipAddress));
-    strlcpy(device.controlMode, doc["controlMode"] | "manual", sizeof(device.controlMode));
+    strlcpy(device.controlMode, "manual", sizeof(device.controlMode));
     
     devices.push_back(device);
     saveDevices();
@@ -83,7 +82,7 @@ bool updateDevice(const char* deviceId, JsonDocument& doc) {
             if (doc["controlMethod"].is<const char*>()) strlcpy(device.controlMethod, doc["controlMethod"], sizeof(device.controlMethod));
             if (doc["gpioPin"].is<int>()) device.gpioPin = doc["gpioPin"];
             if (doc["ipAddress"].is<const char*>()) strlcpy(device.ipAddress, doc["ipAddress"], sizeof(device.ipAddress));
-            if (doc["controlMode"].is<const char*>()) strlcpy(device.controlMode, doc["controlMode"], sizeof(device.controlMode));
+            
             
             saveDevices();
             Serial.printf("[Devices] Updated device: %s\n", device.name);

@@ -156,15 +156,15 @@ bool addRule(JsonDocument& doc) {
 bool updateRule(const char* ruleId, JsonDocument& doc) {
     for (auto& rule : rules) {
         if (strcmp(rule.id, ruleId) == 0) {
-            if (doc.containsKey("name")) strlcpy(rule.name, doc["name"], sizeof(rule.name));
-            if (doc.containsKey("enabled")) rule.enabled = doc["enabled"];
-            if (doc.containsKey("sensorId")) strlcpy(rule.sensorId, doc["sensorId"], sizeof(rule.sensorId));
-            if (doc.containsKey("operator")) strlcpy(rule.op, doc["operator"], sizeof(rule.op));
-            if (doc.containsKey("threshold")) rule.threshold = doc["threshold"];
-            if (doc.containsKey("deviceId")) strlcpy(rule.deviceId, doc["deviceId"], sizeof(rule.deviceId));
-            if (doc.containsKey("deviceMethod")) strlcpy(rule.deviceMethod, doc["deviceMethod"], sizeof(rule.deviceMethod));
-            if (doc.containsKey("deviceTarget")) strlcpy(rule.deviceTarget, doc["deviceTarget"], sizeof(rule.deviceTarget));
-            if (doc.containsKey("action")) {
+            if (doc["name"].is<const char*>()) strlcpy(rule.name, doc["name"], sizeof(rule.name));
+            if (doc["enabled"].is<bool>()) rule.enabled = doc["enabled"];
+            if (doc["sensorId"].is<const char*>()) strlcpy(rule.sensorId, doc["sensorId"], sizeof(rule.sensorId));
+            if (doc["operator"].is<const char*>()) strlcpy(rule.op, doc["operator"], sizeof(rule.op));
+            if (doc["threshold"].is<float>()) rule.threshold = doc["threshold"];
+            if (doc["deviceId"].is<const char*>()) strlcpy(rule.deviceId, doc["deviceId"], sizeof(rule.deviceId));
+            if (doc["deviceMethod"].is<const char*>()) strlcpy(rule.deviceMethod, doc["deviceMethod"], sizeof(rule.deviceMethod));
+            if (doc["deviceTarget"].is<const char*>()) strlcpy(rule.deviceTarget, doc["deviceTarget"], sizeof(rule.deviceTarget));
+            if (doc["action"].is<const char*>()) {
                 const char* action = doc["action"];
                 rule.actionOn = strcmp(action, "turn_on") == 0;
             }

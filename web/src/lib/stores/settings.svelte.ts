@@ -2,13 +2,11 @@ export type Theme = "light" | "dark" | "system";
 export type TemperatureUnit = "celsius" | "fahrenheit";
 
 export type Settings = {
-	esp32IpAddress: string;
 	temperatureUnit: TemperatureUnit;
 	theme: Theme;
 };
 
 const defaultSettings: Settings = {
-	esp32IpAddress: "",
 	temperatureUnit: "celsius",
 	theme: "system",
 };
@@ -20,7 +18,7 @@ export function updateSettings(updates: Partial<Settings>): void {
 	if ("theme" in updates) {
 		applyTheme(settings.theme);
 	}
-	// TODO: Save to ESP32 via HTTP API when connected
+
 }
 
 export function applyTheme(theme: Theme): void {
