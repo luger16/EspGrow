@@ -13,6 +13,7 @@ struct Device {
     uint8_t gpioPin;
     char ipAddress[40];
     char controlMode[12];
+    bool isOn = false;  // Runtime state, not persisted
 };
 
 void init();
@@ -24,5 +25,9 @@ bool removeDevice(const char* deviceId);
 void getDevicesJson(String& out);
 Device* getDevice(const char* deviceId);
 size_t getDeviceCount();
+
+bool setDeviceState(const char* deviceId, bool on);
+Device* findDeviceByTarget(const char* method, const char* target);
+void computeControlModes();
 
 }

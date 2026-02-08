@@ -38,17 +38,6 @@ export function setDeviceState(deviceId: string, on: boolean): void {
 	device.isOn = on;
 }
 
-export function setDeviceControlMode(deviceId: string, mode: Device["controlMode"]): void {
-	const device = devices.find((d) => d.id === deviceId);
-	if (device) {
-		device.controlMode = mode;
-		websocket.send("update_device", {
-			id: deviceId,
-			controlMode: mode,
-		});
-	}
-}
-
 export function addDevice(device: Device): void {
 	websocket.send("add_device", {
 		id: device.id,
@@ -73,7 +62,6 @@ export function updateDevice(deviceId: string, updates: Partial<Omit<Device, "id
 		controlMethod: updates.controlMethod,
 		gpioPin: updates.gpioPin,
 		ipAddress: updates.ipAddress,
-		controlMode: updates.controlMode,
 	});
 }
 
@@ -85,19 +73,21 @@ export function initDeviceWebSocket(): void {
 			msg.data.forEach((d) => {
 				devices.push({
 					...d,
-					isOn: false,
+					isOn: d.isOn ?? false,
 				});
 			});
 		}
 	});
 
 	websocket.on("device_status", (data: unknown) => {
-		const msg = data as { target: string; on: boolean; success: boolean };
+		const msg = data as { deviceId?: string; target: string; on: boolean; success: boolean };
 		if (msg.success) {
-			const device = devices.find((d) => 
-				(d.controlMethod === "relay" && String(d.gpioPin) === msg.target) ||
-				(d.ipAddress === msg.target)
-			);
+			const device = msg.deviceId 
+				? devices.find((d) => d.id === msg.deviceId)
+				: devices.find((d) => 
+					(d.controlMethod === "relay" && String(d.gpioPin) === msg.target) ||
+					(d.ipAddress === msg.target)
+				);
 			if (device) device.isOn = msg.on;
 		}
 	});

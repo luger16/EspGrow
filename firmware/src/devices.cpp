@@ -1,5 +1,6 @@
 #include "devices.h"
 #include "storage.h"
+#include "automation.h"
 #include <vector>
 
 namespace Devices {
@@ -117,6 +118,7 @@ void getDevicesJson(String& out) {
         obj["gpioPin"] = device.gpioPin;
         obj["ipAddress"] = device.ipAddress;
         obj["controlMode"] = device.controlMode;
+        obj["isOn"] = device.isOn;
     }
     
     serializeJson(doc, out);
@@ -133,6 +135,36 @@ Device* getDevice(const char* deviceId) {
 
 size_t getDeviceCount() {
     return devices.size();
+}
+
+bool setDeviceState(const char* deviceId, bool on) {
+    for (auto& device : devices) {
+        if (strcmp(device.id, deviceId) == 0) {
+            device.isOn = on;
+            return true;
+        }
+    }
+    return false;
+}
+
+Device* findDeviceByTarget(const char* method, const char* target) {
+    for (auto& device : devices) {
+        if (strcmp(device.controlMethod, method) == 0) {
+            if (strcmp(method, "relay") == 0) {
+                if (device.gpioPin == atoi(target)) return &device;
+            } else {
+                if (strcmp(device.ipAddress, target) == 0) return &device;
+            }
+        }
+    }
+    return nullptr;
+}
+
+void computeControlModes() {
+    for (auto& device : devices) {
+        const char* mode = Automation::isDeviceUsedByEnabledRule(device.id) ? "automatic" : "manual";
+        strlcpy(device.controlMode, mode, sizeof(device.controlMode));
+    }
 }
 
 }

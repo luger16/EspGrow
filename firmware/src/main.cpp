@@ -31,6 +31,8 @@ namespace {
     }
 
     void broadcastDevices() {
+        Devices::computeControlModes();
+        
         JsonDocument doc;
         doc["type"] = "devices";
         
@@ -128,11 +130,21 @@ namespace {
                 on
             );
             
+            Devices::Device* device = Devices::findDeviceByTarget(
+                method ? method : "", target ? target : "");
+            
+            if (success && device) {
+                Devices::setDeviceState(device->id, on);
+            }
+            
             JsonDocument response;
             response["type"] = "device_status";
             response["target"] = target;
             response["on"] = on;
             response["success"] = success;
+            if (device) {
+                response["deviceId"] = device->id;
+            }
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
@@ -155,6 +167,7 @@ namespace {
             
             Automation::addRule(ruleDoc);
             broadcastRules();
+            broadcastDevices();
         }
         else if (strcmp(type, "update_rule") == 0) {
             const char* ruleId = doc["id"];
@@ -171,16 +184,19 @@ namespace {
             
             Automation::updateRule(ruleId, updates);
             broadcastRules();
+            broadcastDevices();
         }
         else if (strcmp(type, "remove_rule") == 0) {
             const char* ruleId = doc["id"];
             Automation::removeRule(ruleId);
             broadcastRules();
+            broadcastDevices();
         }
         else if (strcmp(type, "toggle_rule") == 0) {
             const char* ruleId = doc["id"];
             Automation::toggleRule(ruleId);
             broadcastRules();
+            broadcastDevices();
         }
         else if (strcmp(type, "get_devices") == 0) {
             broadcastDevices();
@@ -206,7 +222,6 @@ namespace {
             if (doc["controlMethod"].is<const char*>()) updates["controlMethod"] = doc["controlMethod"];
             if (doc["gpioPin"].is<int>()) updates["gpioPin"] = doc["gpioPin"];
             if (doc["ipAddress"].is<const char*>()) updates["ipAddress"] = doc["ipAddress"];
-            if (doc["controlMode"].is<const char*>()) updates["controlMode"] = doc["controlMode"];
             
             Devices::updateDevice(deviceId, updates);
             broadcastDevices();
@@ -327,6 +342,17 @@ void setup() {
     SensorConfig::init();
     History::init();
     Automation::init();
+    Automation::setDeviceStateCallback([](const char* deviceId, const char* method, const char* target, bool on) {
+        JsonDocument response;
+        response["type"] = "device_status";
+        response["deviceId"] = deviceId;
+        response["target"] = target;
+        response["on"] = on;
+        response["success"] = true;
+        String out;
+        serializeJson(response, out);
+        WebSocketServer::broadcast(out);
+    });
     
     WebSocketServer::onMessage(handleMessage);
 }

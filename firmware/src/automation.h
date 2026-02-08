@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <map>
+#include <functional>
 
 namespace Automation {
 
@@ -19,8 +20,11 @@ struct Rule {
     bool actionOn;
 };
 
+using DeviceStateCallback = std::function<void(const char* deviceId, const char* method, const char* target, bool on)>;
+
 void init();
 void loop(const std::map<String, float>& sensorReadings);
+void setDeviceStateCallback(DeviceStateCallback cb);
 
 bool addRule(JsonDocument& doc);
 bool updateRule(const char* ruleId, JsonDocument& doc);
@@ -28,5 +32,7 @@ bool removeRule(const char* ruleId);
 bool toggleRule(const char* ruleId);
 
 void getRulesJson(String& out);
+
+bool isDeviceUsedByEnabledRule(const char* deviceId);
 
 }

@@ -1,6 +1,7 @@
 #include "automation.h"
 #include "storage.h"
 #include "device_controller.h"
+#include "devices.h"
 #include <vector>
 #include <map>
 
@@ -9,8 +10,10 @@ namespace Automation {
 namespace {
     const char* RULES_PATH = "/rules.json";
     std::vector<Rule> rules;
+    std::map<String, bool> lastTriggerState;
     unsigned long lastEvaluation = 0;
     const unsigned long EVAL_INTERVAL = 2000;
+    DeviceStateCallback onDeviceStateChange = nullptr;
     
     bool evaluateCondition(float value, const char* op, float threshold) {
         if (strcmp(op, ">") == 0) return value > threshold;
@@ -86,6 +89,10 @@ void init() {
     Serial.println("[Automation] Initialized");
 }
 
+void setDeviceStateCallback(DeviceStateCallback cb) {
+    onDeviceStateChange = cb;
+}
+
 void loop(const std::map<String, float>& sensorReadings) {
     if (millis() - lastEvaluation < EVAL_INTERVAL) return;
     lastEvaluation = millis();
@@ -94,12 +101,32 @@ void loop(const std::map<String, float>& sensorReadings) {
         if (!rule.enabled) continue;
         
         float value = getSensorValue(rule.sensorId, sensorReadings);
-        bool shouldTrigger = evaluateCondition(value, rule.op, rule.threshold);
+        bool conditionMet = evaluateCondition(value, rule.op, rule.threshold);
         
-        if (shouldTrigger) {
+        String ruleKey(rule.id);
+        bool wasMet = lastTriggerState.count(ruleKey) ? lastTriggerState[ruleKey] : false;
+        lastTriggerState[ruleKey] = conditionMet;
+        
+        if (conditionMet && !wasMet) {
             Serial.printf("[Automation] Rule '%s' triggered: %s %.1f %s %.1f\n", 
                 rule.name, rule.sensorId, value, rule.op, rule.threshold);
-            DeviceController::control(rule.deviceMethod, rule.deviceTarget, rule.actionOn);
+            bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, rule.actionOn);
+            if (success) {
+                Devices::setDeviceState(rule.deviceId, rule.actionOn);
+                if (onDeviceStateChange) {
+                    onDeviceStateChange(rule.deviceId, rule.deviceMethod, rule.deviceTarget, rule.actionOn);
+                }
+            }
+        } else if (!conditionMet && wasMet) {
+            Serial.printf("[Automation] Rule '%s' condition cleared, reverting device\n", rule.name);
+            bool revertState = !rule.actionOn;
+            bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, revertState);
+            if (success) {
+                Devices::setDeviceState(rule.deviceId, revertState);
+                if (onDeviceStateChange) {
+                    onDeviceStateChange(rule.deviceId, rule.deviceMethod, rule.deviceTarget, revertState);
+                }
+            }
         }
     }
 }
@@ -154,6 +181,7 @@ bool removeRule(const char* ruleId) {
     for (auto it = rules.begin(); it != rules.end(); ++it) {
         if (strcmp(it->id, ruleId) == 0) {
             Serial.printf("[Automation] Removed rule: %s\n", it->name);
+            lastTriggerState.erase(String(it->id));
             rules.erase(it);
             saveRules();
             return true;
@@ -166,6 +194,9 @@ bool toggleRule(const char* ruleId) {
     for (auto& rule : rules) {
         if (strcmp(rule.id, ruleId) == 0) {
             rule.enabled = !rule.enabled;
+            if (!rule.enabled) {
+                lastTriggerState.erase(String(rule.id));
+            }
             saveRules();
             Serial.printf("[Automation] Toggled rule '%s' -> %s\n", rule.name, rule.enabled ? "enabled" : "disabled");
             return true;
@@ -193,6 +224,15 @@ void getRulesJson(String& out) {
     }
     
     serializeJson(doc, out);
+}
+
+bool isDeviceUsedByEnabledRule(const char* deviceId) {
+    for (const auto& rule : rules) {
+        if (rule.enabled && strcmp(rule.deviceId, deviceId) == 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 }
