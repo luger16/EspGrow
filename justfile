@@ -1,54 +1,42 @@
 # EspGrow — build & deploy automation
 # Install: brew install just
 
-# Default ESP32 board (c3 or xiao-s3)
 board := "c3"
 
 # Show available commands
 default:
     @just --list
 
+# Type-check web + compile firmware
+check:
+    cd web && npm run check
+    cd firmware && pio run -e {{board}}
 
-# ─── Web (SvelteKit) ──────────────────────────────────────────────────────────
-
-# Build web UI (SvelteKit → static)
-web-build:
-    cd web && npm run build
-    find web/build -name "*.br" -delete
-
-# Run web dev server (local only)
-web-dev:
+# Run web dev server
+dev:
     cd web && npm run dev
 
-# Type-check web UI
-web-check:
-    cd web && npm run check
+# Build web, sync to firmware data, upload everything to ESP32
+deploy board=board:
+    #!/usr/bin/env bash
+    set -euo pipefail
 
+    # Build web UI
+    cd web && npm run build && cd ..
 
-# ─── Filesystem (ESP data) ────────────────────────────────────────────────────
+    # Sync to firmware data dir (preserve user json + history)
+    rm -rf firmware/data/_app firmware/data/*.html firmware/data/*.html.gz firmware/data/robots.txt
+    rsync -a web/build/ firmware/data/
 
-# Sync built web UI into ESP filesystem staging area
-fs-sync: web-build
-    rm -rf firmware/data/_app firmware/data/*.html
-    rsync -av --exclude='history/' web/build/ firmware/data/
+    # Strip originals where .gz exists (saves ~60% LittleFS space)
+    # Keep index.html — needed for SPA fallback routing
+    find firmware/data -name '*.gz' | while read gz; do
+        original="${gz%.gz}"
+        [ -f "$original" ] && [ "$(basename "$original")" != "index.html" ] && rm "$original"
+    done
 
-# Upload filesystem (web UI only)
-fs-upload board=board: fs-sync
-    cd firmware && pio run -e {{board}} -t uploadfs
-
-
-# ─── Firmware ─────────────────────────────────────────────────────────────────
-
-# Upload firmware only (no filesystem)
-fw-upload board=board:
-    cd firmware && pio run -e {{board}} -t upload
-
-
-# ─── Deploy / Device ──────────────────────────────────────────────────────────
-
-# Upload firmware + filesystem
-deploy board=board: fs-sync
-    cd firmware && pio run -e {{board}} -t uploadfs -t upload
+    # Upload filesystem, then firmware
+    cd firmware && pio run -e {{board}} -t uploadfs && pio run -e {{board}} -t upload
 
 # Deploy and open serial monitor
 deploy-dev board=board: (deploy board)

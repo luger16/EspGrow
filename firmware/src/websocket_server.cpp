@@ -68,9 +68,12 @@ void init() {
     ws->onEvent(onWsEvent);
     server->addHandler(ws);
     
+    server->serveStatic("/_app/immutable/", LittleFS, "/_app/immutable/")
+        .setCacheControl("max-age=31536000, immutable");
+
     server->serveStatic("/", LittleFS, "/")
         .setDefaultFile("index.html")
-        .setCacheControl("max-age=86400");
+        .setCacheControl("no-cache");
     
     server->onNotFound([](AsyncWebServerRequest *request){
         request->send(LittleFS, "/index.html", "text/html");
