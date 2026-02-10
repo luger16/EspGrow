@@ -37,13 +37,22 @@
 
 	// Check if data spans the full requested interval
 	const intervalHours = $derived({ "12h": 12, "24h": 24, "7d": 168 }[timeRange]);
-	const hasData = $derived(history.length > 0);
+	const hasData = $derived(history.length >= 2);
 	const hasFullInterval = $derived(() => {
 		if (!hasData) return false;
 		const now = new Date();
 		const oldestTimestamp = history[0].date.getTime();
 		const requiredMs = intervalHours * 60 * 60 * 1000;
 		return now.getTime() - oldestTimestamp >= requiredMs;
+	});
+
+	const yDomain = $derived.by(() => {
+		if (history.length === 0) return undefined;
+		const values = history.map((d) => d.value);
+		const min = Math.min(...values);
+		const max = Math.max(...values);
+		const padding = (max - min) * 0.05 || 0.5;
+		return [min - padding, max + padding];
 	});
 
 	const chartConfig = {
@@ -91,6 +100,8 @@
 					x="date"
 					xScale={scaleUtc()}
 					y="value"
+					yDomain={yDomain}
+					yBaseline={undefined}
 					props={{
 						area: {
 							curve: curveNatural,
