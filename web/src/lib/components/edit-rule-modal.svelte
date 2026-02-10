@@ -5,6 +5,7 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
+	import { Switch } from "$lib/components/ui/switch/index.js";
 	import { updateRule, removeRule } from "$lib/stores/rules.svelte";
 	import { sensors } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
@@ -21,6 +22,9 @@
 	let sensorId = $state("");
 	let operator = $state<ComparisonOperator>(">");
 	let threshold = $state("");
+	let useHysteresis = $state(false);
+	let thresholdOff = $state("");
+	let minRunTimeMs = $state("");
 	let deviceId = $state("");
 	let action = $state<AutomationRule["action"]>("turn_on");
 	let showDeleteConfirm = $state(false);
@@ -46,20 +50,39 @@
 			sensorId = rule.sensorId;
 			operator = rule.operator;
 			threshold = rule.threshold.toString();
+			useHysteresis = rule.useHysteresis ?? false;
+			thresholdOff = rule.thresholdOff?.toString() ?? "";
+			minRunTimeMs = rule.minRunTimeMs ? (rule.minRunTimeMs / 60000).toString() : "";
 			deviceId = rule.deviceId;
 			action = rule.action;
 		}
 	});
 
 	function handleSubmit() {
-		updateRule(rule.id, {
+		const updates: Partial<AutomationRule> = {
 			name,
 			sensorId,
 			operator,
 			threshold: parseFloat(threshold),
 			deviceId,
 			action,
-		});
+		};
+		
+		if (useHysteresis && thresholdOff) {
+			updates.useHysteresis = true;
+			updates.thresholdOff = parseFloat(thresholdOff);
+		} else {
+			updates.useHysteresis = false;
+			updates.thresholdOff = undefined;
+		}
+		
+		if (minRunTimeMs) {
+			updates.minRunTimeMs = parseInt(minRunTimeMs) * 60000;
+		} else {
+			updates.minRunTimeMs = undefined;
+		}
+		
+		updateRule(rule.id, updates);
 		onOpenChange(false);
 	}
 
@@ -69,7 +92,14 @@
 		onOpenChange(false);
 	}
 
-	const isValid = $derived(name && sensorId && threshold && deviceId);
+	const isValid = $derived(
+		name && 
+		sensorId && 
+		threshold && 
+		deviceId && 
+		(!useHysteresis || thresholdOff)
+	);
+
 </script>
 
 <Dialog.Root {open} {onOpenChange}>
@@ -115,6 +145,43 @@
 					placeholder={selectedSensor ? `Value (${selectedSensor.unit})` : "Value"}
 					required
 				/>
+			</div>
+
+			<div class="grid gap-3 rounded-lg border p-3">
+				<div class="flex items-center justify-between">
+					<div class="space-y-0.5">
+						<Label class="text-sm font-medium">Enable Hysteresis</Label>
+						<p class="text-xs text-muted-foreground">Use two thresholds to prevent rapid switching</p>
+					</div>
+					<Switch bind:checked={useHysteresis} />
+				</div>
+				
+				{#if useHysteresis}
+					<div class="grid gap-2">
+						<Label for="thresholdOff">Turn Off Threshold</Label>
+						<Input
+							id="thresholdOff"
+							type="number"
+							bind:value={thresholdOff}
+							placeholder={selectedSensor ? `Value (${selectedSensor.unit})` : "Value"}
+							required={useHysteresis}
+						/>
+						<p class="text-xs text-muted-foreground">
+							Device turns on at {threshold || "___"}{selectedSensor?.unit || ""}, turns off at {thresholdOff || "___"}{selectedSensor?.unit || ""}
+						</p>
+					</div>
+				{/if}
+			</div>
+
+			<div class="grid gap-2">
+				<Label for="minRunTime">Minimum Run Time (minutes)</Label>
+				<Input
+					id="minRunTime"
+					type="number"
+					bind:value={minRunTimeMs}
+					placeholder="Optional (e.g. 2)"
+				/>
+				<p class="text-xs text-muted-foreground">Device must stay in new state for at least this long</p>
 			</div>
 
 			<div class="grid gap-2">

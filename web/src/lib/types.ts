@@ -44,6 +44,9 @@ export interface AutomationRule {
 	sensorId: string;
 	operator: ComparisonOperator;
 	threshold: number;
+	thresholdOff?: number;
+	useHysteresis?: boolean;
+	minRunTimeMs?: number;
 	deviceId: string;
 	action: "turn_on" | "turn_off";
 }

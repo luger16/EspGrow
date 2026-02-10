@@ -7,6 +7,7 @@
 	import { rules, toggleRule } from "$lib/stores/rules.svelte";
 	import { sensors } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
+	import type { AutomationRule } from "$lib/types";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import ZapIcon from "@lucide/svelte/icons/zap";
 
@@ -27,6 +28,26 @@
 
 	function formatAction(action: "turn_on" | "turn_off"): string {
 		return action === "turn_on" ? "turn on" : "turn off";
+	}
+	
+	function formatRuleDescription(rule: AutomationRule): string {
+		const sensorName = getSensorName(rule.sensorId);
+		const deviceName = getDeviceName(rule.deviceId);
+		const unit = getSensorUnit(rule.sensorId);
+		const actionText = formatAction(rule.action);
+		
+		let description = `If ${sensorName} ${rule.operator} ${rule.threshold}${unit}, ${actionText} ${deviceName}`;
+		
+		if (rule.useHysteresis && rule.thresholdOff !== undefined) {
+			description += ` (off at ${rule.thresholdOff}${unit})`;
+		}
+		
+		if (rule.minRunTimeMs) {
+			const minutes = rule.minRunTimeMs / 60000;
+			description += ` • Min ${minutes}min`;
+		}
+		
+		return description;
 	}
 </script>
 
@@ -65,7 +86,7 @@
 						<div class="flex-1">
 							<p class="text-sm font-medium">{rule.name}</p>
 							<p class="text-xs text-muted-foreground">
-								If {getSensorName(rule.sensorId)} {rule.operator} {rule.threshold}{getSensorUnit(rule.sensorId)}, {formatAction(rule.action)} {getDeviceName(rule.deviceId)}
+								{formatRuleDescription(rule)}
 							</p>
 						</div>
 						<Switch checked={rule.enabled} onCheckedChange={() => toggleRule(rule.id)} />

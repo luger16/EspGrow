@@ -15,11 +15,26 @@ namespace {
     const unsigned long EVAL_INTERVAL = 2000;
     DeviceStateCallback onDeviceStateChange = nullptr;
     
-    bool evaluateCondition(float value, const char* op, float threshold) {
-        if (strcmp(op, ">") == 0) return value > threshold;
-        if (strcmp(op, ">=") == 0) return value >= threshold;
-        if (strcmp(op, "<") == 0) return value < threshold;
-        if (strcmp(op, "<=") == 0) return value <= threshold;
+    bool evaluateCondition(float value, const char* op, float threshold, bool deviceCurrentlyOn, float thresholdOff, bool useHysteresis) {
+        if (useHysteresis) {
+            if (deviceCurrentlyOn) {
+                if (strcmp(op, ">") == 0 || strcmp(op, ">=") == 0) {
+                    return value > thresholdOff;
+                } else if (strcmp(op, "<") == 0 || strcmp(op, "<=") == 0) {
+                    return value < thresholdOff;
+                }
+            } else {
+                if (strcmp(op, ">") == 0) return value > threshold;
+                if (strcmp(op, ">=") == 0) return value >= threshold;
+                if (strcmp(op, "<") == 0) return value < threshold;
+                if (strcmp(op, "<=") == 0) return value <= threshold;
+            }
+        } else {
+            if (strcmp(op, ">") == 0) return value > threshold;
+            if (strcmp(op, ">=") == 0) return value >= threshold;
+            if (strcmp(op, "<") == 0) return value < threshold;
+            if (strcmp(op, "<=") == 0) return value <= threshold;
+        }
         if (strcmp(op, "=") == 0) return abs(value - threshold) < 0.1f;
         return false;
     }
@@ -44,6 +59,9 @@ namespace {
             obj["sensorId"] = rule.sensorId;
             obj["operator"] = rule.op;
             obj["threshold"] = rule.threshold;
+            obj["thresholdOff"] = rule.thresholdOff;
+            obj["useHysteresis"] = rule.useHysteresis;
+            obj["minRunTimeMs"] = rule.minRunTimeMs;
             obj["deviceId"] = rule.deviceId;
             obj["deviceMethod"] = rule.deviceMethod;
             obj["deviceTarget"] = rule.deviceTarget;
@@ -70,12 +88,17 @@ namespace {
             strlcpy(rule.sensorId, obj["sensorId"] | "", sizeof(rule.sensorId));
             strlcpy(rule.op, obj["operator"] | ">", sizeof(rule.op));
             rule.threshold = obj["threshold"] | 0.0f;
+            rule.thresholdOff = obj["thresholdOff"] | rule.threshold;
+            rule.useHysteresis = obj["useHysteresis"] | false;
+            rule.minRunTimeMs = obj["minRunTimeMs"] | 0UL;
             strlcpy(rule.deviceId, obj["deviceId"] | "", sizeof(rule.deviceId));
             strlcpy(rule.deviceMethod, obj["deviceMethod"] | "", sizeof(rule.deviceMethod));
             strlcpy(rule.deviceTarget, obj["deviceTarget"] | "", sizeof(rule.deviceTarget));
             
             const char* action = obj["action"] | "turn_on";
             rule.actionOn = strcmp(action, "turn_on") == 0;
+            
+            rule.lastStateChangeMs = 0;
             
             rules.push_back(rule);
         }
@@ -97,14 +120,26 @@ void loop(const std::map<String, float>& sensorReadings) {
     if (millis() - lastEvaluation < EVAL_INTERVAL) return;
     lastEvaluation = millis();
     
-    for (const auto& rule : rules) {
+    for (auto& rule : rules) {
         if (!rule.enabled) continue;
         
         float value = getSensorValue(rule.sensorId, sensorReadings);
-        bool conditionMet = evaluateCondition(value, rule.op, rule.threshold);
         
         String ruleKey(rule.id);
         bool wasMet = lastTriggerState.count(ruleKey) ? lastTriggerState[ruleKey] : false;
+        bool deviceCurrentlyOn = (wasMet == rule.actionOn);
+        
+        bool conditionMet = evaluateCondition(value, rule.op, rule.threshold, deviceCurrentlyOn, rule.thresholdOff, rule.useHysteresis);
+        
+        bool wantsToChange = (conditionMet && !wasMet) || (!conditionMet && wasMet);
+        
+        if (wantsToChange && rule.minRunTimeMs > 0 && rule.lastStateChangeMs > 0) {
+            unsigned long timeSinceChange = millis() - rule.lastStateChangeMs;
+            if (timeSinceChange < rule.minRunTimeMs) {
+                continue;
+            }
+        }
+        
         lastTriggerState[ruleKey] = conditionMet;
         
         if (conditionMet && !wasMet) {
@@ -113,6 +148,7 @@ void loop(const std::map<String, float>& sensorReadings) {
             bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, rule.actionOn);
             if (success) {
                 Devices::setDeviceState(rule.deviceId, rule.actionOn);
+                rule.lastStateChangeMs = millis();
                 if (onDeviceStateChange) {
                     onDeviceStateChange(rule.deviceId, rule.deviceMethod, rule.deviceTarget, rule.actionOn);
                 }
@@ -123,6 +159,7 @@ void loop(const std::map<String, float>& sensorReadings) {
             bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, revertState);
             if (success) {
                 Devices::setDeviceState(rule.deviceId, revertState);
+                rule.lastStateChangeMs = millis();
                 if (onDeviceStateChange) {
                     onDeviceStateChange(rule.deviceId, rule.deviceMethod, rule.deviceTarget, revertState);
                 }
@@ -139,12 +176,17 @@ bool addRule(JsonDocument& doc) {
     strlcpy(rule.sensorId, doc["sensorId"] | "", sizeof(rule.sensorId));
     strlcpy(rule.op, doc["operator"] | ">", sizeof(rule.op));
     rule.threshold = doc["threshold"] | 0.0f;
+    rule.thresholdOff = doc["thresholdOff"] | rule.threshold;
+    rule.useHysteresis = doc["useHysteresis"] | false;
+    rule.minRunTimeMs = doc["minRunTimeMs"] | 0UL;
     strlcpy(rule.deviceId, doc["deviceId"] | "", sizeof(rule.deviceId));
     strlcpy(rule.deviceMethod, doc["deviceMethod"] | "", sizeof(rule.deviceMethod));
     strlcpy(rule.deviceTarget, doc["deviceTarget"] | "", sizeof(rule.deviceTarget));
     
     const char* action = doc["action"] | "turn_on";
     rule.actionOn = strcmp(action, "turn_on") == 0;
+    
+    rule.lastStateChangeMs = 0;
     
     rules.push_back(rule);
     saveRules();
@@ -161,6 +203,9 @@ bool updateRule(const char* ruleId, JsonDocument& doc) {
             if (doc["sensorId"].is<const char*>()) strlcpy(rule.sensorId, doc["sensorId"], sizeof(rule.sensorId));
             if (doc["operator"].is<const char*>()) strlcpy(rule.op, doc["operator"], sizeof(rule.op));
             if (doc["threshold"].is<float>()) rule.threshold = doc["threshold"];
+            if (doc["thresholdOff"].is<float>()) rule.thresholdOff = doc["thresholdOff"];
+            if (doc["useHysteresis"].is<bool>()) rule.useHysteresis = doc["useHysteresis"];
+            if (doc["minRunTimeMs"].is<unsigned long>()) rule.minRunTimeMs = doc["minRunTimeMs"];
             if (doc["deviceId"].is<const char*>()) strlcpy(rule.deviceId, doc["deviceId"], sizeof(rule.deviceId));
             if (doc["deviceMethod"].is<const char*>()) strlcpy(rule.deviceMethod, doc["deviceMethod"], sizeof(rule.deviceMethod));
             if (doc["deviceTarget"].is<const char*>()) strlcpy(rule.deviceTarget, doc["deviceTarget"], sizeof(rule.deviceTarget));
@@ -217,6 +262,9 @@ void getRulesJson(String& out) {
         obj["sensorId"] = rule.sensorId;
         obj["operator"] = rule.op;
         obj["threshold"] = rule.threshold;
+        obj["thresholdOff"] = rule.thresholdOff;
+        obj["useHysteresis"] = rule.useHysteresis;
+        obj["minRunTimeMs"] = rule.minRunTimeMs;
         obj["deviceId"] = rule.deviceId;
         obj["deviceMethod"] = rule.deviceMethod;
         obj["deviceTarget"] = rule.deviceTarget;

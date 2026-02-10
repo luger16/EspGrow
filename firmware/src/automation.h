@@ -14,10 +14,14 @@ struct Rule {
     char sensorId[24];
     char op[3];
     float threshold;
+    float thresholdOff;
+    bool useHysteresis;
+    unsigned long minRunTimeMs;
     char deviceId[24];
     char deviceMethod[16];
     char deviceTarget[32];
     bool actionOn;
+    unsigned long lastStateChangeMs;
 };
 
 using DeviceStateCallback = std::function<void(const char* deviceId, const char* method, const char* target, bool on)>;
