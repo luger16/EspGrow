@@ -11,6 +11,11 @@ namespace {
     String savedSSID;
     String savedPassword;
     bool provisioningActive = false;
+    bool wasConnected = false;
+    unsigned long lastReconnectAttempt = 0;
+    const unsigned long RECONNECT_INTERVAL = 30000;
+    int reconnectFailures = 0;
+    const int MAX_RECONNECT_FAILURES = 5;
 
     void loadCredentials() {
         Serial.println("[WiFi] Loading credentials...");
@@ -103,6 +108,7 @@ void init() {
     if (hasCredentials()) {
         Serial.println("[WiFi] Has credentials, attempting connection...");
         if (connectWithSaved()) {
+            wasConnected = true;
             return;
         }
         Serial.println("[WiFi] Connection failed, starting provisioning...");
@@ -121,8 +127,39 @@ void loop() {
             Serial.println("[WiFi] Provisioning complete");
             CaptivePortal::stop();
             provisioningActive = false;
+            wasConnected = true;
+            reconnectFailures = 0;
         }
+        return;
     }
+
+    bool connected = isConnected();
+
+    if (connected) {
+        wasConnected = true;
+        reconnectFailures = 0;
+        return;
+    }
+
+    if (!wasConnected || !hasCredentials()) return;
+
+    if (millis() - lastReconnectAttempt < RECONNECT_INTERVAL) return;
+    lastReconnectAttempt = millis();
+    reconnectFailures++;
+
+    Serial.printf("[WiFi] Connection lost — reconnect attempt %d/%d\n", reconnectFailures, MAX_RECONNECT_FAILURES);
+
+    if (reconnectFailures > MAX_RECONNECT_FAILURES) {
+        Serial.println("[WiFi] Max reconnect attempts reached, starting provisioning");
+        wasConnected = false;
+        reconnectFailures = 0;
+        startProvisioning();
+        return;
+    }
+
+    WiFi.disconnect();
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(savedSSID.c_str(), savedPassword.c_str());
 }
 
 }

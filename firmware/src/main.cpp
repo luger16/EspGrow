@@ -135,8 +135,15 @@ namespace {
             Devices::Device* device = Devices::findDeviceByTarget(
                 method ? method : "", target ? target : "");
             
+            bool overrideActive = false;
+            unsigned long overrideRemaining = 0;
             if (success && device) {
                 Devices::setDeviceState(device->id, on);
+                if (Automation::isDeviceUsedByEnabledRule(device->id)) {
+                    Automation::setManualOverride(device->id);
+                    overrideActive = true;
+                    overrideRemaining = Automation::getOverrideRemaining(device->id);
+                }
             }
             
             JsonDocument response;
@@ -146,6 +153,10 @@ namespace {
             response["success"] = success;
             if (device) {
                 response["deviceId"] = device->id;
+            }
+            if (overrideActive) {
+                response["overrideActive"] = true;
+                response["overrideRemainingMs"] = overrideRemaining;
             }
             String out;
             serializeJson(response, out);
@@ -236,8 +247,10 @@ namespace {
         }
         else if (strcmp(type, "remove_device") == 0) {
             const char* deviceId = doc["id"];
+            Automation::removeRulesForDevice(deviceId);
             Devices::removeDevice(deviceId);
             broadcastDevices();
+            broadcastRules();
         }
         else if (strcmp(type, "get_sensors") == 0) {
             broadcastSensors();
@@ -415,6 +428,7 @@ void loop() {
                 sensorReadingsDirty = false;
             }
             
+            Automation::clearExpiredOverrides();
             Automation::loop(cachedSensorReadings);
         }
     }

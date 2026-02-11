@@ -11,6 +11,7 @@ namespace {
     const char* RULES_PATH = "/rules.json";
     std::vector<Rule> rules;
     std::map<String, bool> lastTriggerState;
+    std::map<String, unsigned long> manualOverrides;
     unsigned long lastEvaluation = 0;
     const unsigned long EVAL_INTERVAL = 2000;
     DeviceStateCallback onDeviceStateChange = nullptr;
@@ -122,6 +123,11 @@ void loop(const std::map<String, float>& sensorReadings) {
     
     for (auto& rule : rules) {
         if (!rule.enabled) continue;
+        
+        if (manualOverrides.count(String(rule.deviceId)) && 
+            millis() < manualOverrides[String(rule.deviceId)]) {
+            continue;
+        }
         
         float value = getSensorValue(rule.sensorId, sensorReadings);
         
@@ -281,6 +287,58 @@ bool isDeviceUsedByEnabledRule(const char* deviceId) {
         }
     }
     return false;
+}
+
+void removeRulesForDevice(const char* deviceId) {
+    bool changed = false;
+    for (auto it = rules.begin(); it != rules.end(); ) {
+        if (strcmp(it->deviceId, deviceId) == 0) {
+            Serial.printf("[Automation] Removing rule '%s' for deleted device %s\n", it->name, deviceId);
+            lastTriggerState.erase(String(it->id));
+            it = rules.erase(it);
+            changed = true;
+        } else {
+            ++it;
+        }
+    }
+    if (changed) saveRules();
+}
+
+void setManualOverride(const char* deviceId, unsigned long durationMs) {
+    manualOverrides[String(deviceId)] = millis() + durationMs;
+    Serial.printf("[Automation] Manual override set for %s (%lums)\n", deviceId, durationMs);
+}
+
+bool isDeviceOverridden(const char* deviceId) {
+    auto it = manualOverrides.find(String(deviceId));
+    if (it == manualOverrides.end()) return false;
+    if (millis() >= it->second) {
+        manualOverrides.erase(it);
+        return false;
+    }
+    return true;
+}
+
+unsigned long getOverrideRemaining(const char* deviceId) {
+    auto it = manualOverrides.find(String(deviceId));
+    if (it == manualOverrides.end()) return 0;
+    unsigned long now = millis();
+    if (now >= it->second) {
+        manualOverrides.erase(it);
+        return 0;
+    }
+    return it->second - now;
+}
+
+void clearExpiredOverrides() {
+    for (auto it = manualOverrides.begin(); it != manualOverrides.end(); ) {
+        if (millis() >= it->second) {
+            Serial.printf("[Automation] Override expired for %s\n", it->first.c_str());
+            it = manualOverrides.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 }

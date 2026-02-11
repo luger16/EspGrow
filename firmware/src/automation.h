@@ -38,5 +38,11 @@ bool toggleRule(const char* ruleId);
 void getRulesJson(String& out);
 
 bool isDeviceUsedByEnabledRule(const char* deviceId);
+void removeRulesForDevice(const char* deviceId);
+
+void setManualOverride(const char* deviceId, unsigned long durationMs = 300000);
+bool isDeviceOverridden(const char* deviceId);
+unsigned long getOverrideRemaining(const char* deviceId);
+void clearExpiredOverrides();
 
 }
