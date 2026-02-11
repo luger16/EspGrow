@@ -10,36 +10,11 @@
 	import { sensors } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
 	import { settings, updateSettings, type Theme, type TemperatureUnit } from "$lib/stores/settings.svelte";
+	import { sensorIcons, deviceIcons } from "$lib/icons";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
-	import DropletIcon from "@lucide/svelte/icons/droplet";
-	import CloudIcon from "@lucide/svelte/icons/cloud";
-	import SunIcon from "@lucide/svelte/icons/sun";
-	import SproutIcon from "@lucide/svelte/icons/sprout";
 	import FanIcon from "@lucide/svelte/icons/fan";
-	import LightbulbIcon from "@lucide/svelte/icons/lightbulb";
-	import FlameIcon from "@lucide/svelte/icons/flame";
-	import DropletsIcon from "@lucide/svelte/icons/droplets";
-	import GaugeIcon from "@lucide/svelte/icons/gauge";
 	import type { Sensor, Device } from "$lib/types";
-	import type { Component } from "svelte";
-
-	const sensorIcons: Record<Sensor["type"], Component> = {
-		temperature: ThermometerIcon,
-		humidity: DropletIcon,
-		co2: CloudIcon,
-		light: SunIcon,
-		soil_moisture: SproutIcon,
-		vpd: GaugeIcon,
-	};
-
-	const deviceIcons: Record<Device["type"], Component> = {
-		fan: FanIcon,
-		light: LightbulbIcon,
-		heater: FlameIcon,
-		pump: DropletsIcon,
-		humidifier: DropletIcon,
-	};
 
 	const hardwareLabels: Record<Sensor["hardwareType"], string> = {
 		sht41: "SHT41",

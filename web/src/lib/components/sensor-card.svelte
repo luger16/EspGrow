@@ -2,13 +2,7 @@
 	import * as Card from "$lib/components/ui/card/index.js";
 	import type { Sensor, SensorReading } from "$lib/types";
 	import { settings, formatTemperature } from "$lib/stores/settings.svelte";
-	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
-	import DropletIcon from "@lucide/svelte/icons/droplet";
-	import CloudIcon from "@lucide/svelte/icons/cloud";
-	import SunIcon from "@lucide/svelte/icons/sun";
-	import LeafIcon from "@lucide/svelte/icons/leaf";
-	import GaugeIcon from "@lucide/svelte/icons/gauge";
-	import type { Component } from "svelte";
+	import { sensorIcons } from "$lib/icons";
 
 	let {
 		sensor,
@@ -16,16 +10,7 @@
 		onclick,
 	}: { sensor: Sensor; reading?: SensorReading; onclick?: () => void } = $props();
 
-	const iconMap: Record<Sensor["type"], Component> = {
-		temperature: ThermometerIcon,
-		humidity: DropletIcon,
-		co2: CloudIcon,
-		light: SunIcon,
-		soil_moisture: LeafIcon,
-		vpd: GaugeIcon,
-	};
-
-	const Icon = $derived(iconMap[sensor.type]);
+	const Icon = $derived(sensorIcons[sensor.type]);
 	const displayValue = $derived.by(() => {
 		if (!reading) return "—";
 		if (sensor.type === "temperature") {
