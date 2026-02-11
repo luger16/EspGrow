@@ -1,5 +1,6 @@
 #include "sensor_config.h"
 #include "storage.h"
+#include "history.h"
 #include <vector>
 
 namespace SensorConfig {
@@ -98,6 +99,7 @@ bool removeSensor(const char* sensorId) {
     for (auto it = sensors.begin(); it != sensors.end(); ++it) {
         if (strcmp(it->id, sensorId) == 0) {
             Serial.printf("[SensorConfig] Removed sensor: %s\n", it->name);
+            History::removeSensor(sensorId);
             sensors.erase(it);
             updateIdPtrs();
             saveConfig();

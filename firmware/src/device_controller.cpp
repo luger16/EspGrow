@@ -1,8 +1,13 @@
 #include "device_controller.h"
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <set>
 
 namespace DeviceController {
+
+namespace {
+    std::set<uint8_t> initializedPins;
+}
 
 void init() {
     Serial.println("[DeviceCtrl] Initialized");
@@ -47,7 +52,10 @@ bool setShelly(const String& ip, bool on) {
 }
 
 bool setRelay(uint8_t pin, bool on) {
-    pinMode(pin, OUTPUT);
+    if (initializedPins.find(pin) == initializedPins.end()) {
+        pinMode(pin, OUTPUT);
+        initializedPins.insert(pin);
+    }
     digitalWrite(pin, on ? HIGH : LOW);
     Serial.printf("[DeviceCtrl] Relay GPIO%d -> %s\n", pin, on ? "ON" : "OFF");
     return true;
