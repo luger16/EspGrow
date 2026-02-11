@@ -38,7 +38,7 @@
 	// Check if data spans the full requested interval
 	const intervalHours = $derived({ "12h": 12, "24h": 24, "7d": 168 }[timeRange]);
 	const hasData = $derived(history.length >= 2);
-	const hasFullInterval = $derived(() => {
+	const hasFullInterval = $derived.by(() => {
 		if (!hasData) return false;
 		const now = new Date();
 		const oldestTimestamp = history[0].date.getTime();
@@ -55,9 +55,9 @@
 		return [min - padding, max + padding];
 	});
 
-	const chartConfig = {
-		value: { label: "Value", color: "var(--chart-1)" },
-	} satisfies Chart.ChartConfig;
+	const chartConfig = $derived({
+		value: { label: `${sensor.unit}`, color: "var(--chart-1)" },
+	} satisfies Chart.ChartConfig);
 </script>
 
 <Dialog.Root {open} {onOpenChange}>
@@ -87,7 +87,7 @@
 				No data available for this time range
 			</div>
 		{:else}
-			{#if !hasFullInterval()}
+			{#if !hasFullInterval}
 				<div
 					class="bg-muted text-muted-foreground mb-2 rounded-md border px-3 py-2 text-sm"
 				>
