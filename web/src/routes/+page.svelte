@@ -20,7 +20,7 @@
 			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
 				<ThermometerIcon class="size-8 text-muted-foreground/50" />
 				<p class="mt-3 text-sm font-medium">No sensors</p>
-				<p class="mt-1 text-xs text-muted-foreground">Add sensors in Settings to start monitoring</p>
+				<p class="mt-1 text-xs text-muted-foreground">Add sensors in <a href="/settings" class="underline">Settings</a> to start monitoring</p>
 			</div>
 		{:else}
 			<div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
@@ -41,7 +41,7 @@
 			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
 				<PowerIcon class="size-8 text-muted-foreground/50" />
 				<p class="mt-3 text-sm font-medium">No devices</p>
-				<p class="mt-1 text-xs text-muted-foreground">Add devices in Settings to control equipment</p>
+				<p class="mt-1 text-xs text-muted-foreground">Add devices in <a href="/settings" class="underline">Settings</a> to control equipment</p>
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
