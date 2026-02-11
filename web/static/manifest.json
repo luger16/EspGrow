@@ -1,0 +1,10 @@
+{
+	"name": "EspGrow",
+	"short_name": "EspGrow",
+	"description": "ESP32 grow tent monitoring and automation",
+	"start_url": "/",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#09090b",
+	"theme_color": "#09090b"
+}
