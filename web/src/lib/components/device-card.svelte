@@ -4,26 +4,13 @@
 	import { Badge } from "$lib/components/ui/badge/index.js";
 	import type { Device } from "$lib/types";
 	import { toggleDevice, pendingDevices, overriddenDevices } from "$lib/stores/devices.svelte";
-	import FanIcon from "@lucide/svelte/icons/fan";
-	import LightbulbIcon from "@lucide/svelte/icons/lightbulb";
-	import FlameIcon from "@lucide/svelte/icons/flame";
-	import DropletIcon from "@lucide/svelte/icons/droplet";
-	import SparklesIcon from "@lucide/svelte/icons/sparkles";
+	import { deviceIcons } from "$lib/icons";
 	import LoaderIcon from "@lucide/svelte/icons/loader-circle";
 	import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
-	import type { Component } from "svelte";
 
 	let { device }: { device: Device } = $props();
 
-	const iconMap: Record<Device["type"], Component> = {
-		fan: FanIcon,
-		light: LightbulbIcon,
-		heater: FlameIcon,
-		pump: DropletIcon,
-		humidifier: SparklesIcon,
-	};
-
-	const Icon = $derived(iconMap[device.type]);
+	const Icon = $derived(deviceIcons[device.type]);
 	const isPending = $derived(pendingDevices.has(device.id));
 	const isOverridden = $derived(
 		device.controlMode === "automatic" &&

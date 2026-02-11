@@ -19,6 +19,15 @@ namespace {
     std::map<String, float> cachedSensorReadings;
     bool sensorReadingsDirty = false;
 
+    float getSensorValue(const char* sensorType, const Sensors::SensorData& data) {
+        if (strcmp(sensorType, "temperature") == 0) return data.temperature;
+        if (strcmp(sensorType, "humidity") == 0) return data.humidity;
+        if (strcmp(sensorType, "co2") == 0) return data.co2;
+        if (strcmp(sensorType, "vpd") == 0) return data.vpd;
+        if (strcmp(sensorType, "soil_moisture") == 0) return data.soilMoisture;
+        return NAN;
+    }
+
     void broadcastRules() {
         JsonDocument doc;
         doc["type"] = "rules";
@@ -306,16 +315,9 @@ namespace {
         for (size_t i = 0; i < sensorCount; i++) {
             SensorConfig::Sensor* sensorCfg = SensorConfig::getSensor(sensorIds[i]);
             if (sensorCfg) {
-                if (strcmp(sensorCfg->type, "temperature") == 0) {
-                    History::record(sensorCfg->id, sensor.temperature);
-                } else if (strcmp(sensorCfg->type, "humidity") == 0) {
-                    History::record(sensorCfg->id, sensor.humidity);
-                } else if (strcmp(sensorCfg->type, "co2") == 0) {
-                    History::record(sensorCfg->id, sensor.co2);
-                } else if (strcmp(sensorCfg->type, "vpd") == 0) {
-                    History::record(sensorCfg->id, sensor.vpd);
-                } else if (strcmp(sensorCfg->type, "soil_moisture") == 0) {
-                    History::record(sensorCfg->id, sensor.soilMoisture);
+                float value = getSensorValue(sensorCfg->type, sensor);
+                if (!isnan(value)) {
+                    History::record(sensorCfg->id, value);
                 }
             }
         }
@@ -328,12 +330,7 @@ namespace {
             SensorConfig::Sensor* cfg = SensorConfig::getSensor(sensorIds[i]);
             if (!cfg) continue;
             
-            float value = NAN;
-            if (strcmp(cfg->type, "temperature") == 0) value = sensor.temperature;
-            else if (strcmp(cfg->type, "humidity") == 0) value = sensor.humidity;
-            else if (strcmp(cfg->type, "co2") == 0) value = sensor.co2;
-            else if (strcmp(cfg->type, "vpd") == 0) value = sensor.vpd;
-            else if (strcmp(cfg->type, "soil_moisture") == 0) value = sensor.soilMoisture;
+            float value = getSensorValue(cfg->type, sensor);
             
             if (!isnan(value)) {
                 JsonObject entry = data.add<JsonObject>();
@@ -425,16 +422,9 @@ void loop() {
                 for (size_t i = 0; i < sensorCount; i++) {
                     SensorConfig::Sensor* sensor = SensorConfig::getSensor(sensorIds[i]);
                     if (sensor) {
-                        if (strcmp(sensor->type, "temperature") == 0) {
-                            cachedSensorReadings[String(sensor->id)] = lastSensorData.temperature;
-                        } else if (strcmp(sensor->type, "humidity") == 0) {
-                            cachedSensorReadings[String(sensor->id)] = lastSensorData.humidity;
-                        } else if (strcmp(sensor->type, "co2") == 0) {
-                            cachedSensorReadings[String(sensor->id)] = lastSensorData.co2;
-                        } else if (strcmp(sensor->type, "vpd") == 0) {
-                            cachedSensorReadings[String(sensor->id)] = lastSensorData.vpd;
-                        } else if (strcmp(sensor->type, "soil_moisture") == 0) {
-                            cachedSensorReadings[String(sensor->id)] = lastSensorData.soilMoisture;
+                        float value = getSensorValue(sensor->type, lastSensorData);
+                        if (!isnan(value)) {
+                            cachedSensorReadings[String(sensor->id)] = value;
                         }
                     }
                 }

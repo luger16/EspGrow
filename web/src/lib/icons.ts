@@ -6,8 +6,10 @@ import LeafIcon from "@lucide/svelte/icons/leaf";
 import GaugeIcon from "@lucide/svelte/icons/gauge";
 import FanIcon from "@lucide/svelte/icons/fan";
 import LightbulbIcon from "@lucide/svelte/icons/lightbulb";
-import FlameIcon from "@lucide/svelte/icons/flame";
-import DropletsIcon from "@lucide/svelte/icons/droplets";
+import HeaterIcon from "@lucide/svelte/icons/heater";
+import WavesIcon from "@lucide/svelte/icons/waves";
+import BubblesIcon from "@lucide/svelte/icons/droplets";
+import DropletOffIcon from "@lucide/svelte/icons/droplet-off";
 import type { Component } from "svelte";
 import type { SensorType, DeviceType } from "$lib/types";
 
@@ -23,7 +25,8 @@ export const sensorIcons: Record<SensorType, Component> = {
 export const deviceIcons: Record<DeviceType, Component> = {
 	fan: FanIcon,
 	light: LightbulbIcon,
-	heater: FlameIcon,
-	pump: DropletsIcon,
-	humidifier: DropletIcon,
+	heater: HeaterIcon,
+	pump: WavesIcon,
+	humidifier: BubblesIcon,
+	dehumidifier: DropletOffIcon,
 };

@@ -20,7 +20,7 @@ export interface HistoricalReading {
 	value: number;
 }
 
-export type DeviceType = "fan" | "light" | "heater" | "pump" | "humidifier";
+export type DeviceType = "fan" | "light" | "heater" | "pump" | "humidifier" | "dehumidifier";
 export type DeviceControlMethod = "relay" | "shelly" | "tasmota";
 export type DeviceControlMode = "manual" | "automatic";
 
