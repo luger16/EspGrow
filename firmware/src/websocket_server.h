@@ -13,7 +13,7 @@ using MessageCallback = std::function<void(const String& message)>;
 AsyncWebServer* getServer(uint16_t port = 80);
 
 void init();  // Sets up WebSocket and static file serving on existing server
-void loop();
+void loop();  // Drains message queue + cleans up clients
 void broadcast(const String& message);
 void onMessage(MessageCallback callback);
 bool hasClients();

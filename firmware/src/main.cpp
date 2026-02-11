@@ -16,6 +16,8 @@ namespace {
     unsigned long lastBroadcast = 0;
     const unsigned long BROADCAST_INTERVAL = 5000;
     Sensors::SensorData lastSensorData;
+    std::map<String, float> cachedSensorReadings;
+    bool sensorReadingsDirty = false;
 
     void broadcastRules() {
         JsonDocument doc;
@@ -160,6 +162,9 @@ namespace {
             ruleDoc["sensorId"] = doc["sensorId"];
             ruleDoc["operator"] = doc["operator"];
             ruleDoc["threshold"] = doc["threshold"];
+            ruleDoc["thresholdOff"] = doc["thresholdOff"];
+            ruleDoc["useHysteresis"] = doc["useHysteresis"];
+            ruleDoc["minRunTimeMs"] = doc["minRunTimeMs"];
             ruleDoc["deviceId"] = doc["deviceId"];
             ruleDoc["deviceMethod"] = doc["deviceMethod"];
             ruleDoc["deviceTarget"] = doc["deviceTarget"];
@@ -177,6 +182,9 @@ namespace {
             if (doc["sensorId"].is<const char*>()) updates["sensorId"] = doc["sensorId"];
             if (doc["operator"].is<const char*>()) updates["operator"] = doc["operator"];
             if (doc["threshold"].is<float>()) updates["threshold"] = doc["threshold"];
+            if (doc["thresholdOff"].is<float>()) updates["thresholdOff"] = doc["thresholdOff"];
+            if (doc["useHysteresis"].is<bool>()) updates["useHysteresis"] = doc["useHysteresis"];
+            if (doc["minRunTimeMs"].is<unsigned long>()) updates["minRunTimeMs"] = doc["minRunTimeMs"];
             if (doc["deviceId"].is<const char*>()) updates["deviceId"] = doc["deviceId"];
             if (doc["deviceMethod"].is<const char*>()) updates["deviceMethod"] = doc["deviceMethod"];
             if (doc["deviceTarget"].is<const char*>()) updates["deviceTarget"] = doc["deviceTarget"];
@@ -277,6 +285,7 @@ namespace {
         if (!sensor.valid) return;
         
         lastSensorData = sensor;
+        sensorReadingsDirty = true;
 
         // Record history for each configured sensor
         size_t sensorCount;
@@ -382,28 +391,31 @@ void loop() {
         }
         
         if (lastSensorData.valid) {
-            std::map<String, float> sensorReadings;
-            size_t sensorCount;
-            const char** sensorIds = SensorConfig::getSensorIds(sensorCount);
-            
-            for (size_t i = 0; i < sensorCount; i++) {
-                SensorConfig::Sensor* sensor = SensorConfig::getSensor(sensorIds[i]);
-                if (sensor) {
-                    if (strcmp(sensor->type, "temperature") == 0) {
-                        sensorReadings[String(sensor->id)] = lastSensorData.temperature;
-                    } else if (strcmp(sensor->type, "humidity") == 0) {
-                        sensorReadings[String(sensor->id)] = lastSensorData.humidity;
-                    } else if (strcmp(sensor->type, "co2") == 0) {
-                        sensorReadings[String(sensor->id)] = lastSensorData.co2;
-                    } else if (strcmp(sensor->type, "vpd") == 0) {
-                        sensorReadings[String(sensor->id)] = lastSensorData.vpd;
-                    } else if (strcmp(sensor->type, "soil_moisture") == 0) {
-                        sensorReadings[String(sensor->id)] = lastSensorData.soilMoisture;
+            if (sensorReadingsDirty) {
+                cachedSensorReadings.clear();
+                size_t sensorCount;
+                const char** sensorIds = SensorConfig::getSensorIds(sensorCount);
+                
+                for (size_t i = 0; i < sensorCount; i++) {
+                    SensorConfig::Sensor* sensor = SensorConfig::getSensor(sensorIds[i]);
+                    if (sensor) {
+                        if (strcmp(sensor->type, "temperature") == 0) {
+                            cachedSensorReadings[String(sensor->id)] = lastSensorData.temperature;
+                        } else if (strcmp(sensor->type, "humidity") == 0) {
+                            cachedSensorReadings[String(sensor->id)] = lastSensorData.humidity;
+                        } else if (strcmp(sensor->type, "co2") == 0) {
+                            cachedSensorReadings[String(sensor->id)] = lastSensorData.co2;
+                        } else if (strcmp(sensor->type, "vpd") == 0) {
+                            cachedSensorReadings[String(sensor->id)] = lastSensorData.vpd;
+                        } else if (strcmp(sensor->type, "soil_moisture") == 0) {
+                            cachedSensorReadings[String(sensor->id)] = lastSensorData.soilMoisture;
+                        }
                     }
                 }
+                sensorReadingsDirty = false;
             }
             
-            Automation::loop(sensorReadings);
+            Automation::loop(cachedSensorReadings);
         }
     }
 }

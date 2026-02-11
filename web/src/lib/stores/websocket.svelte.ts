@@ -12,6 +12,7 @@ const state = $state<WebSocketState>({
 
 let ws: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+let shouldReconnect = true;
 const handlers = new Map<string, MessageHandler[]>();
 let pendingMessages: Array<{ type: string; payload?: Record<string, unknown> }> = [];
 
@@ -22,8 +23,9 @@ function getWebSocketUrl(): string {
 }
 
 export function connect(url?: string): void {
-	if (ws?.readyState === WebSocket.OPEN) return;
+	if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
 
+	shouldReconnect = true;
 	const wsUrl = url || getWebSocketUrl();
 	if (!wsUrl) return;
 
@@ -45,7 +47,10 @@ export function connect(url?: string): void {
 
 	ws.onclose = () => {
 		state.connected = false;
-		reconnectTimeout = setTimeout(() => connect(url), 3000);
+		ws = null;
+		if (shouldReconnect) {
+			reconnectTimeout = setTimeout(() => connect(url), 3000);
+		}
 	};
 
 	ws.onerror = () => {
@@ -67,6 +72,7 @@ export function connect(url?: string): void {
 }
 
 export function disconnect(): void {
+	shouldReconnect = false;
 	if (reconnectTimeout) {
 		clearTimeout(reconnectTimeout);
 		reconnectTimeout = null;

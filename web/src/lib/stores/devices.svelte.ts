@@ -21,8 +21,6 @@ export function toggleDevice(deviceId: string): void {
 		target: getDeviceTarget(device),
 		on: newState,
 	});
-	
-	device.isOn = newState;
 }
 
 export function addDevice(device: Device): void {

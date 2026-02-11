@@ -10,8 +10,8 @@ namespace {
     struct CircularBuffer {
         HistoryPoint* points;
         size_t capacity;
-        size_t head;
-        size_t count;
+        uint32_t head;
+        uint32_t count;
         uint32_t interval;
         uint32_t lastWrite;
     };
@@ -29,10 +29,6 @@ namespace {
     };
     
     std::map<std::string, SensorHistory> histories;
-    
-    HistoryPoint buffer12h[POINTS_12H];
-    HistoryPoint buffer24h[POINTS_24H];
-    HistoryPoint buffer7d[POINTS_7D];
     
     const char* HISTORY_DIR = "/history";
     
@@ -141,8 +137,8 @@ namespace {
         buf.points[buf.head].timestamp = timestamp;
         buf.points[buf.head].value = value;
         
-        buf.head = (buf.head + 1) % buf.capacity;
-        if (buf.count < buf.capacity) buf.count++;
+        buf.head = (buf.head + 1) % (uint32_t)buf.capacity;
+        if (buf.count < (uint32_t)buf.capacity) buf.count++;
         buf.lastWrite = timestamp;
     }
     
@@ -217,12 +213,12 @@ size_t getHistory(const char* sensorId, Range range, uint8_t* buffer, size_t buf
     
     size_t pointSize = sizeof(HistoryPoint);
     size_t maxPoints = bufferSize / pointSize;
-    size_t pointsToReturn = min(buf.count, maxPoints);
+    size_t pointsToReturn = min((size_t)buf.count, maxPoints);
     
     if (pointsToReturn == 0) return 0;
     
     size_t startIdx;
-    if (buf.count >= buf.capacity) {
+    if (buf.count >= (uint32_t)buf.capacity) {
         startIdx = buf.head;
     } else {
         startIdx = 0;
@@ -240,6 +236,23 @@ size_t getHistory(const char* sensorId, Range range, uint8_t* buffer, size_t buf
 
 size_t getPointCount(Range range) {
     return getCapacity(range);
+}
+
+void removeSensor(const char* sensorId) {
+    auto it = histories.find(sensorId);
+    if (it == histories.end()) return;
+    
+    for (int i = 0; i < 3; i++) {
+        delete[] it->second.buffers[i].points;
+        
+        String path = getFilePath(sensorId, (Range)i);
+        if (LittleFS.exists(path)) {
+            LittleFS.remove(path);
+        }
+    }
+    
+    histories.erase(it);
+    Serial.printf("[History] Removed sensor: %s\n", sensorId);
 }
 
 }

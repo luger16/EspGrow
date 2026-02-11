@@ -27,6 +27,7 @@ void init();
 void loop();
 
 void record(const char* sensorId, float value);
+void removeSensor(const char* sensorId);
 
 size_t getHistory(const char* sensorId, Range range, uint8_t* buffer, size_t bufferSize);
 size_t getPointCount(Range range);

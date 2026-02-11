@@ -19,13 +19,16 @@ function decodeBase64(base64: string): Uint8Array {
 function decodeHistoryPoints(data: Uint8Array): HistoricalReading[] {
 	const pointSize = 8;
 	const points: HistoricalReading[] = [];
-	const view = new DataView(data.buffer);
 	
-	for (let i = 0; i < data.length; i += pointSize) {
+	if (data.length < pointSize) return points;
+	
+	const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+	
+	for (let i = 0; i + pointSize <= data.length; i += pointSize) {
 		const timestamp = view.getUint32(i, true);
 		const value = view.getFloat32(i + 4, true);
 		
-		if (timestamp > 0) {
+		if (timestamp > 0 && Number.isFinite(value)) {
 			points.push({
 				date: new Date(timestamp * 1000),
 				value: Math.round(value * 10) / 10,

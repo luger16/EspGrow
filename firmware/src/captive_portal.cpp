@@ -190,12 +190,14 @@ void start(const Config& config, SuccessCallback onSuccess) {
     server = WebSocketServer::getServer(80);
     
     server->on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
+        if (!portalActive) { request->send(404); return; }
         scanNetworks();
         setupAP();
         request->redirect("/");
     });
     
     server->on("/connect", HTTP_POST, [](AsyncWebServerRequest *request){
+        if (!portalActive) { request->send(404); return; }
         if (request->hasParam("ssid", true)) {
             pendingSSID = request->getParam("ssid", true)->value();
         }
@@ -211,16 +213,20 @@ void start(const Config& config, SuccessCallback onSuccess) {
     });
     
     server->on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request){
+        if (!portalActive) { request->send(404); return; }
         request->redirect("http://" + WiFi.softAPIP().toString());
     });
     server->on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest *request){
+        if (!portalActive) { request->send(404); return; }
         request->redirect("http://" + WiFi.softAPIP().toString());
     });
     server->on("/fwlink", HTTP_GET, [](AsyncWebServerRequest *request){
+        if (!portalActive) { request->send(404); return; }
         request->redirect("http://" + WiFi.softAPIP().toString());
     });
     
     server->onNotFound([](AsyncWebServerRequest *request){
+        if (!portalActive) { request->send(404); return; }
         request->send(200, "text/html", generateHTML());
     });
     

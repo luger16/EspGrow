@@ -12,6 +12,19 @@ namespace {
     MessageCallback messageCallback;
     bool initialized = false;
 
+    static constexpr size_t MSG_QUEUE_SIZE = 8;
+    static constexpr size_t MSG_MAX_LEN = 512;
+    
+    struct MessageSlot {
+        char data[MSG_MAX_LEN];
+        size_t len = 0;
+        bool used = false;
+    };
+    
+    volatile size_t queueHead = 0;
+    volatile size_t queueTail = 0;
+    MessageSlot messageQueue[MSG_QUEUE_SIZE];
+
     void onWsEvent(AsyncWebSocket* wsServer, AsyncWebSocketClient* client, 
                    AwsEventType type, void* arg, uint8_t* data, size_t len) {
         switch (type) {
@@ -25,15 +38,16 @@ namespace {
             case WS_EVT_DATA: {
                 AwsFrameInfo* info = (AwsFrameInfo*)arg;
                 if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-                    String message;
-                    message.reserve(len + 1);
-                    for (size_t i = 0; i < len; i++) {
-                        message += (char)data[i];
+                    size_t next = (queueHead + 1) % MSG_QUEUE_SIZE;
+                    if (next == queueTail) {
+                        Serial.println("[WS] Message queue full, dropping");
+                        break;
                     }
-                    Serial.printf("[WS] Received: %s\n", message.c_str());
-                    if (messageCallback) {
-                        messageCallback(message);
-                    }
+                    size_t copyLen = (len < MSG_MAX_LEN - 1) ? len : MSG_MAX_LEN - 1;
+                    memcpy(messageQueue[queueHead].data, data, copyLen);
+                    messageQueue[queueHead].data[copyLen] = '\0';
+                    messageQueue[queueHead].len = copyLen;
+                    queueHead = next;
                 }
                 break;
             }
@@ -86,6 +100,15 @@ void init() {
 void loop() {
     if (ws) {
         ws->cleanupClients();
+    }
+    
+    while (queueTail != queueHead) {
+        String message(messageQueue[queueTail].data);
+        queueTail = (queueTail + 1) % MSG_QUEUE_SIZE;
+        
+        if (messageCallback) {
+            messageCallback(message);
+        }
     }
 }
 
