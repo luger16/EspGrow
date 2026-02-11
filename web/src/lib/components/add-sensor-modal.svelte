@@ -9,6 +9,7 @@
 	import PlusIcon from "@lucide/svelte/icons/plus";
 
 	let open = $state(false);
+	let submitted = $state(false);
 	let name = $state("");
 	let hardwareType = $state<Sensor["hardwareType"]>("sht41");
 	let sensorType = $state<Sensor["type"]>("temperature");
@@ -50,6 +51,8 @@
 	}
 
 	function handleSubmit() {
+		submitted = true;
+		if (!name) return;
 		const typeOption = sensorTypeOptions.find((o) => o.value === sensorType);
 		const sensor: Sensor = {
 			id: `sensor-${Date.now()}`,
@@ -65,6 +68,7 @@
 	}
 
 	function resetForm() {
+		submitted = false;
 		name = "";
 		hardwareType = "sht41";
 		sensorType = "temperature";
@@ -90,6 +94,9 @@
 			<div class="grid gap-2">
 				<Label for="name">Name</Label>
 				<Input id="name" bind:value={name} placeholder="e.g. Tent Temperature" required />
+				{#if submitted && !name}
+					<p class="text-destructive text-xs">Name is required</p>
+				{/if}
 			</div>
 			<div class="grid gap-2">
 				<Label>Hardware Type</Label>

@@ -16,6 +16,7 @@
 	let { sensor, open = $bindable(), onOpenChange }: Props = $props();
 
 	let name = $state("");
+	let submitted = $state(false);
 	let hardwareType = $state<Sensor["hardwareType"]>("sht41");
 	let sensorType = $state<Sensor["type"]>("temperature");
 	let address = $state("");
@@ -48,6 +49,7 @@
 
 	$effect(() => {
 		if (open) {
+			submitted = false;
 			name = sensor.name;
 			hardwareType = sensor.hardwareType;
 			sensorType = sensor.type;
@@ -66,6 +68,8 @@
 	}
 
 	function handleSubmit() {
+		submitted = true;
+		if (!name) return;
 		const typeOption = sensorTypeOptions.find((o) => o.value === sensorType);
 		updateSensor(sensor.id, {
 			name,
@@ -94,6 +98,9 @@
 			<div class="grid gap-2">
 				<Label for="name">Name</Label>
 				<Input id="name" bind:value={name} placeholder="e.g. Tent Temperature" required />
+				{#if submitted && !name}
+					<p class="text-destructive text-xs">Name is required</p>
+				{/if}
 			</div>
 			<div class="grid gap-2">
 				<Label>Hardware Type</Label>

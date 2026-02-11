@@ -16,6 +16,7 @@
 	let { device, open = $bindable(), onOpenChange }: Props = $props();
 
 	let name = $state("");
+	let submitted = $state(false);
 	let deviceType = $state<Device["type"]>("fan");
 	let controlMethod = $state<Device["controlMethod"]>("relay");
 	let gpioPin = $state("");
@@ -41,6 +42,7 @@
 
 	$effect(() => {
 		if (open) {
+			submitted = false;
 			name = device.name;
 			deviceType = device.type;
 			controlMethod = device.controlMethod;
@@ -50,6 +52,8 @@
 	});
 
 	function handleSubmit() {
+		submitted = true;
+		if (!name || (needsGpio && !gpioPin) || (needsIp && !ipAddress)) return;
 		updateDevice(device.id, {
 			name,
 			type: deviceType,
@@ -77,6 +81,9 @@
 			<div class="grid gap-2">
 				<Label for="name">Name</Label>
 				<Input id="name" bind:value={name} placeholder="e.g. Exhaust Fan" required />
+				{#if submitted && !name}
+					<p class="text-destructive text-xs">Name is required</p>
+				{/if}
 			</div>
 			<div class="grid gap-2">
 				<Label>Device Type</Label>
@@ -108,12 +115,18 @@
 				<div class="grid gap-2">
 					<Label for="gpio">GPIO Pin</Label>
 					<Input id="gpio" bind:value={gpioPin} type="number" placeholder="e.g. 16" required />
+					{#if submitted && needsGpio && !gpioPin}
+						<p class="text-destructive text-xs">GPIO pin is required</p>
+					{/if}
 				</div>
 			{/if}
 			{#if needsIp}
 				<div class="grid gap-2">
 					<Label for="ip">IP Address</Label>
 					<Input id="ip" bind:value={ipAddress} placeholder="e.g. 192.168.1.50" required />
+					{#if submitted && needsIp && !ipAddress}
+						<p class="text-destructive text-xs">IP address is required</p>
+					{/if}
 				</div>
 			{/if}
 			<Dialog.Footer class="flex-col gap-2 sm:flex-row sm:justify-between">

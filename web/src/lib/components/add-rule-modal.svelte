@@ -12,6 +12,7 @@
 	import PlusIcon from "@lucide/svelte/icons/plus";
 
 	let open = $state(false);
+	let submitted = $state(false);
 	let name = $state("");
 	let sensorId = $state("");
 	let operator = $state<ComparisonOperator>(">");
@@ -39,6 +40,8 @@
 	const canCreateRule = $derived(sensors.length > 0 && devices.length > 0);
 
 	function handleSubmit() {
+		submitted = true;
+		if (!isValid) return;
 		const rule: AutomationRule = {
 			id: `rule-${Date.now()}`,
 			name,
@@ -65,6 +68,7 @@
 	}
 
 	function resetForm() {
+		submitted = false;
 		name = "";
 		sensorId = "";
 		operator = ">";
@@ -104,6 +108,9 @@
 			<div class="grid gap-2">
 				<Label for="name">Rule Name</Label>
 				<Input id="name" bind:value={name} placeholder="e.g. High Temperature Fan" required />
+				{#if submitted && !name}
+					<p class="text-destructive text-xs">Rule name is required</p>
+				{/if}
 			</div>
 
 			<div class="grid gap-2">
@@ -118,6 +125,9 @@
 						{/each}
 					</Select.Content>
 				</Select.Root>
+				{#if submitted && !sensorId}
+					<p class="text-destructive text-xs">Select a sensor</p>
+				{/if}
 			</div>
 
 			<div class="grid grid-cols-[80px_1fr] gap-2">
@@ -138,6 +148,9 @@
 					required
 				/>
 			</div>
+			{#if submitted && !threshold}
+				<p class="text-destructive text-xs -mt-2">Threshold value is required</p>
+			{/if}
 
 			<div class="grid gap-3 rounded-lg border p-3">
 				<div class="flex items-center justify-between">
@@ -158,6 +171,9 @@
 							placeholder={selectedSensor ? `Value (${selectedSensor.unit})` : "Value"}
 							required={useHysteresis}
 						/>
+						{#if submitted && useHysteresis && !thresholdOff}
+							<p class="text-destructive text-xs">Turn off threshold is required</p>
+						{/if}
 						<p class="text-xs text-muted-foreground">
 							Device turns on at {threshold || "___"}{selectedSensor?.unit || ""}, turns off at {thresholdOff || "___"}{selectedSensor?.unit || ""}
 						</p>
@@ -200,6 +216,9 @@
 						</Select.Content>
 					</Select.Root>
 				</div>
+				{#if submitted && !deviceId}
+					<p class="text-destructive text-xs">Select a device</p>
+				{/if}
 			</div>
 
 			<Dialog.Footer>

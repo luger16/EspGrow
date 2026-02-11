@@ -19,6 +19,7 @@
 	let { rule, open = $bindable(), onOpenChange }: Props = $props();
 
 	let name = $state("");
+	let submitted = $state(false);
 	let sensorId = $state("");
 	let operator = $state<ComparisonOperator>(">");
 	let threshold = $state("");
@@ -46,6 +47,7 @@
 
 	$effect(() => {
 		if (open) {
+			submitted = false;
 			name = rule.name;
 			sensorId = rule.sensorId;
 			operator = rule.operator;
@@ -59,6 +61,8 @@
 	});
 
 	function handleSubmit() {
+		submitted = true;
+		if (!isValid) return;
 		const updates: Partial<AutomationRule> = {
 			name,
 			sensorId,
@@ -112,6 +116,9 @@
 			<div class="grid gap-2">
 				<Label for="name">Rule Name</Label>
 				<Input id="name" bind:value={name} placeholder="e.g. High Temperature Fan" required />
+				{#if submitted && !name}
+					<p class="text-destructive text-xs">Rule name is required</p>
+				{/if}
 			</div>
 
 			<div class="grid gap-2">
@@ -126,6 +133,9 @@
 						{/each}
 					</Select.Content>
 				</Select.Root>
+				{#if submitted && !sensorId}
+					<p class="text-destructive text-xs">Select a sensor</p>
+				{/if}
 			</div>
 
 			<div class="grid grid-cols-[80px_1fr] gap-2">
@@ -146,6 +156,9 @@
 					required
 				/>
 			</div>
+			{#if submitted && !threshold}
+				<p class="text-destructive text-xs -mt-2">Threshold value is required</p>
+			{/if}
 
 			<div class="grid gap-3 rounded-lg border p-3">
 				<div class="flex items-center justify-between">
@@ -166,6 +179,9 @@
 							placeholder={selectedSensor ? `Value (${selectedSensor.unit})` : "Value"}
 							required={useHysteresis}
 						/>
+						{#if submitted && useHysteresis && !thresholdOff}
+							<p class="text-destructive text-xs">Turn off threshold is required</p>
+						{/if}
 						<p class="text-xs text-muted-foreground">
 							Device turns on at {threshold || "___"}{selectedSensor?.unit || ""}, turns off at {thresholdOff || "___"}{selectedSensor?.unit || ""}
 						</p>
@@ -208,6 +224,9 @@
 						</Select.Content>
 					</Select.Root>
 				</div>
+				{#if submitted && !deviceId}
+					<p class="text-destructive text-xs">Select a device</p>
+				{/if}
 			</div>
 
 			<Dialog.Footer class="flex-col gap-2 sm:flex-row sm:justify-between">
