@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Card from "$lib/components/ui/card/index.js";
 	import type { Sensor, SensorReading } from "$lib/types";
+	import { settings, formatTemperature } from "$lib/stores/settings.svelte";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 	import DropletIcon from "@lucide/svelte/icons/droplet";
 	import CloudIcon from "@lucide/svelte/icons/cloud";
@@ -25,7 +26,13 @@
 	};
 
 	const Icon = $derived(iconMap[sensor.type]);
-	const displayValue = $derived(reading ? `${reading.value}${sensor.unit}` : "—");
+	const displayValue = $derived.by(() => {
+		if (!reading) return "—";
+		if (sensor.type === "temperature") {
+			return formatTemperature(reading.value, settings.temperatureUnit);
+		}
+		return `${reading.value}${sensor.unit}`;
+	});
 </script>
 
 <button type="button" class="w-full text-left" {onclick}>
