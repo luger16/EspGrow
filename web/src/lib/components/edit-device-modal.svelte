@@ -18,8 +18,7 @@
 	let name = $state("");
 	let submitted = $state(false);
 	let deviceType = $state<Device["type"]>("fan");
-	let controlMethod = $state<Device["controlMethod"]>("relay");
-	let gpioPin = $state("");
+	let controlMethod = $state<Device["controlMethod"]>("shelly_gen2");
 	let ipAddress = $state("");
 	let showDeleteConfirm = $state(false);
 
@@ -32,13 +31,10 @@
 	];
 
 	const controlMethodOptions: { value: Device["controlMethod"]; label: string }[] = [
-		{ value: "relay", label: "Direct Relay (GPIO)" },
-		{ value: "shelly", label: "Shelly (HTTP API)" },
+		{ value: "shelly_gen1", label: "Shelly Gen1 (HTTP API)" },
+		{ value: "shelly_gen2", label: "Shelly Gen2/Plus (RPC API)" },
 		{ value: "tasmota", label: "Tasmota (HTTP API)" },
 	];
-
-	const needsGpio = $derived(controlMethod === "relay");
-	const needsIp = $derived(controlMethod === "shelly" || controlMethod === "tasmota");
 
 	$effect(() => {
 		if (open) {
@@ -46,20 +42,18 @@
 			name = device.name;
 			deviceType = device.type;
 			controlMethod = device.controlMethod;
-			gpioPin = device.gpioPin?.toString() ?? "";
 			ipAddress = device.ipAddress ?? "";
 		}
 	});
 
 	function handleSubmit() {
 		submitted = true;
-		if (!name || (needsGpio && !gpioPin) || (needsIp && !ipAddress)) return;
+		if (!name || !ipAddress) return;
 		updateDevice(device.id, {
 			name,
 			type: deviceType,
 			controlMethod,
-			gpioPin: needsGpio && gpioPin ? parseInt(gpioPin, 10) : undefined,
-			ipAddress: needsIp ? ipAddress : undefined,
+			ipAddress,
 		});
 		onOpenChange(false);
 	}
@@ -111,27 +105,16 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
-			{#if needsGpio}
-				<div class="grid gap-2">
-					<Label for="gpio">GPIO Pin</Label>
-					<Input id="gpio" bind:value={gpioPin} type="number" placeholder="e.g. 16" required />
-					{#if submitted && needsGpio && !gpioPin}
-						<p class="text-destructive text-xs">GPIO pin is required</p>
-					{/if}
-				</div>
-			{/if}
-			{#if needsIp}
-				<div class="grid gap-2">
-					<Label for="ip">IP Address</Label>
-					<Input id="ip" bind:value={ipAddress} placeholder="e.g. 192.168.1.50" required />
-					{#if submitted && needsIp && !ipAddress}
-						<p class="text-destructive text-xs">IP address is required</p>
-					{/if}
-				</div>
-			{/if}
+			<div class="grid gap-2">
+				<Label for="ip">IP Address</Label>
+				<Input id="ip" bind:value={ipAddress} placeholder="e.g. 192.168.1.50" required />
+				{#if submitted && !ipAddress}
+					<p class="text-destructive text-xs">IP address is required</p>
+				{/if}
+			</div>
 			<Dialog.Footer class="flex-col gap-2 sm:flex-row sm:justify-between">
 				<Button type="button" variant="destructive" onclick={() => (showDeleteConfirm = true)}>Delete</Button>
-				<Button type="submit" disabled={!name || (needsGpio && !gpioPin) || (needsIp && !ipAddress)}>Save Changes</Button>
+				<Button type="submit" disabled={!name || !ipAddress}>Save Changes</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

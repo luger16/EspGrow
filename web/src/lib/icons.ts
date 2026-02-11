@@ -2,7 +2,6 @@ import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 import DropletIcon from "@lucide/svelte/icons/droplet";
 import CloudIcon from "@lucide/svelte/icons/cloud";
 import SunIcon from "@lucide/svelte/icons/sun";
-import LeafIcon from "@lucide/svelte/icons/leaf";
 import GaugeIcon from "@lucide/svelte/icons/gauge";
 import FanIcon from "@lucide/svelte/icons/fan";
 import LightbulbIcon from "@lucide/svelte/icons/lightbulb";
@@ -18,7 +17,6 @@ export const sensorIcons: Record<SensorType, Component> = {
 	humidity: DropletIcon,
 	co2: CloudIcon,
 	light: SunIcon,
-	soil_moisture: LeafIcon,
 	vpd: GaugeIcon,
 };
 

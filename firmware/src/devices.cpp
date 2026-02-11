@@ -19,7 +19,6 @@ namespace {
             obj["name"] = device.name;
             obj["type"] = device.type;
             obj["controlMethod"] = device.controlMethod;
-            obj["gpioPin"] = device.gpioPin;
             obj["ipAddress"] = device.ipAddress;
         }
         
@@ -41,7 +40,6 @@ namespace {
             strlcpy(device.name, obj["name"] | "", sizeof(device.name));
             strlcpy(device.type, obj["type"] | "", sizeof(device.type));
             strlcpy(device.controlMethod, obj["controlMethod"] | "", sizeof(device.controlMethod));
-            device.gpioPin = obj["gpioPin"] | 0;
             strlcpy(device.ipAddress, obj["ipAddress"] | "", sizeof(device.ipAddress));
             strlcpy(device.controlMode, "manual", sizeof(device.controlMode));
             
@@ -63,7 +61,6 @@ bool addDevice(JsonDocument& doc) {
     strlcpy(device.name, doc["name"] | "", sizeof(device.name));
     strlcpy(device.type, doc["type"] | "", sizeof(device.type));
     strlcpy(device.controlMethod, doc["controlMethod"] | "", sizeof(device.controlMethod));
-    device.gpioPin = doc["gpioPin"] | 0;
     strlcpy(device.ipAddress, doc["ipAddress"] | "", sizeof(device.ipAddress));
     strlcpy(device.controlMode, "manual", sizeof(device.controlMode));
     
@@ -80,9 +77,7 @@ bool updateDevice(const char* deviceId, JsonDocument& doc) {
             if (doc["name"].is<const char*>()) strlcpy(device.name, doc["name"], sizeof(device.name));
             if (doc["type"].is<const char*>()) strlcpy(device.type, doc["type"], sizeof(device.type));
             if (doc["controlMethod"].is<const char*>()) strlcpy(device.controlMethod, doc["controlMethod"], sizeof(device.controlMethod));
-            if (doc["gpioPin"].is<int>()) device.gpioPin = doc["gpioPin"];
             if (doc["ipAddress"].is<const char*>()) strlcpy(device.ipAddress, doc["ipAddress"], sizeof(device.ipAddress));
-            
             
             saveDevices();
             Serial.printf("[Devices] Updated device: %s\n", device.name);
@@ -114,7 +109,6 @@ void getDevicesJson(String& out) {
         obj["name"] = device.name;
         obj["type"] = device.type;
         obj["controlMethod"] = device.controlMethod;
-        obj["gpioPin"] = device.gpioPin;
         obj["ipAddress"] = device.ipAddress;
         obj["controlMode"] = device.controlMode;
         obj["isOn"] = device.isOn;
@@ -149,11 +143,7 @@ bool setDeviceState(const char* deviceId, bool on) {
 Device* findDeviceByTarget(const char* method, const char* target) {
     for (auto& device : devices) {
         if (strcmp(device.controlMethod, method) == 0) {
-            if (strcmp(method, "relay") == 0) {
-                if (device.gpioPin == atoi(target)) return &device;
-            } else {
-                if (strcmp(device.ipAddress, target) == 0) return &device;
-            }
+            if (strcmp(device.ipAddress, target) == 0) return &device;
         }
     }
     return nullptr;

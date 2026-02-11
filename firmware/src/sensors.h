@@ -4,25 +4,21 @@
 
 namespace Sensors {
 
-struct SensorData {
-    float temperature;    // Celsius (from SHT41, falls back to SCD40)
-    float humidity;       // % RH (from SHT41, falls back to SCD40)
-    uint16_t co2;         // ppm (from SCD40)
-    float vpd;            // kPa (calculated)
-    float soilMoisture;   // 0-100% (from capacitive sensor)
-    bool valid;
-};
-
-// Initialize I2C and sensors
+// Initialize I2C bus and scan all supported hardware
 // sda/scl: I2C pins (default: -1 uses board defaults)
 bool init(int sda = -1, int scl = -1);
 
-// Read all sensors and return combined data
-// Returns data with valid=false if all sensors failed
-SensorData read();
+// Read all detected hardware and cache latest values
+void read();
 
-// Individual sensor status
-bool hasSHT41();
-bool hasSCD40();
+// Get a sensor value by sensor ID (looks up SensorConfig for hardwareType + type)
+// Returns NAN if hardware not connected or sensor type not available
+float getSensorValue(const char* sensorId);
+
+// Check if a specific hardware type is connected
+bool isHardwareConnected(const char* hardwareType);
+
+// Returns true if any hardware was detected during init
+bool hasAnySensor();
 
 }  // namespace Sensors

@@ -1,12 +1,14 @@
-export type SensorType = "temperature" | "humidity" | "co2" | "light" | "soil_moisture" | "vpd";
+export type SensorType = "temperature" | "humidity" | "co2" | "light" | "vpd";
 
 export interface Sensor {
 	id: string;
 	name: string;
 	type: SensorType;
 	unit: string;
-	hardwareType: "sht41" | "scd40" | "as7341" | "soil_capacitive" | "calculated";
+	hardwareType: "sht3x" | "sht4x" | "scd4x" | "as7341" | "calculated";
 	address?: string;
+	tempSourceId?: string;
+	humSourceId?: string;
 }
 
 export interface SensorReading {
@@ -21,7 +23,7 @@ export interface HistoricalReading {
 }
 
 export type DeviceType = "fan" | "light" | "heater" | "pump" | "humidifier" | "dehumidifier";
-export type DeviceControlMethod = "relay" | "shelly" | "tasmota";
+export type DeviceControlMethod = "shelly_gen1" | "shelly_gen2" | "tasmota";
 export type DeviceControlMode = "manual" | "automatic";
 
 export interface Device {
@@ -29,7 +31,6 @@ export interface Device {
 	name: string;
 	type: DeviceType;
 	controlMethod: DeviceControlMethod;
-	gpioPin?: number;
 	ipAddress?: string;
 	isOn: boolean;
 	controlMode: DeviceControlMode;

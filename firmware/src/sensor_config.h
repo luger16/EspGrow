@@ -11,6 +11,9 @@ struct Sensor {
     char type[20];
     char unit[8];
     char hardwareType[20];
+    char address[12];
+    char tempSourceId[24];
+    char humSourceId[24];
 };
 
 void init();

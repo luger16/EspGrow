@@ -21,6 +21,9 @@ namespace {
             obj["type"] = sensor.type;
             obj["unit"] = sensor.unit;
             obj["hardwareType"] = sensor.hardwareType;
+            if (sensor.address[0] != '\0') obj["address"] = sensor.address;
+            if (sensor.tempSourceId[0] != '\0') obj["tempSourceId"] = sensor.tempSourceId;
+            if (sensor.humSourceId[0] != '\0') obj["humSourceId"] = sensor.humSourceId;
         }
         
         Storage::writeJson(SENSORS_PATH, doc);
@@ -42,6 +45,9 @@ namespace {
             strlcpy(sensor.type, obj["type"] | "", sizeof(sensor.type));
             strlcpy(sensor.unit, obj["unit"] | "", sizeof(sensor.unit));
             strlcpy(sensor.hardwareType, obj["hardwareType"] | "", sizeof(sensor.hardwareType));
+            strlcpy(sensor.address, obj["address"] | "", sizeof(sensor.address));
+            strlcpy(sensor.tempSourceId, obj["tempSourceId"] | "", sizeof(sensor.tempSourceId));
+            strlcpy(sensor.humSourceId, obj["humSourceId"] | "", sizeof(sensor.humSourceId));
             
             sensors.push_back(sensor);
         }
@@ -70,6 +76,9 @@ bool addSensor(JsonDocument& doc) {
     strlcpy(sensor.type, doc["type"] | "", sizeof(sensor.type));
     strlcpy(sensor.unit, doc["unit"] | "", sizeof(sensor.unit));
     strlcpy(sensor.hardwareType, doc["hardwareType"] | "", sizeof(sensor.hardwareType));
+    strlcpy(sensor.address, doc["address"] | "", sizeof(sensor.address));
+    strlcpy(sensor.tempSourceId, doc["tempSourceId"] | "", sizeof(sensor.tempSourceId));
+    strlcpy(sensor.humSourceId, doc["humSourceId"] | "", sizeof(sensor.humSourceId));
     
     sensors.push_back(sensor);
     updateIdPtrs();
@@ -86,6 +95,9 @@ bool updateSensor(const char* sensorId, JsonDocument& doc) {
             if (doc["type"].is<const char*>()) strlcpy(sensor.type, doc["type"], sizeof(sensor.type));
             if (doc["unit"].is<const char*>()) strlcpy(sensor.unit, doc["unit"], sizeof(sensor.unit));
             if (doc["hardwareType"].is<const char*>()) strlcpy(sensor.hardwareType, doc["hardwareType"], sizeof(sensor.hardwareType));
+            if (doc["address"].is<const char*>()) strlcpy(sensor.address, doc["address"], sizeof(sensor.address));
+            if (doc["tempSourceId"].is<const char*>()) strlcpy(sensor.tempSourceId, doc["tempSourceId"], sizeof(sensor.tempSourceId));
+            if (doc["humSourceId"].is<const char*>()) strlcpy(sensor.humSourceId, doc["humSourceId"], sizeof(sensor.humSourceId));
             
             saveConfig();
             Serial.printf("[SensorConfig] Updated sensor: %s\n", sensor.name);
@@ -120,6 +132,9 @@ void getSensorsJson(String& out) {
         obj["type"] = sensor.type;
         obj["unit"] = sensor.unit;
         obj["hardwareType"] = sensor.hardwareType;
+        if (sensor.address[0] != '\0') obj["address"] = sensor.address;
+        if (sensor.tempSourceId[0] != '\0') obj["tempSourceId"] = sensor.tempSourceId;
+        if (sensor.humSourceId[0] != '\0') obj["humSourceId"] = sensor.humSourceId;
     }
     
     serializeJson(doc, out);

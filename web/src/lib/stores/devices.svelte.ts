@@ -6,9 +6,6 @@ export const pendingDevices = $state<Set<string>>(new Set());
 export const overriddenDevices = $state<Record<string, number>>({});
 
 function getDeviceTarget(device: Device): string {
-	if (device.controlMethod === "relay") {
-		return String(device.gpioPin ?? 0);
-	}
 	return device.ipAddress ?? "";
 }
 
@@ -33,7 +30,6 @@ export function addDevice(device: Device): void {
 		name: device.name,
 		deviceType: device.type,
 		controlMethod: device.controlMethod,
-		gpioPin: device.gpioPin,
 		ipAddress: device.ipAddress,
 	});
 }
@@ -48,7 +44,6 @@ export function updateDevice(deviceId: string, updates: Partial<Omit<Device, "id
 		name: updates.name,
 		deviceType: updates.type,
 		controlMethod: updates.controlMethod,
-		gpioPin: updates.gpioPin,
 		ipAddress: updates.ipAddress,
 	});
 }
@@ -71,10 +66,7 @@ export function initDeviceWebSocket(): void {
 		const msg = data as { deviceId?: string; target: string; on: boolean; success: boolean; overrideActive?: boolean; overrideRemainingMs?: number };
 		const device = msg.deviceId 
 			? devices.find((d) => d.id === msg.deviceId)
-			: devices.find((d) => 
-				(d.controlMethod === "relay" && String(d.gpioPin) === msg.target) ||
-				(d.ipAddress === msg.target)
-			);
+			: devices.find((d) => d.ipAddress === msg.target);
 		if (device) {
 			if (msg.success) device.isOn = msg.on;
 			pendingDevices.delete(device.id);

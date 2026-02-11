@@ -108,6 +108,9 @@ export function addSensor(sensor: Sensor): void {
 		sensorType: sensor.type,
 		unit: sensor.unit,
 		hardwareType: sensor.hardwareType,
+		address: sensor.address ?? "",
+		tempSourceId: sensor.tempSourceId ?? "",
+		humSourceId: sensor.humSourceId ?? "",
 	});
 }
 
@@ -122,5 +125,8 @@ export function updateSensor(sensorId: string, updates: Partial<Omit<Sensor, "id
 		sensorType: updates.type,
 		unit: updates.unit,
 		hardwareType: updates.hardwareType,
+		address: updates.address ?? "",
+		tempSourceId: updates.tempSourceId ?? "",
+		humSourceId: updates.humSourceId ?? "",
 	});
 }

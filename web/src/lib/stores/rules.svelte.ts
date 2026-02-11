@@ -8,9 +8,6 @@ function getDeviceTarget(deviceId: string): { method: string; target: string } {
 	const device = devices.find((d) => d.id === deviceId);
 	if (!device) return { method: "", target: "" };
 	
-	if (device.controlMethod === "relay") {
-		return { method: "relay", target: String(device.gpioPin ?? 0) };
-	}
 	return { method: device.controlMethod, target: device.ipAddress ?? "" };
 }
 

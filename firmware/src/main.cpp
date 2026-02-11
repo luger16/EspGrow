@@ -15,18 +15,8 @@
 namespace {
     unsigned long lastBroadcast = 0;
     const unsigned long BROADCAST_INTERVAL = 5000;
-    Sensors::SensorData lastSensorData;
     std::map<String, float> cachedSensorReadings;
     bool sensorReadingsDirty = false;
-
-    float getSensorValue(const char* sensorType, const Sensors::SensorData& data) {
-        if (strcmp(sensorType, "temperature") == 0) return data.temperature;
-        if (strcmp(sensorType, "humidity") == 0) return data.humidity;
-        if (strcmp(sensorType, "co2") == 0) return data.co2;
-        if (strcmp(sensorType, "vpd") == 0) return data.vpd;
-        if (strcmp(sensorType, "soil_moisture") == 0) return data.soilMoisture;
-        return NAN;
-    }
 
     void broadcastRules() {
         JsonDocument doc;
@@ -235,7 +225,6 @@ namespace {
             deviceDoc["name"] = doc["name"];
             deviceDoc["type"] = doc["deviceType"];
             deviceDoc["controlMethod"] = doc["controlMethod"];
-            deviceDoc["gpioPin"] = doc["gpioPin"];
             deviceDoc["ipAddress"] = doc["ipAddress"];
             deviceDoc["controlMode"] = doc["controlMode"];
             
@@ -248,7 +237,6 @@ namespace {
             if (doc["name"].is<const char*>()) updates["name"] = doc["name"];
             if (doc["deviceType"].is<const char*>()) updates["type"] = doc["deviceType"];
             if (doc["controlMethod"].is<const char*>()) updates["controlMethod"] = doc["controlMethod"];
-            if (doc["gpioPin"].is<int>()) updates["gpioPin"] = doc["gpioPin"];
             if (doc["ipAddress"].is<const char*>()) updates["ipAddress"] = doc["ipAddress"];
             
             Devices::updateDevice(deviceId, updates);
@@ -271,6 +259,9 @@ namespace {
             sensorDoc["type"] = doc["sensorType"];
             sensorDoc["unit"] = doc["unit"];
             sensorDoc["hardwareType"] = doc["hardwareType"];
+            sensorDoc["address"] = doc["address"];
+            sensorDoc["tempSourceId"] = doc["tempSourceId"];
+            sensorDoc["humSourceId"] = doc["humSourceId"];
             
             SensorConfig::addSensor(sensorDoc);
             broadcastSensors();
@@ -282,6 +273,9 @@ namespace {
             if (doc["sensorType"].is<const char*>()) updates["type"] = doc["sensorType"];
             if (doc["unit"].is<const char*>()) updates["unit"] = doc["unit"];
             if (doc["hardwareType"].is<const char*>()) updates["hardwareType"] = doc["hardwareType"];
+            if (doc["address"].is<const char*>()) updates["address"] = doc["address"];
+            if (doc["tempSourceId"].is<const char*>()) updates["tempSourceId"] = doc["tempSourceId"];
+            if (doc["humSourceId"].is<const char*>()) updates["humSourceId"] = doc["humSourceId"];
             
             SensorConfig::updateSensor(sensorId, updates);
             broadcastSensors();
@@ -303,43 +297,37 @@ namespace {
     void broadcastSensorData() {
         if (!WebSocketServer::hasClients()) return;
 
-        Sensors::SensorData sensor = Sensors::read();
-        if (!sensor.valid) return;
-        
-        lastSensorData = sensor;
-        sensorReadingsDirty = true;
+        Sensors::read();
 
-        // Record history for each configured sensor
         size_t sensorCount;
         const char** sensorIds = SensorConfig::getSensorIds(sensorCount);
-        for (size_t i = 0; i < sensorCount; i++) {
-            SensorConfig::Sensor* sensorCfg = SensorConfig::getSensor(sensorIds[i]);
-            if (sensorCfg) {
-                float value = getSensorValue(sensorCfg->type, sensor);
-                if (!isnan(value)) {
-                    History::record(sensorCfg->id, value);
-                }
-            }
-        }
-
+        
+        bool anyValid = false;
+        
         JsonDocument doc;
         doc["type"] = "sensors";
-        
         JsonArray data = doc["data"].to<JsonArray>();
+        
         for (size_t i = 0; i < sensorCount; i++) {
-            SensorConfig::Sensor* cfg = SensorConfig::getSensor(sensorIds[i]);
-            if (!cfg) continue;
-            
-            float value = getSensorValue(cfg->type, sensor);
+            float value = Sensors::getSensorValue(sensorIds[i]);
             
             if (!isnan(value)) {
+                anyValid = true;
+                
                 JsonObject entry = data.add<JsonObject>();
-                entry["id"] = cfg->id;
-                entry["type"] = cfg->type;
+                entry["id"] = sensorIds[i];
+                SensorConfig::Sensor* cfg = SensorConfig::getSensor(sensorIds[i]);
+                if (cfg) entry["type"] = cfg->type;
                 entry["value"] = value;
+                
+                History::record(sensorIds[i], value);
+                cachedSensorReadings[String(sensorIds[i])] = value;
             }
         }
         
+        if (!anyValid) return;
+        
+        sensorReadingsDirty = true;
         doc["timestamp"] = millis();
 
         String out;
@@ -413,24 +401,8 @@ void loop() {
             broadcastSensorData();
         }
         
-        if (lastSensorData.valid) {
-            if (sensorReadingsDirty) {
-                cachedSensorReadings.clear();
-                size_t sensorCount;
-                const char** sensorIds = SensorConfig::getSensorIds(sensorCount);
-                
-                for (size_t i = 0; i < sensorCount; i++) {
-                    SensorConfig::Sensor* sensor = SensorConfig::getSensor(sensorIds[i]);
-                    if (sensor) {
-                        float value = getSensorValue(sensor->type, lastSensorData);
-                        if (!isnan(value)) {
-                            cachedSensorReadings[String(sensor->id)] = value;
-                        }
-                    }
-                }
-                sensorReadingsDirty = false;
-            }
-            
+        if (sensorReadingsDirty) {
+            sensorReadingsDirty = false;
             Automation::clearExpiredOverrides();
             Automation::loop(cachedSensorReadings);
         }

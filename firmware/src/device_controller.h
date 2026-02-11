@@ -6,8 +6,8 @@ namespace DeviceController {
     void init();
     
     bool setTasmota(const String& ip, bool on);
-    bool setShelly(const String& ip, bool on);
-    bool setRelay(uint8_t pin, bool on);
+    bool setShellyGen1(const String& ip, bool on);
+    bool setShellyGen2(const String& ip, bool on);
     
     bool control(const String& method, const String& target, bool on);
 }

@@ -10,10 +10,9 @@ struct Device {
     char name[32];
     char type[16];
     char controlMethod[16];
-    uint8_t gpioPin;
     char ipAddress[40];
     char controlMode[12];
-    bool isOn = false;  // Runtime state, not persisted
+    bool isOn = false;
 };
 
 void init();

@@ -17,16 +17,16 @@
 	import type { Sensor, Device } from "$lib/types";
 
 	const hardwareLabels: Record<Sensor["hardwareType"], string> = {
-		sht41: "SHT41",
-		scd40: "SCD40",
+		sht3x: "SHT3x",
+		sht4x: "SHT4x",
+		scd4x: "SCD4x",
 		as7341: "AS7341",
-		soil_capacitive: "Capacitive",
 		calculated: "Calculated",
 	};
 
 	const controlMethodLabels: Record<Device["controlMethod"], string> = {
-		relay: "GPIO Relay",
-		shelly: "Shelly",
+		shelly_gen1: "Shelly Gen1",
+		shelly_gen2: "Shelly Gen2/Plus",
 		tasmota: "Tasmota",
 	};
 
@@ -146,7 +146,7 @@
 						<div class="flex-1">
 							<p class="text-sm font-medium">{device.name}</p>
 							<p class="text-xs text-muted-foreground">
-								{controlMethodLabels[device.controlMethod]}{device.gpioPin ? ` · GPIO ${device.gpioPin}` : ""}{device.ipAddress ? ` · ${device.ipAddress}` : ""}
+								{controlMethodLabels[device.controlMethod]}{device.ipAddress ? ` · ${device.ipAddress}` : ""}
 							</p>
 						</div>
 						<Button variant="ghost" size="icon" onclick={() => (editingDeviceId = device.id)}>
