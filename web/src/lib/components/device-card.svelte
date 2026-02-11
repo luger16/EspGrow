@@ -3,12 +3,14 @@
 	import { Switch } from "$lib/components/ui/switch/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
 	import type { Device } from "$lib/types";
-	import { toggleDevice } from "$lib/stores/devices.svelte";
+	import { toggleDevice, pendingDevices, overriddenDevices } from "$lib/stores/devices.svelte";
 	import FanIcon from "@lucide/svelte/icons/fan";
 	import LightbulbIcon from "@lucide/svelte/icons/lightbulb";
 	import FlameIcon from "@lucide/svelte/icons/flame";
 	import DropletIcon from "@lucide/svelte/icons/droplet";
 	import SparklesIcon from "@lucide/svelte/icons/sparkles";
+	import LoaderIcon from "@lucide/svelte/icons/loader-circle";
+	import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
 	import type { Component } from "svelte";
 
 	let { device }: { device: Device } = $props();
@@ -22,6 +24,12 @@
 	};
 
 	const Icon = $derived(iconMap[device.type]);
+	const isPending = $derived(pendingDevices.has(device.id));
+	const isOverridden = $derived(
+		device.controlMode === "automatic" &&
+		overriddenDevices[device.id] !== undefined &&
+		overriddenDevices[device.id] > Date.now()
+	);
 
 	function handleToggle() {
 		toggleDevice(device.id);
@@ -41,11 +49,22 @@
 			<span class="font-medium">{device.name}</span>
 			<div class="flex items-center gap-2">
 				<span class="text-muted-foreground text-xs">{device.isOn ? "On" : "Off"}</span>
-				<Badge variant={device.controlMode === "automatic" ? "secondary" : "outline"} class="text-xs px-1.5 py-0">
-					{device.controlMode === "automatic" ? "Auto" : "Manual"}
-				</Badge>
+				{#if isOverridden}
+					<Badge variant="destructive" class="text-xs px-1.5 py-0 gap-1">
+						<TriangleAlertIcon class="size-3" />
+						Override
+					</Badge>
+				{:else}
+					<Badge variant={device.controlMode === "automatic" ? "secondary" : "outline"} class="text-xs px-1.5 py-0">
+						{device.controlMode === "automatic" ? "Auto" : "Manual"}
+					</Badge>
+				{/if}
 			</div>
 		</div>
-		<Switch checked={device.isOn} onCheckedChange={handleToggle} />
+		{#if isPending}
+			<LoaderIcon class="size-5 animate-spin text-muted-foreground" />
+		{:else}
+			<Switch checked={device.isOn} onCheckedChange={handleToggle} />
+		{/if}
 	</Card.Content>
 </Card.Root>

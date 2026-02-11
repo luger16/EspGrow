@@ -2,6 +2,8 @@ import type { Device } from "$lib/types";
 import { websocket } from "./websocket.svelte";
 
 export const devices = $state<Device[]>([]);
+export const pendingDevices = $state<Set<string>>(new Set());
+export const overriddenDevices = $state<Record<string, number>>({});
 
 function getDeviceTarget(device: Device): string {
 	if (device.controlMethod === "relay") {
@@ -13,7 +15,9 @@ function getDeviceTarget(device: Device): string {
 export function toggleDevice(deviceId: string): void {
 	const device = devices.find((d) => d.id === deviceId);
 	if (!device) return;
+	if (pendingDevices.has(deviceId)) return;
 
+	pendingDevices.add(deviceId);
 	const newState = !device.isOn;
 	
 	websocket.send("device_control", {
@@ -64,15 +68,19 @@ export function initDeviceWebSocket(): void {
 	});
 
 	websocket.on("device_status", (data: unknown) => {
-		const msg = data as { deviceId?: string; target: string; on: boolean; success: boolean };
-		if (msg.success) {
-			const device = msg.deviceId 
-				? devices.find((d) => d.id === msg.deviceId)
-				: devices.find((d) => 
-					(d.controlMethod === "relay" && String(d.gpioPin) === msg.target) ||
-					(d.ipAddress === msg.target)
-				);
-			if (device) device.isOn = msg.on;
+		const msg = data as { deviceId?: string; target: string; on: boolean; success: boolean; overrideActive?: boolean; overrideRemainingMs?: number };
+		const device = msg.deviceId 
+			? devices.find((d) => d.id === msg.deviceId)
+			: devices.find((d) => 
+				(d.controlMethod === "relay" && String(d.gpioPin) === msg.target) ||
+				(d.ipAddress === msg.target)
+			);
+		if (device) {
+			if (msg.success) device.isOn = msg.on;
+			pendingDevices.delete(device.id);
+			if (msg.overrideActive && msg.overrideRemainingMs) {
+				overriddenDevices[device.id] = Date.now() + msg.overrideRemainingMs;
+			}
 		}
 	});
 
