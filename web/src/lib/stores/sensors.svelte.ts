@@ -57,16 +57,13 @@ export function initSensorWebSocket(): void {
 	});
 
 	websocket.on("sensors", (data: unknown) => {
-		const msg = data as { data: Record<string, number> };
-		if (msg.data) {
-			Object.entries(msg.data).forEach(([sensorType, value]) => {
-				if (typeof value === "number") {
-					const matchingSensors = sensors.filter((s) => s.type === sensorType);
-					for (const sensor of matchingSensors) {
-						updateSensorReading(sensor.id, value);
-					}
+		const msg = data as { data: { id: string; type: string; value: number }[] };
+		if (Array.isArray(msg.data)) {
+			for (const reading of msg.data) {
+				if (typeof reading.value === "number") {
+					updateSensorReading(reading.id, reading.value);
 				}
-			});
+			}
 		}
 	});
 

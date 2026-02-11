@@ -323,12 +323,25 @@ namespace {
         JsonDocument doc;
         doc["type"] = "sensors";
         
-        JsonObject data = doc["data"].to<JsonObject>();
-        data["temperature"] = sensor.temperature;
-        data["humidity"] = sensor.humidity;
-        data["co2"] = sensor.co2;
-        data["vpd"] = sensor.vpd;
-        data["soil_moisture"] = sensor.soilMoisture;
+        JsonArray data = doc["data"].to<JsonArray>();
+        for (size_t i = 0; i < sensorCount; i++) {
+            SensorConfig::Sensor* cfg = SensorConfig::getSensor(sensorIds[i]);
+            if (!cfg) continue;
+            
+            float value = NAN;
+            if (strcmp(cfg->type, "temperature") == 0) value = sensor.temperature;
+            else if (strcmp(cfg->type, "humidity") == 0) value = sensor.humidity;
+            else if (strcmp(cfg->type, "co2") == 0) value = sensor.co2;
+            else if (strcmp(cfg->type, "vpd") == 0) value = sensor.vpd;
+            else if (strcmp(cfg->type, "soil_moisture") == 0) value = sensor.soilMoisture;
+            
+            if (!isnan(value)) {
+                JsonObject entry = data.add<JsonObject>();
+                entry["id"] = cfg->id;
+                entry["type"] = cfg->type;
+                entry["value"] = value;
+            }
+        }
         
         doc["timestamp"] = millis();
 
