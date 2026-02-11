@@ -13,7 +13,7 @@
 	import { sensorIcons, deviceIcons } from "$lib/icons";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
-	import FanIcon from "@lucide/svelte/icons/fan";
+	import PowerIcon from "@lucide/svelte/icons/power";
 	import type { Sensor, Device } from "$lib/types";
 
 	const hardwareLabels: Record<Sensor["hardwareType"], string> = {
@@ -131,7 +131,7 @@
 		</div>
 		{#if devices.length === 0}
 			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-				<FanIcon class="size-8 text-muted-foreground/50" />
+				<PowerIcon class="size-8 text-muted-foreground/50" />
 				<p class="mt-3 text-sm font-medium">No devices</p>
 				<p class="mt-1 text-xs text-muted-foreground">Add a device to control fans, lights, or other equipment</p>
 			</div>
