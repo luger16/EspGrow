@@ -47,7 +47,6 @@
 	});
 
 	const yDomain = $derived.by(() => {
-		if (history.length === 0) return undefined;
 		const values = history.map((d) => d.value);
 		const min = Math.min(...values);
 		const max = Math.max(...values);
@@ -55,8 +54,19 @@
 		return [min - padding, max + padding];
 	});
 
+	const sensorTypeLabels: Record<string, string> = {
+		temperature: "Temperature",
+		humidity: "Humidity",
+		co2: "CO₂",
+		light: "Light",
+		vpd: "VPD",
+	};
+
 	const chartConfig = $derived({
-		value: { label: `${sensor.unit}`, color: "var(--chart-1)" },
+		value: { 
+			label: sensorTypeLabels[sensor.type] || sensor.type, 
+			color: "var(--chart-1)" 
+		},
 	} satisfies Chart.ChartConfig);
 </script>
 
@@ -122,25 +132,32 @@
 						},
 					}}
 				>
-					{#snippet tooltip()}
-						<Chart.Tooltip
-							labelFormatter={(v: Date) => {
-								if (timeRange === "7d") {
-									return v.toLocaleString("en-US", {
-										weekday: "short",
-										month: "short",
-										day: "numeric",
-										hour: "numeric",
-										minute: "2-digit",
-									});
-								}
+				{#snippet tooltip()}
+					<Chart.Tooltip
+						labelFormatter={(v: Date) => {
+							if (timeRange === "7d") {
 								return v.toLocaleString("en-US", {
+									weekday: "short",
+									month: "short",
+									day: "numeric",
 									hour: "numeric",
 									minute: "2-digit",
 								});
-							}}
-						/>
-					{/snippet}
+							}
+							return v.toLocaleString("en-US", {
+								hour: "numeric",
+								minute: "2-digit",
+							});
+						}}
+					>
+						{#snippet formatter({ value })}
+							<div class="flex w-full justify-between items-center gap-2">
+								<span class="text-muted-foreground">{sensorTypeLabels[sensor.type] || sensor.type}</span>
+								<span class="text-foreground font-mono font-medium tabular-nums">{value}{sensor.unit}</span>
+							</div>
+						{/snippet}
+					</Chart.Tooltip>
+				{/snippet}
 				</AreaChart>
 			</Chart.ChartContainer>
 		{/if}
