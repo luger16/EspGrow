@@ -93,6 +93,8 @@ bool init(int sda, int scl) {
 
     uint8_t sht4xAddr = sht3xFound ? 0x45 : 0x44;
     sht4x.begin(Wire, sht4xAddr);
+    sht4x.softReset();
+    delay(10);
     uint32_t sht4xSerial = 0;
     if (sht4x.serialNumber(sht4xSerial) == 0) {
         sht4xFound = true;
@@ -102,14 +104,26 @@ bool init(int sda, int scl) {
     }
 
     scd4x.begin(Wire);
-    scd4x.stopPeriodicMeasurement();
+    uint16_t error = scd4x.stopPeriodicMeasurement();
+    if (error) {
+        Serial.printf("[Sensors] SCD4x stopPeriodicMeasurement warning: %d\n", error);
+    }
     delay(500);
+    error = scd4x.reinit();
+    if (error) {
+        Serial.printf("[Sensors] SCD4x reinit warning: %d\n", error);
+    }
 
     uint16_t serial0, serial1, serial2;
-    if (scd4x.getSerialNumber(serial0, serial1, serial2) == 0) {
+    error = scd4x.getSerialNumber(serial0, serial1, serial2);
+    if (error == 0) {
         scd4xFound = true;
         Serial.printf("[Sensors] SCD4x found (serial: %04X%04X%04X)\n", serial0, serial1, serial2);
-        scd4x.startPeriodicMeasurement();
+        error = scd4x.startPeriodicMeasurement();
+        if (error) {
+            Serial.printf("[Sensors] SCD4x startPeriodicMeasurement failed: %d\n", error);
+            scd4xFound = false;
+        }
     } else {
         Serial.println("[Sensors] SCD4x not found");
     }
@@ -118,7 +132,8 @@ bool init(int sda, int scl) {
         as7341Found = true;
         as7341.setATIME(100);
         as7341.setASTEP(999);
-        as7341.setGain(AS7341_GAIN_256X);
+        as7341.setGain(AS7341_GAIN_16X);
+        as7341.enableLED(false);
         Serial.println("[Sensors] AS7341 found");
     } else {
         Serial.println("[Sensors] AS7341 not found");
