@@ -59,6 +59,8 @@ namespace {
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.printf("[WiFi] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+            configTime(0, 0, "time.cloudflare.com", "pool.ntp.org");
+            Serial.println("[WiFi] NTP time sync started");
             return true;
         }
         

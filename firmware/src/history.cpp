@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 #include <map>
 #include <string>
+#include <time.h>
 
 namespace History {
 
@@ -184,7 +185,7 @@ void record(const char* sensorId, float value) {
     }
     
     SensorHistory& sh = histories[sensorId];
-    uint32_t now = millis() / 1000;
+    uint32_t now = (uint32_t)time(nullptr);
     
     for (int i = 0; i < 3; i++) {
         SensorAccumulator& acc = sh.accumulators[i];
