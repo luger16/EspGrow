@@ -5,6 +5,18 @@ export const sensors = $state<Sensor[]>([]);
 export const sensorReadings = $state<Record<string, SensorReading>>({});
 export const sensorHistory = $state<Record<string, Record<string, HistoricalReading[]>>>({});
 
+interface PpfdCalibration {
+	factor: number;
+	loading: boolean;
+	error: string | null;
+}
+
+export const ppfdCalibration = $state<PpfdCalibration>({
+	factor: 1.0,
+	loading: false,
+	error: null,
+});
+
 type HistoryRange = "12h" | "24h" | "7d";
 
 function decodeBase64(base64: string): Uint8Array {
@@ -86,7 +98,21 @@ export function initSensorWebSocket(): void {
 		}
 	});
 
+	websocket.on("ppfd_calibration", (data: unknown) => {
+		const msg = data as { factor?: number; success?: boolean; error?: string };
+		ppfdCalibration.loading = false;
+		if (msg.success === false) {
+			ppfdCalibration.error = msg.error === "no_reading" 
+				? "No light reading available. Make sure the AS7341 sensor is connected and the grow light is on."
+				: "Invalid calibration value.";
+		} else {
+			ppfdCalibration.factor = msg.factor ?? 1.0;
+			ppfdCalibration.error = null;
+		}
+	});
+
 	websocket.send("get_sensors", {});
+	websocket.send("get_ppfd_calibration", {});
 }
 
 export function getSensorReading(sensorId: string): SensorReading | undefined {
@@ -129,4 +155,16 @@ export function updateSensor(sensorId: string, updates: Partial<Omit<Sensor, "id
 		tempSourceId: updates.tempSourceId ?? "",
 		humSourceId: updates.humSourceId ?? "",
 	});
+}
+
+export function calibratePpfd(knownPpfd: number): void {
+	ppfdCalibration.loading = true;
+	ppfdCalibration.error = null;
+	websocket.send("calibrate_ppfd", { knownPpfd });
+}
+
+export function resetPpfdCalibration(): void {
+	ppfdCalibration.loading = true;
+	ppfdCalibration.error = null;
+	websocket.send("reset_ppfd_calibration", {});
 }

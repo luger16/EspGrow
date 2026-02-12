@@ -6,8 +6,9 @@
 	import EditDeviceModal from "$lib/components/edit-device-modal.svelte";
 	import * as Select from "$lib/components/ui/select/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
+	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
-	import { sensors } from "$lib/stores/sensors.svelte";
+	import { sensors, ppfdCalibration, calibratePpfd, resetPpfdCalibration } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
 	import { settings, updateSettings, type Theme, type TemperatureUnit } from "$lib/stores/settings.svelte";
 	import { sensorIcons, deviceIcons } from "$lib/icons";
@@ -43,9 +44,20 @@
 
 	let editingSensorId = $state<string | null>(null);
 	let editingDeviceId = $state<string | null>(null);
+	let ppfdInput = $state("");
 
 	const editingSensor = $derived(sensors.find((s) => s.id === editingSensorId));
 	const editingDevice = $derived(devices.find((d) => d.id === editingDeviceId));
+	const hasAs7341 = $derived(sensors.some((s) => s.hardwareType === "as7341"));
+	const isCalibrated = $derived(ppfdCalibration.factor !== 1.0);
+
+	function handleCalibrate() {
+		const value = parseFloat(ppfdInput);
+		if (value > 0 && value <= 3000) {
+			calibratePpfd(value);
+			ppfdInput = "";
+		}
+	}
 </script>
 
 <PageHeader title="Settings" />
@@ -89,6 +101,65 @@
 			</div>
 		</div>
 	</section>
+
+	{#if hasAs7341}
+		<section>
+			<h2 class="mb-3 text-sm font-medium text-muted-foreground">PPFD Calibration</h2>
+			<div class="divide-y divide-border rounded-lg border">
+				<div class="flex items-center justify-between p-3">
+					<div>
+						<p class="text-sm font-medium">Calibration Factor</p>
+						<p class="text-xs text-muted-foreground">
+							{#if isCalibrated}
+								{ppfdCalibration.factor.toFixed(4)}
+							{:else}
+								Not calibrated (using defaults)
+							{/if}
+						</p>
+					</div>
+					{#if isCalibrated}
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={ppfdCalibration.loading}
+							onclick={resetPpfdCalibration}
+						>
+							Reset
+						</Button>
+					{/if}
+				</div>
+				<div class="space-y-3 p-3">
+					<div>
+						<p class="text-sm font-medium">Calibrate with known PPFD</p>
+						<p class="mt-1 text-xs text-muted-foreground">
+							Place the sensor where you know the exact PPFD from your grow light's map, then enter that value.
+						</p>
+					</div>
+					<div class="flex gap-2">
+						<Input
+							type="number"
+							placeholder="e.g. 400"
+							min="1"
+							max="3000"
+							step="1"
+							bind:value={ppfdInput}
+							class="w-32"
+						/>
+						<Button
+							size="sm"
+							disabled={ppfdCalibration.loading || !ppfdInput || parseFloat(ppfdInput) <= 0}
+							onclick={handleCalibrate}
+						>
+							{ppfdCalibration.loading ? "Calibrating..." : "Calibrate"}
+						</Button>
+					</div>
+					{#if ppfdCalibration.error}
+						<p class="text-xs text-destructive">{ppfdCalibration.error}</p>
+					{/if}
+				</div>
+			</div>
+		</section>
+	{/if}
 
 	<section>
 		<div class="mb-3 flex items-center justify-between">

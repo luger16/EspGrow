@@ -292,6 +292,51 @@ namespace {
                 sendHistory(sensorId, range);
             }
         }
+        else if (strcmp(type, "get_ppfd_calibration") == 0) {
+            JsonDocument response;
+            response["type"] = "ppfd_calibration";
+            response["factor"] = Sensors::getPpfdCalibrationFactor();
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
+        }
+        else if (strcmp(type, "calibrate_ppfd") == 0) {
+            float knownPpfd = doc["knownPpfd"] | 0.0f;
+            float rawPpfd = Sensors::getRawPpfd();
+            
+            if (knownPpfd > 0 && !isnan(rawPpfd) && rawPpfd > 0) {
+                float factor = knownPpfd / rawPpfd;
+                Sensors::setPpfdCalibrationFactor(factor);
+                
+                JsonDocument response;
+                response["type"] = "ppfd_calibration";
+                response["factor"] = factor;
+                response["success"] = true;
+                String out;
+                serializeJson(response, out);
+                WebSocketServer::broadcast(out);
+            } else {
+                JsonDocument response;
+                response["type"] = "ppfd_calibration";
+                response["success"] = false;
+                response["error"] = isnan(rawPpfd) || rawPpfd <= 0 
+                    ? "no_reading" : "invalid_value";
+                String out;
+                serializeJson(response, out);
+                WebSocketServer::broadcast(out);
+            }
+        }
+        else if (strcmp(type, "reset_ppfd_calibration") == 0) {
+            Sensors::setPpfdCalibrationFactor(1.0f);
+            
+            JsonDocument response;
+            response["type"] = "ppfd_calibration";
+            response["factor"] = 1.0f;
+            response["success"] = true;
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
+        }
     }
 
     void broadcastSensorData() {

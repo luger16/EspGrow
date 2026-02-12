@@ -1,5 +1,6 @@
 #include "sensors.h"
 #include "sensor_config.h"
+#include "storage.h"
 #include <Wire.h>
 #include <SensirionI2cSht3x.h>
 #include <SensirionI2cSht4x.h>
@@ -42,6 +43,24 @@ namespace {
     Co2Reading scd4xData;
     LightReading as7341Data;
 
+    const char* PPFD_CAL_PATH = "/ppfd_cal.json";
+    float ppfdCalFactor = 1.0f;
+
+    void loadPpfdCalibration() {
+        JsonDocument doc;
+        if (Storage::readJson(PPFD_CAL_PATH, doc)) {
+            ppfdCalFactor = doc["factor"] | 1.0f;
+            Serial.printf("[Sensors] PPFD calibration factor: %.4f\n", ppfdCalFactor);
+        }
+    }
+
+    void savePpfdCalibration() {
+        JsonDocument doc;
+        doc["factor"] = ppfdCalFactor;
+        Storage::writeJson(PPFD_CAL_PATH, doc);
+        Serial.printf("[Sensors] Saved PPFD calibration factor: %.4f\n", ppfdCalFactor);
+    }
+
     float calculateVPD(float tempC, float rhPercent) {
         float svp = 0.6108f * expf((17.27f * tempC) / (tempC + 237.3f));
         float avp = svp * (rhPercent / 100.0f);
@@ -81,6 +100,8 @@ bool init(int sda, int scl) {
     } else {
         Wire.begin();
     }
+
+    loadPpfdCalibration();
 
     sht3x.begin(Wire, 0x44);
     uint16_t sht3xStatus = 0;
@@ -184,9 +205,24 @@ void read() {
 
     if (as7341Found) {
         if (as7341.readAllChannels()) {
-            uint16_t clear = as7341.getChannel(AS7341_CHANNEL_CLEAR);
-            // clear-channel-to-PPFD approximation factor
-            as7341Data.ppfd = clear * 0.05f;
+            // Read PAR-relevant channels (415-680nm)
+            uint16_t f1 = as7341.getChannel(AS7341_CHANNEL_415nm_F1);
+            uint16_t f2 = as7341.getChannel(AS7341_CHANNEL_445nm_F2);
+            uint16_t f3 = as7341.getChannel(AS7341_CHANNEL_480nm_F3);
+            uint16_t f4 = as7341.getChannel(AS7341_CHANNEL_515nm_F4);
+            uint16_t f5 = as7341.getChannel(AS7341_CHANNEL_555nm_F5);
+            uint16_t f6 = as7341.getChannel(AS7341_CHANNEL_590nm_F6);
+            uint16_t f7 = as7341.getChannel(AS7341_CHANNEL_630nm_F7);
+            uint16_t f8 = as7341.getChannel(AS7341_CHANNEL_680nm_F8);
+            
+            // Spectral weighting factors from literature (corrects sensor sensitivity bias)
+            // F8 (680nm) is baseline; blue channels are 3-6x more sensitive than red
+            float weighted = (f1 * 5.88f) + (f2 * 3.33f) + (f3 * 2.63f) + (f4 * 2.04f) +
+                           (f5 * 1.69f) + (f6 * 1.54f) + (f7 * 1.33f) + (f8 * 1.00f);
+            
+            // Convert to PPFD (μmol/m²/s) using literature calibration constant
+            // Integration time: 280.78ms, Gain: 16X
+            as7341Data.ppfd = weighted * 0.03f * ppfdCalFactor;
             as7341Data.valid = true;
         } else {
             as7341Data.valid = false;
@@ -232,6 +268,20 @@ bool isHardwareConnected(const char* hardwareType) {
 
 bool hasAnySensor() {
     return sht3xFound || sht4xFound || scd4xFound || as7341Found;
+}
+
+float getPpfdCalibrationFactor() {
+    return ppfdCalFactor;
+}
+
+void setPpfdCalibrationFactor(float factor) {
+    ppfdCalFactor = factor;
+    savePpfdCalibration();
+}
+
+float getRawPpfd() {
+    if (!as7341Found || !as7341Data.valid) return NAN;
+    return as7341Data.ppfd / ppfdCalFactor;
 }
 
 }
