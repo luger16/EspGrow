@@ -16,6 +16,10 @@ check:
 dev:
     cd web && npm run dev
 
+# Run web dev server with mock ESP32 data
+dev-mock:
+    cd web && npm run dev:mock
+
 # Build web, sync to firmware data, upload everything to ESP32
 deploy board=board:
     #!/usr/bin/env bash

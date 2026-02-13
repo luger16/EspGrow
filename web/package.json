@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite dev",
+		"dev:mock": "npx tsx dev/mock-server.ts & VITE_MOCK_WS=8081 vite dev --open --host; kill %1 2>/dev/null",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -21,6 +22,7 @@
 		"@tailwindcss/vite": "^4.1.18",
 		"@types/d3-scale": "^4.0.9",
 		"@types/d3-shape": "^3.1.8",
+		"@types/ws": "^8.18.1",
 		"bits-ui": "^2.15.5",
 		"clsx": "^2.1.1",
 		"layerchart": "^2.0.0-next.43",
@@ -29,6 +31,7 @@
 		"tailwind-merge": "^3.4.0",
 		"tailwind-variants": "^3.2.2",
 		"tailwindcss": "^4.1.18",
+		"tsx": "^4.21.0",
 		"tw-animate-css": "^1.4.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1",

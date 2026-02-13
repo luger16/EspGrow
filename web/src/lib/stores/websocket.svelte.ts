@@ -18,6 +18,9 @@ let pendingMessages: Array<{ type: string; payload?: Record<string, unknown> }> 
 
 function getWebSocketUrl(): string {
 	if (typeof window === "undefined") return "";
+	if (import.meta.env.VITE_MOCK_WS) {
+		return `ws://${window.location.hostname}:${import.meta.env.VITE_MOCK_WS}`;
+	}
 	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 	return `${protocol}//${window.location.host}/ws`;
 }
@@ -29,8 +32,7 @@ export function connect(url?: string): void {
 	const wsUrl = url || getWebSocketUrl();
 	if (!wsUrl) return;
 
-	const isDevModeWithoutExplicitUrl = !url && import.meta.env.DEV;
-	if (isDevModeWithoutExplicitUrl) {
+	if (!url && import.meta.env.DEV && !import.meta.env.VITE_MOCK_WS) {
 		return;
 	}
 
