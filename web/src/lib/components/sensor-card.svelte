@@ -3,6 +3,7 @@
 	import type { Sensor, SensorReading } from "$lib/types";
 	import { settings, formatTemperature } from "$lib/stores/settings.svelte";
 	import { sensorIcons } from "$lib/icons";
+	import { formatUnit } from "$lib/utils";
 
 	let {
 		sensor,
@@ -16,7 +17,7 @@
 		if (sensor.type === "temperature") {
 			return formatTemperature(reading.value, settings.temperatureUnit);
 		}
-		return `${reading.value}${sensor.unit}`;
+		return `${reading.value}${formatUnit(sensor.unit)}`;
 	});
 </script>
 

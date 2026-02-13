@@ -8,6 +8,7 @@
 	import { Switch } from "$lib/components/ui/switch/index.js";
 	import { updateRule, removeRule } from "$lib/stores/rules.svelte";
 	import { sensors } from "$lib/stores/sensors.svelte";
+	import { formatUnit } from "$lib/utils";
 	import { devices } from "$lib/stores/devices.svelte";
 	import type { AutomationRule, ComparisonOperator } from "$lib/types";
 
@@ -183,7 +184,7 @@
 							<p class="text-destructive text-xs">Turn off threshold is required</p>
 						{/if}
 						<p class="text-xs text-muted-foreground">
-							Device turns on at {threshold || "___"}{selectedSensor?.unit || ""}, turns off at {thresholdOff || "___"}{selectedSensor?.unit || ""}
+							Device turns on at {threshold || "___"}{formatUnit(selectedSensor?.unit || "")}, turns off at {thresholdOff || "___"}{formatUnit(selectedSensor?.unit || "")}
 						</p>
 					</div>
 				{/if}

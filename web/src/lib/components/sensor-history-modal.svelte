@@ -7,6 +7,7 @@
 	import { curveNatural } from "d3-shape";
 	import type { Sensor } from "$lib/types";
 	import { getSensorHistory, requestHistory } from "$lib/stores/sensors.svelte";
+	import { formatUnit } from "$lib/utils";
 
 	let {
 		sensor,
@@ -153,7 +154,7 @@
 						{#snippet formatter({ value })}
 							<div class="flex w-full justify-between items-center gap-2">
 								<span class="text-muted-foreground">{sensorTypeLabels[sensor.type] || sensor.type}</span>
-								<span class="text-foreground font-mono font-medium tabular-nums">{value}{sensor.unit}</span>
+								<span class="text-foreground font-mono font-medium tabular-nums">{value}{formatUnit(sensor.unit)}</span>
 							</div>
 						{/snippet}
 					</Chart.Tooltip>
