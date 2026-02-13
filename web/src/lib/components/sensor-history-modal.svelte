@@ -123,9 +123,9 @@
 							ticks: timeRange === "12h" ? 6 : timeRange === "24h" ? 8 : 7,
 							format: (v: Date) => {
 								if (timeRange === "7d") {
-									return v.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+									return v.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 								}
-								return v.toLocaleTimeString("en-US", { hour: "numeric" });
+								return v.toLocaleTimeString(undefined, { hour: "numeric" });
 							},
 						},
 						yAxis: {
@@ -137,7 +137,7 @@
 					<Chart.Tooltip
 						labelFormatter={(v: Date) => {
 							if (timeRange === "7d") {
-								return v.toLocaleString("en-US", {
+								return v.toLocaleString(undefined, {
 									weekday: "short",
 									month: "short",
 									day: "numeric",
@@ -145,7 +145,7 @@
 									minute: "2-digit",
 								});
 							}
-							return v.toLocaleString("en-US", {
+							return v.toLocaleString(undefined, {
 								hour: "numeric",
 								minute: "2-digit",
 							});
