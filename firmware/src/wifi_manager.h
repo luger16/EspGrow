@@ -8,6 +8,7 @@ namespace WiFiManager {
     
     bool hasCredentials();
     bool isConnected();
+    bool isTimeSynced();
     String getIP();
     
     void startProvisioning();

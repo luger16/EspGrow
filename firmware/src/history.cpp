@@ -1,5 +1,6 @@
 #include "history.h"
 #include "sensor_config.h"
+#include "wifi_manager.h"
 #include <LittleFS.h>
 #include <map>
 #include <string>
@@ -180,6 +181,8 @@ void loop() {
 }
 
 void record(const char* sensorId, float value) {
+    if (!WiFiManager::isTimeSynced()) return;
+    
     if (histories.find(sensorId) == histories.end()) {
         initSensorHistory(sensorId);
     }
@@ -233,11 +236,12 @@ size_t getHistory(const char* sensorId, Range range, uint8_t* buffer, size_t buf
     uint8_t* ptr = buffer;
     for (size_t i = 0; i < pointsToReturn; i++) {
         size_t idx = (startIdx + i) % buf.capacity;
+        if (buf.points[idx].timestamp < 1600000000) continue;
         memcpy(ptr, &buf.points[idx], pointSize);
         ptr += pointSize;
     }
     
-    return pointsToReturn * pointSize;
+    return ptr - buffer;
 }
 
 size_t getPointCount(Range range) {

@@ -3,6 +3,7 @@
 #include "captive_portal.h"
 #include <WiFi.h>
 #include <ArduinoJson.h>
+#include <esp_sntp.h>
 
 namespace WiFiManager {
 
@@ -12,10 +13,16 @@ namespace {
     String savedPassword;
     bool provisioningActive = false;
     bool wasConnected = false;
+    volatile bool timeSynced = false;
     unsigned long lastReconnectAttempt = 0;
     const unsigned long RECONNECT_INTERVAL = 30000;
     int reconnectFailures = 0;
     const int MAX_RECONNECT_FAILURES = 5;
+
+    void onTimeSync(struct timeval* tv) {
+        timeSynced = true;
+        Serial.println("[WiFi] NTP time synced");
+    }
 
     void loadCredentials() {
         Serial.println("[WiFi] Loading credentials...");
@@ -59,6 +66,7 @@ namespace {
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.printf("[WiFi] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+            sntp_set_time_sync_notification_cb(onTimeSync);
             configTime(0, 0, "time.cloudflare.com", "pool.ntp.org");
             Serial.println("[WiFi] NTP time sync started");
             return true;
@@ -75,6 +83,10 @@ bool hasCredentials() {
 
 bool isConnected() {
     return WiFi.status() == WL_CONNECTED;
+}
+
+bool isTimeSynced() {
+    return timeSynced;
 }
 
 String getIP() {
