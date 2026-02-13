@@ -51,7 +51,7 @@
 		const values = history.map((d) => d.value);
 		const min = Math.min(...values);
 		const max = Math.max(...values);
-		const padding = (max - min) * 0.05 || 0.5;
+		const padding = (max - min) * 0.15 || 0.5;
 		return [min - padding, max + padding];
 	});
 
