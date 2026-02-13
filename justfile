@@ -45,3 +45,7 @@ deploy board=board:
 # Deploy and open serial monitor
 deploy-dev board=board: (deploy board)
     cd firmware && pio device monitor
+
+# Upload firmware only (preserves LittleFS data: WiFi credentials, history, settings)
+upload board=board:
+    cd firmware && pio run -e {{board}} -t upload
