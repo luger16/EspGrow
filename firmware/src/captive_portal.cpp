@@ -153,6 +153,7 @@ document.getElementById('ssid').value=ssid;
         dnsServer.stop();
         WiFi.softAPdisconnect(true);
         WiFi.mode(WIFI_STA);
+        WiFi.persistent(true);
         WiFi.begin(pendingSSID.c_str(), pendingPassword.c_str());
         
         unsigned long start = millis();
