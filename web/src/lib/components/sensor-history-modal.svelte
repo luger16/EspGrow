@@ -36,7 +36,6 @@
 
 	const history = $derived(getSensorHistory(sensor.id, timeRange));
 
-	// Check if data spans the full requested interval
 	const intervalHours = $derived({ "12h": 12, "24h": 24, "7d": 168 }[timeRange]);
 	const hasData = $derived(history.length >= 2);
 	const hasFullInterval = $derived.by(() => {
@@ -45,6 +44,26 @@
 		const oldestTimestamp = history[0].date.getTime();
 		const requiredMs = intervalHours * 60 * 60 * 1000;
 		return now.getTime() - oldestTimestamp >= requiredMs;
+	});
+
+	const chartData = $derived.by(() => {
+		if (history.length < 2) return history;
+
+		const expectedInterval = { "12h": 5 * 60 * 1000, "24h": 10 * 60 * 1000, "7d": 60 * 60 * 1000 }[timeRange];
+		const gapThreshold = expectedInterval * 1.5;
+
+		const result: { date: Date; value: number | null }[] = [];
+		for (let i = 0; i < history.length; i++) {
+			if (i > 0) {
+				const timeDiff = history[i].date.getTime() - history[i - 1].date.getTime();
+				if (timeDiff > gapThreshold) {
+					const gapMid = new Date((history[i - 1].date.getTime() + history[i].date.getTime()) / 2);
+					result.push({ date: gapMid, value: null });
+				}
+			}
+			result.push(history[i]);
+		}
+		return result;
 	});
 
 	const yDomain = $derived.by(() => {
@@ -64,9 +83,9 @@
 	};
 
 	const chartConfig = $derived({
-		value: { 
-			label: sensorTypeLabels[sensor.type] || sensor.type, 
-			color: "var(--chart-1)" 
+		value: {
+			label: sensorTypeLabels[sensor.type] || sensor.type,
+			color: "var(--chart-1)",
 		},
 	} satisfies Chart.ChartConfig);
 </script>
@@ -107,7 +126,7 @@
 			{/if}
 			<Chart.ChartContainer config={chartConfig} class="aspect-2/1 w-full">
 				<AreaChart
-					data={history}
+					data={chartData}
 					x="date"
 					xScale={scaleUtc()}
 					y="value"
@@ -117,7 +136,10 @@
 						area: {
 							curve: curveNatural,
 							"fill-opacity": 0.4,
-							line: { class: "stroke-1" },
+							defined: (d: { value: number | null }) => d.value !== null,
+							line: {
+								class: "stroke-1",
+							},
 						},
 						xAxis: {
 							ticks: timeRange === "12h" ? 6 : timeRange === "24h" ? 8 : 7,
@@ -133,32 +155,32 @@
 						},
 					}}
 				>
-				{#snippet tooltip()}
-					<Chart.Tooltip
-						labelFormatter={(v: Date) => {
-							if (timeRange === "7d") {
+					{#snippet tooltip()}
+						<Chart.Tooltip
+							labelFormatter={(v: Date) => {
+								if (timeRange === "7d") {
+									return v.toLocaleString(undefined, {
+										weekday: "short",
+										month: "short",
+										day: "numeric",
+										hour: "numeric",
+										minute: "2-digit",
+									});
+								}
 								return v.toLocaleString(undefined, {
-									weekday: "short",
-									month: "short",
-									day: "numeric",
 									hour: "numeric",
 									minute: "2-digit",
 								});
-							}
-							return v.toLocaleString(undefined, {
-								hour: "numeric",
-								minute: "2-digit",
-							});
-						}}
-					>
-						{#snippet formatter({ value })}
-							<div class="flex w-full justify-between items-center gap-2">
-								<span class="text-muted-foreground">{sensorTypeLabels[sensor.type] || sensor.type}</span>
-								<span class="text-foreground font-mono font-medium tabular-nums">{value}{formatUnit(sensor.unit)}</span>
-							</div>
-						{/snippet}
-					</Chart.Tooltip>
-				{/snippet}
+							}}
+						>
+							{#snippet formatter({ value })}
+								<div class="flex w-full justify-between items-center gap-2">
+									<span class="text-muted-foreground">{sensorTypeLabels[sensor.type] || sensor.type}</span>
+									<span class="text-foreground font-mono font-medium tabular-nums">{value}{formatUnit(sensor.unit)}</span>
+								</div>
+							{/snippet}
+						</Chart.Tooltip>
+					{/snippet}
 				</AreaChart>
 			</Chart.ChartContainer>
 		{/if}
