@@ -194,10 +194,15 @@ void record(const char* sensorId, float value) {
         acc.sum += value;
         acc.sampleCount++;
         
-        if (now - buf.lastWrite >= buf.interval) {
+        // Round to interval boundaries (e.g., 13:00:00, 13:05:00, 13:10:00)
+        uint32_t currentBoundary = (now / buf.interval) * buf.interval;
+        uint32_t lastBoundary = (buf.lastWrite / buf.interval) * buf.interval;
+        
+        if (currentBoundary > lastBoundary) {
             if (acc.sampleCount > 0) {
                 float avg = acc.sum / acc.sampleCount;
-                addPoint(buf, now, avg);
+                addPoint(buf, currentBoundary, avg);
+                buf.lastWrite = currentBoundary;
                 
                 acc.sum = 0;
                 acc.sampleCount = 0;
