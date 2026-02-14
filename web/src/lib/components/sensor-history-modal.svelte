@@ -141,34 +141,34 @@
 								class: "stroke-1",
 							},
 						},
-						xAxis: {
-							ticks: timeRange === "12h" ? 6 : timeRange === "24h" ? 8 : 7,
-							format: (v: Date) => {
-								if (timeRange === "7d") {
-									return v.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-								}
-								return v.toLocaleTimeString(undefined, { hour: "numeric" });
-							},
+					xAxis: {
+						ticks: timeRange === "7d" ? 4 : 5,
+						format: (v: Date) => {
+							if (timeRange === "7d") {
+								return v.toLocaleDateString(navigator.language, { month: "short", day: "numeric" });
+							}
+							return v.toLocaleTimeString(navigator.language, { hour: "2-digit", minute: "2-digit" });
 						},
-						yAxis: {
-							format: (v: number) => `${v}`,
-						},
+					},
+					yAxis: {
+						format: (v: number) => v.toLocaleString(navigator.language, { maximumFractionDigits: 1 }),
+					},
 					}}
 				>
 					{#snippet tooltip()}
 						<Chart.Tooltip
 							labelFormatter={(v: Date) => {
 								if (timeRange === "7d") {
-									return v.toLocaleString(undefined, {
+									return v.toLocaleString(navigator.language, {
 										weekday: "short",
 										month: "short",
 										day: "numeric",
-										hour: "numeric",
+										hour: "2-digit",
 										minute: "2-digit",
 									});
 								}
-								return v.toLocaleString(undefined, {
-									hour: "numeric",
+								return v.toLocaleString(navigator.language, {
+									hour: "2-digit",
 									minute: "2-digit",
 								});
 							}}
