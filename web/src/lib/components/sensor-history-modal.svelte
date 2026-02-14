@@ -140,7 +140,7 @@
 					<strong>Note:</strong> Data is incomplete for this time range. Showing available data.
 				</div>
 			{/if}
-			<Chart.ChartContainer config={chartConfig} class="aspect-2/1 w-full">
+			<Chart.ChartContainer config={chartConfig} class="aspect-2/1 w-full px-2 py-4">
 				<AreaChart
 					data={chartData}
 					x="date"
