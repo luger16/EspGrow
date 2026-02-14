@@ -4,6 +4,7 @@
 	import AddDeviceModal from "$lib/components/add-device-modal.svelte";
 	import EditSensorModal from "$lib/components/edit-sensor-modal.svelte";
 	import EditDeviceModal from "$lib/components/edit-device-modal.svelte";
+	import SystemInfoCard from "$lib/components/system-info-card.svelte";
 	import * as Select from "$lib/components/ui/select/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
@@ -11,11 +12,17 @@
 	import { sensors, ppfdCalibration, calibratePpfd, resetPpfdCalibration } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
 	import { settings, updateSettings, type Theme, type TemperatureUnit } from "$lib/stores/settings.svelte";
+	import { initSystemInfoWebSocket } from "$lib/stores/system.svelte";
 	import { sensorIcons, deviceIcons } from "$lib/icons";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 	import PowerIcon from "@lucide/svelte/icons/power";
 	import type { Sensor, Device } from "$lib/types";
+	import { onMount } from "svelte";
+
+	onMount(() => {
+		initSystemInfoWebSocket();
+	});
 
 	const hardwareLabels: Record<Sensor["hardwareType"], string> = {
 		sht3x: "SHT3x",
@@ -228,6 +235,8 @@
 			</div>
 		{/if}
 	</section>
+
+	<SystemInfoCard />
 </div>
 
 {#if editingSensor}

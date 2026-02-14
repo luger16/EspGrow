@@ -10,6 +10,7 @@
 #include "history.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
+#include <WiFi.h>
 #include <map>
 
 namespace {
@@ -350,6 +351,19 @@ namespace {
                 serializeJson(response, out);
                 WebSocketServer::broadcast(out);
             }
+        }
+        else if (strcmp(type, "get_system_info") == 0) {
+            JsonDocument response;
+            response["type"] = "system_info";
+            response["uptime"] = millis() / 1000;
+            response["freeHeap"] = ESP.getFreeHeap();
+            response["chipModel"] = ESP.getChipModel();
+            response["wifiRssi"] = WiFi.RSSI();
+            response["ipAddress"] = WiFiManager::getIP();
+            response["firmwareVersion"] = "1.0.0";
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
         }
     }
 

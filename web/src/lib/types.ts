@@ -51,3 +51,12 @@ export interface AutomationRule {
 	deviceId: string;
 	action: "turn_on" | "turn_off";
 }
+
+export interface SystemInfo {
+	uptime: number;
+	freeHeap: number;
+	chipModel: string;
+	wifiRssi: number;
+	ipAddress: string;
+	firmwareVersion: string;
+}
