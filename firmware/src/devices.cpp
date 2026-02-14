@@ -27,6 +27,7 @@ namespace {
     }
     
     void loadDevices() {
+        devices.clear(); // Clear existing data before reloading
         JsonDocument doc;
         if (!Storage::readJson(DEVICES_PATH, doc)) {
             Serial.println("[Devices] No devices file found");

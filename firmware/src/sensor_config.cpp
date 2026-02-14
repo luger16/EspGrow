@@ -31,6 +31,7 @@ namespace {
     }
     
     void loadConfig() {
+        sensors.clear();
         JsonDocument doc;
         if (!Storage::readJson(SENSORS_PATH, doc)) {
             Serial.println("[SensorConfig] No sensors file found");

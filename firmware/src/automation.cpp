@@ -87,6 +87,7 @@ namespace {
     }
     
     void loadRules() {
+        rules.clear();
         JsonDocument doc;
         if (!Storage::readJson(RULES_PATH, doc)) {
             Serial.println("[Automation] No rules file found");
