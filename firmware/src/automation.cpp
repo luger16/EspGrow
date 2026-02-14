@@ -4,6 +4,7 @@
 #include "devices.h"
 #include <vector>
 #include <map>
+#include <cmath>
 
 namespace Automation {
 
@@ -28,13 +29,14 @@ namespace {
     }
     
     bool evaluateCondition(float value, const char* op, float threshold, bool deviceCurrentlyOn, float thresholdOff, bool useHysteresis) {
+        if (std::isnan(value)) return false;
+
         if (useHysteresis) {
             if (deviceCurrentlyOn) {
-                if (strcmp(op, ">") == 0 || strcmp(op, ">=") == 0) {
-                    return value > thresholdOff;
-                } else if (strcmp(op, "<") == 0 || strcmp(op, "<=") == 0) {
-                    return value < thresholdOff;
-                }
+                if (strcmp(op, ">") == 0) return value > thresholdOff;
+                if (strcmp(op, ">=") == 0) return value >= thresholdOff;
+                if (strcmp(op, "<") == 0) return value < thresholdOff;
+                if (strcmp(op, "<=") == 0) return value <= thresholdOff;
             } else {
                 if (strcmp(op, ">") == 0) return value > threshold;
                 if (strcmp(op, ">=") == 0) return value >= threshold;
@@ -56,7 +58,7 @@ namespace {
         if (it != sensorReadings.end()) {
             return it->second;
         }
-        return 0;
+        return NAN;
     }
     
     void saveRules() {
