@@ -1,6 +1,11 @@
 #include "websocket_server.h"
+#include "storage.h"
+#include "devices.h"
+#include "automation.h"
+#include "sensor_config.h"
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
+#include <AsyncJson.h>
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 
@@ -92,6 +97,113 @@ void init() {
     server->onNotFound([](AsyncWebServerRequest *request){
         request->send(LittleFS, "/index.html", "text/html");
     });
+
+    // API: backup all config files as a single JSON bundle
+    server->on("/api/config/backup", HTTP_GET, [](AsyncWebServerRequest *request) {
+        JsonDocument doc;
+        JsonDocument sub;
+
+        const char* files[] = {"/devices.json", "/rules.json", "/sensors.json"};
+        const char* keys[] = {"devices", "rules", "sensors"};
+        
+        for (int i = 0; i < 3; i++) {
+            sub.clear();
+            if (Storage::readJson(files[i], sub)) {
+                doc[keys[i]] = sub.as<JsonArray>();
+            } else {
+                doc[keys[i]] = JsonArray();
+            }
+        }
+
+        String output;
+        serializeJsonPretty(doc, output);
+        
+        AsyncWebServerResponse *response = request->beginResponse(200, "application/json", output);
+        response->addHeader("Content-Disposition", "attachment; filename=\"espgrow-backup.json\"");
+        request->send(response);
+    });
+
+    // API: restore config from backup (replaces existing)
+    AsyncCallbackJsonWebHandler* restoreHandler = new AsyncCallbackJsonWebHandler("/api/config/restore");
+    restoreHandler->setMethod(HTTP_POST);
+    restoreHandler->setMaxContentLength(32768);
+    
+    restoreHandler->onRequest([](AsyncWebServerRequest *request, JsonVariant &json) {
+        JsonObject obj = json.as<JsonObject>();
+        
+        if (!obj["devices"].is<JsonArray>() || !obj["rules"].is<JsonArray>() || !obj["sensors"].is<JsonArray>()) {
+            Serial.println("[API] Restore: missing or invalid required keys");
+            request->send(400, "application/json", "{\"error\":\"Missing or invalid required keys\"}");
+            return;
+        }
+
+        bool success = true;
+        JsonDocument sub;
+
+        sub.clear();
+        sub.set(obj["devices"]);
+        success &= Storage::writeJson("/devices.json", sub);
+
+        sub.clear();
+        sub.set(obj["rules"]);
+        success &= Storage::writeJson("/rules.json", sub);
+
+        sub.clear();
+        sub.set(obj["sensors"]);
+        success &= Storage::writeJson("/sensors.json", sub);
+
+        if (success) {
+            Serial.println("[API] Restore: success, reloading modules");
+            
+            Devices::init();
+            Automation::init();
+            SensorConfig::init();
+            Devices::computeControlModes();
+            
+            JsonDocument broadcastDoc;
+            JsonDocument dataDoc;
+            String jsonStr;
+            String output;
+            
+            broadcastDoc["type"] = "devices";
+            Devices::getDevicesJson(jsonStr);
+            deserializeJson(dataDoc, jsonStr);
+            broadcastDoc["data"] = dataDoc.as<JsonArray>();
+            serializeJson(broadcastDoc, output);
+            broadcast(output);
+            
+            broadcastDoc.clear();
+            dataDoc.clear();
+            jsonStr.clear();
+            output.clear();
+            
+            broadcastDoc["type"] = "rules";
+            Automation::getRulesJson(jsonStr);
+            deserializeJson(dataDoc, jsonStr);
+            broadcastDoc["data"] = dataDoc.as<JsonArray>();
+            serializeJson(broadcastDoc, output);
+            broadcast(output);
+            
+            broadcastDoc.clear();
+            dataDoc.clear();
+            jsonStr.clear();
+            output.clear();
+            
+            broadcastDoc["type"] = "sensor_config";
+            SensorConfig::getSensorsJson(jsonStr);
+            deserializeJson(dataDoc, jsonStr);
+            broadcastDoc["data"] = dataDoc.as<JsonArray>();
+            serializeJson(broadcastDoc, output);
+            broadcast(output);
+            
+            request->send(200, "application/json", "{\"success\":true}");
+        } else {
+            Serial.println("[API] Restore: write failed");
+            request->send(500, "application/json", "{\"error\":\"Write failed\"}");
+        }
+    });
+    
+    server->addHandler(restoreHandler);
     
     initialized = true;
     Serial.println("[WS] WebSocket and static routes configured");
