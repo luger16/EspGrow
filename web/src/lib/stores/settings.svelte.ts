@@ -54,14 +54,26 @@ export function applyTheme(theme: Theme): void {
 	document.documentElement.classList.toggle("dark", isDark);
 }
 
+let themeCleanup: (() => void) | null = null;
+
 export function initTheme(): void {
 	applyTheme(settings.theme);
 	if (typeof window === "undefined") return;
-	window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+
+	if (themeCleanup) {
+		themeCleanup();
+		themeCleanup = null;
+	}
+
+	const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+	const handleChange = () => {
 		if (settings.theme === "system") {
 			applyTheme("system");
 		}
-	});
+	};
+
+	mediaQuery.addEventListener("change", handleChange);
+	themeCleanup = () => mediaQuery.removeEventListener("change", handleChange);
 }
 
 export function convertTemperature(celsius: number, unit: TemperatureUnit): number {

@@ -19,39 +19,23 @@
 		overriddenDevices[device.id] > Date.now()
 	);
 
-	let timeRemaining = $state("");
-	let intervalId: ReturnType<typeof setInterval> | null = null;
+	let now = $state(Date.now());
 
 	$effect(() => {
-		if (isOverridden) {
-			const updateTimer = () => {
-				const remaining = overriddenDevices[device.id] - Date.now();
-				if (remaining <= 0) {
-					timeRemaining = "";
-					if (intervalId) {
-						clearInterval(intervalId);
-						intervalId = null;
-					}
-					return;
-				}
-				const minutes = Math.floor(remaining / 60000);
-				const seconds = Math.floor((remaining % 60000) / 1000);
-				timeRemaining = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-			};
+		if (!isOverridden) return;
+		const interval = setInterval(() => {
+			now = Date.now();
+		}, 1000);
+		return () => clearInterval(interval);
+	});
 
-			updateTimer();
-			intervalId = setInterval(updateTimer, 1000);
-
-			return () => {
-				if (intervalId) clearInterval(intervalId);
-			};
-		} else {
-			timeRemaining = "";
-			if (intervalId) {
-				clearInterval(intervalId);
-				intervalId = null;
-			}
-		}
+	const timeRemaining = $derived.by(() => {
+		if (!isOverridden) return "";
+		const remaining = overriddenDevices[device.id] - now;
+		if (remaining <= 0) return "";
+		const minutes = Math.floor(remaining / 60000);
+		const seconds = Math.floor((remaining % 60000) / 1000);
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 	});
 
 	function handleToggle() {
