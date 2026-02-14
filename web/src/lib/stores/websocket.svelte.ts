@@ -62,7 +62,11 @@ export function connect(url?: string): void {
 	ws.onmessage = (event) => {
 		try {
 			const data = JSON.parse(event.data);
-			const type = data.type as string;
+			if (typeof data !== "object" || data === null || !("type" in data)) return;
+			
+			const type = (data as { type: unknown }).type;
+			if (typeof type !== "string") return;
+
 			const typeHandlers = handlers.get(type);
 			if (typeHandlers) {
 				typeHandlers.forEach((handler) => handler(data));

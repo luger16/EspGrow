@@ -14,6 +14,11 @@ export function toggleDevice(deviceId: string): void {
 	if (!device) return;
 	if (pendingDevices.has(deviceId)) return;
 
+	if (!websocket.connected) {
+		console.error("Cannot toggle device: WebSocket disconnected");
+		return;
+	}
+
 	pendingDevices.add(deviceId);
 	const newState = !device.isOn;
 	
@@ -22,6 +27,13 @@ export function toggleDevice(deviceId: string): void {
 		target: getDeviceTarget(device),
 		on: newState,
 	});
+
+	// Safety timeout to clear pending state if no response
+	setTimeout(() => {
+		if (pendingDevices.has(deviceId)) {
+			pendingDevices.delete(deviceId);
+		}
+	}, 5000);
 }
 
 export function addDevice(device: Device): void {
