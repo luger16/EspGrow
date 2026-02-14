@@ -7,6 +7,7 @@
 	import { curveNatural } from "d3-shape";
 	import type { Sensor } from "$lib/types";
 	import { getSensorHistory, requestHistory } from "$lib/stores/sensors.svelte";
+	import { settings, formatTemperature, convertTemperature } from "$lib/stores/settings.svelte";
 	import { formatUnit } from "$lib/utils";
 
 	let {
@@ -47,7 +48,14 @@
 	});
 
 	const chartData = $derived.by(() => {
-		if (history.length < 2) return history;
+		if (history.length < 2) {
+			return history.map((point) => ({
+				date: point.date,
+				value: sensor.type === "temperature" 
+					? convertTemperature(point.value, settings.temperatureUnit)
+					: point.value,
+			}));
+		}
 
 		const expectedInterval = { "12h": 5 * 60 * 1000, "24h": 10 * 60 * 1000, "7d": 60 * 60 * 1000 }[timeRange];
 		const gapThreshold = expectedInterval * 1.5;
@@ -61,13 +69,21 @@
 					result.push({ date: gapMid, value: null });
 				}
 			}
-			result.push(history[i]);
+			const convertedValue = sensor.type === "temperature"
+				? convertTemperature(history[i].value, settings.temperatureUnit)
+				: history[i].value;
+			result.push({ date: history[i].date, value: convertedValue });
 		}
 		return result;
 	});
 
 	const yDomain = $derived.by(() => {
-		const values = history.map((d) => d.value);
+		const values = history.map((d) => {
+			if (sensor.type === "temperature") {
+				return convertTemperature(d.value, settings.temperatureUnit);
+			}
+			return d.value;
+		});
 		const min = Math.min(...values);
 		const max = Math.max(...values);
 		const padding = (max - min) * 0.15 || 0.5;
@@ -173,12 +189,18 @@
 								});
 							}}
 						>
-							{#snippet formatter({ value })}
-								<div class="flex w-full justify-between items-center gap-2">
-									<span class="text-muted-foreground">{sensorTypeLabels[sensor.type] || sensor.type}</span>
-									<span class="text-foreground font-mono font-medium tabular-nums">{value}{formatUnit(sensor.unit)}</span>
-								</div>
-							{/snippet}
+						{#snippet formatter({ value }: { value: unknown })}
+							<div class="flex w-full justify-between items-center gap-2">
+								<span class="text-muted-foreground">{sensorTypeLabels[sensor.type] || sensor.type}</span>
+								<span class="text-foreground font-mono font-medium tabular-nums">
+									{#if sensor.type === "temperature"}
+										{typeof value === "number" ? value.toFixed(1) : value}{settings.temperatureUnit === "fahrenheit" ? "°F" : "°C"}
+									{:else}
+										{value}{formatUnit(sensor.unit)}
+									{/if}
+								</span>
+							</div>
+						{/snippet}
 						</Chart.Tooltip>
 					{/snippet}
 				</AreaChart>
