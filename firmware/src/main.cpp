@@ -25,7 +25,10 @@ namespace {
         
         String rulesJson;
         Automation::getRulesJson(rulesJson);
-        doc["data"] = serialized(rulesJson);
+        
+        JsonDocument dataDoc;
+        deserializeJson(dataDoc, rulesJson);
+        doc["data"] = dataDoc.as<JsonArray>();
         
         String out;
         serializeJson(doc, out);
@@ -40,7 +43,10 @@ namespace {
         
         String devicesJson;
         Devices::getDevicesJson(devicesJson);
-        doc["data"] = serialized(devicesJson);
+        
+        JsonDocument dataDoc;
+        deserializeJson(dataDoc, devicesJson);
+        doc["data"] = dataDoc.as<JsonArray>();
         
         String out;
         serializeJson(doc, out);
@@ -53,7 +59,10 @@ namespace {
         
         String sensorsJson;
         SensorConfig::getSensorsJson(sensorsJson);
-        doc["data"] = serialized(sensorsJson);
+        
+        JsonDocument dataDoc;
+        deserializeJson(dataDoc, sensorsJson);
+        doc["data"] = dataDoc.as<JsonArray>();
         
         String out;
         serializeJson(doc, out);
