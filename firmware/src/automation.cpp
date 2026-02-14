@@ -15,6 +15,17 @@ namespace {
     unsigned long lastEvaluation = 0;
     const unsigned long EVAL_INTERVAL = 2000;
     DeviceStateCallback onDeviceStateChange = nullptr;
+
+    void syncTriggerStateToDevice(const char* deviceId) {
+        Devices::Device* device = Devices::getDevice(deviceId);
+        if (!device) return;
+        for (auto& rule : rules) {
+            if (strcmp(rule.deviceId, deviceId) == 0) {
+                lastTriggerState[String(rule.id)] = (device->isOn == rule.actionOn);
+                rule.lastStateChangeMs = 0;
+            }
+        }
+    }
     
     bool evaluateCondition(float value, const char* op, float threshold, bool deviceCurrentlyOn, float thresholdOff, bool useHysteresis) {
         if (useHysteresis) {
@@ -334,11 +345,26 @@ void clearExpiredOverrides() {
     for (auto it = manualOverrides.begin(); it != manualOverrides.end(); ) {
         if (millis() >= it->second) {
             Serial.printf("[Automation] Override expired for %s\n", it->first.c_str());
+            syncTriggerStateToDevice(it->first.c_str());
             it = manualOverrides.erase(it);
         } else {
             ++it;
         }
     }
+}
+
+void clearOverride(const char* deviceId) {
+    auto it = manualOverrides.find(String(deviceId));
+    if (it != manualOverrides.end()) {
+        manualOverrides.erase(it);
+        syncTriggerStateToDevice(deviceId);
+        Serial.printf("[Automation] Manual override cleared for %s\n", deviceId);
+    }
+}
+
+void forceEvaluation(const std::map<String, float>& sensorReadings) {
+    lastEvaluation = 0;
+    loop(sensorReadings);
 }
 
 }

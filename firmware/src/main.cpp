@@ -337,6 +337,20 @@ namespace {
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
+        else if (strcmp(type, "clear_override") == 0) {
+            const char* deviceId = doc["deviceId"];
+            if (deviceId) {
+                Automation::clearOverride(deviceId);
+                Automation::forceEvaluation(cachedSensorReadings);
+                
+                JsonDocument response;
+                response["type"] = "override_cleared";
+                response["deviceId"] = deviceId;
+                String out;
+                serializeJson(response, out);
+                WebSocketServer::broadcast(out);
+            }
+        }
     }
 
     void broadcastSensorData() {

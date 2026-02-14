@@ -44,5 +44,7 @@ void setManualOverride(const char* deviceId, unsigned long durationMs = 300000);
 bool isDeviceOverridden(const char* deviceId);
 unsigned long getOverrideRemaining(const char* deviceId);
 void clearExpiredOverrides();
+void clearOverride(const char* deviceId);
+void forceEvaluation(const std::map<String, float>& sensorReadings);
 
 }

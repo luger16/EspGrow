@@ -48,6 +48,10 @@ export function updateDevice(deviceId: string, updates: Partial<Omit<Device, "id
 	});
 }
 
+export function clearOverride(deviceId: string): void {
+	websocket.send("clear_override", { deviceId });
+}
+
 export function initDeviceWebSocket(): void {
 	websocket.on("devices", (data: unknown) => {
 		const msg = data as { data: Device[] };
@@ -73,6 +77,13 @@ export function initDeviceWebSocket(): void {
 			if (msg.overrideActive && msg.overrideRemainingMs) {
 				overriddenDevices[device.id] = Date.now() + msg.overrideRemainingMs;
 			}
+		}
+	});
+
+	websocket.on("override_cleared", (data: unknown) => {
+		const msg = data as { deviceId: string };
+		if (msg.deviceId && overriddenDevices[msg.deviceId]) {
+			delete overriddenDevices[msg.deviceId];
 		}
 	});
 
