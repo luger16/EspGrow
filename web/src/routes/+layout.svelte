@@ -3,6 +3,7 @@
 	import favicon from "$lib/assets/favicon.svg";
 	import AppSidebar from "$lib/components/app-sidebar.svelte";
 	import BottomTabs from "$lib/components/bottom-tabs.svelte";
+	import { Toaster } from "$lib/components/ui/sonner";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { initTheme } from "$lib/stores/settings.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
@@ -33,4 +34,5 @@
 		{@render children()}
 	</Sidebar.Inset>
 	<BottomTabs />
+	<Toaster />
 </Sidebar.Provider>

@@ -13,8 +13,11 @@
 	import { devices } from "$lib/stores/devices.svelte";
 	import { settings, updateSettings, type Theme, type TemperatureUnit } from "$lib/stores/settings.svelte";
 	import { initSystemInfoWebSocket } from "$lib/stores/system.svelte";
+	import { toast } from "svelte-sonner";
 	import { sensorIcons, deviceIcons } from "$lib/icons";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
+	import DownloadIcon from "@lucide/svelte/icons/download";
+	import UploadIcon from "@lucide/svelte/icons/upload";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 	import PowerIcon from "@lucide/svelte/icons/power";
 	import type { Sensor, Device } from "$lib/types";
@@ -52,6 +55,9 @@
 	let editingSensorId = $state<string | null>(null);
 	let editingDeviceId = $state<string | null>(null);
 	let ppfdInput = $state("");
+	let backingUp = $state(false);
+	let restoring = $state(false);
+	let fileInput: HTMLInputElement | null = $state(null);
 
 	const editingSensor = $derived(sensors.find((s) => s.id === editingSensorId));
 	const editingDevice = $derived(devices.find((d) => d.id === editingDeviceId));
@@ -63,6 +69,70 @@
 		if (value > 0 && value <= 3000) {
 			calibratePpfd(value);
 			ppfdInput = "";
+		}
+	}
+
+	async function handleBackupConfig() {
+		backingUp = true;
+		try {
+			const response = await fetch("/api/config/backup");
+			if (!response.ok) throw new Error(`Backup failed: ${response.status}`);
+			const blob = await response.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = "espgrow-backup.json";
+			a.click();
+			URL.revokeObjectURL(url);
+			toast.success("Configuration backed up successfully!");
+		} catch (error) {
+			console.error("Config backup failed:", error);
+			toast.error(error instanceof Error ? error.message : "Backup failed");
+		} finally {
+			backingUp = false;
+		}
+	}
+
+	function handleRestoreClick() {
+		fileInput?.click();
+	}
+
+	async function handleFileSelect(event: Event) {
+		const target = event.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (!file) return;
+
+		restoring = true;
+		try {
+			const text = await file.text();
+			const config = JSON.parse(text);
+
+			if (!config.devices || !config.rules || !config.sensors) {
+				throw new Error("Invalid backup file: missing required keys (devices, rules, sensors)");
+			}
+
+			if (!Array.isArray(config.devices) || !Array.isArray(config.rules) || !Array.isArray(config.sensors)) {
+				throw new Error("Invalid backup file: devices, rules, and sensors must be arrays");
+			}
+
+			const response = await fetch("/api/config/restore", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: text
+			});
+
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(error.error || `Restore failed: ${response.status}`);
+			}
+
+			toast.success("Configuration restored successfully!");
+		} catch (error) {
+			console.error("Config restore failed:", error);
+			toast.error(error instanceof Error ? error.message : "Restore failed");
+		} finally {
+			restoring = false;
+			if (target) target.value = "";
 		}
 	}
 </script>
@@ -234,6 +304,39 @@
 				{/each}
 			</div>
 		{/if}
+	</section>
+
+	<section>
+		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Backup & Restore</h2>
+		<div class="divide-y divide-border rounded-lg border">
+			<div class="flex items-center justify-between p-3">
+				<div>
+					<p class="text-sm font-medium">Backup Configuration</p>
+					<p class="text-xs text-muted-foreground">Download sensors, devices, and rules as JSON</p>
+				</div>
+				<Button variant="outline" size="sm" disabled={backingUp} onclick={handleBackupConfig}>
+					<DownloadIcon class="size-4" />
+					{backingUp ? "Backing up..." : "Backup"}
+				</Button>
+			</div>
+			<div class="flex items-center justify-between p-3">
+				<div>
+					<p class="text-sm font-medium">Restore Configuration</p>
+					<p class="text-xs text-muted-foreground">Replace all settings from a backup file</p>
+				</div>
+				<Button variant="outline" size="sm" disabled={restoring} onclick={handleRestoreClick}>
+					<UploadIcon class="size-4" />
+					{restoring ? "Restoring..." : "Restore"}
+				</Button>
+			</div>
+		</div>
+		<input
+			bind:this={fileInput}
+			type="file"
+			accept="application/json,.json"
+			onchange={handleFileSelect}
+			class="hidden"
+		/>
 	</section>
 
 	<SystemInfoCard />
