@@ -9,10 +9,12 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
+	import { Progress } from "$lib/components/ui/progress/index.js";
 	import { sensors, ppfdCalibration, calibratePpfd, resetPpfdCalibration } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
 	import { settings, updateSettings, type Theme, type TemperatureUnit } from "$lib/stores/settings.svelte";
-	import { initSystemInfoWebSocket } from "$lib/stores/system.svelte";
+	import { systemInfo, initSystemInfoWebSocket } from "$lib/stores/system.svelte";
+	import { websocket } from "$lib/stores/websocket.svelte";
 	import { toast } from "svelte-sonner";
 	import { sensorIcons, deviceIcons } from "$lib/icons";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -20,6 +22,7 @@
 	import UploadIcon from "@lucide/svelte/icons/upload";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 	import PowerIcon from "@lucide/svelte/icons/power";
+	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
 	import type { Sensor, Device } from "$lib/types";
 	import { onMount } from "svelte";
 
@@ -58,11 +61,55 @@
 	let backingUp = $state(false);
 	let restoring = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
+	let firmwareFileInput: HTMLInputElement | null = $state(null);
+	let otaStatus = $state<"idle" | "uploading" | "downloading" | "installing" | "success" | "error" | "rebooting">("idle");
+	let otaProgress = $state(0);
+	let otaError = $state("");
+	let checkingUpdate = $state(false);
+	let updateAvailable = $state(false);
+	let latestVersion = $state("");
+	let downloadUrl = $state("");
+	let firmwareFits = $state(true);
+	let sizeWarning = $state("");
+	let rateLimited = $state(false);
+	let maxFirmwareSize = $state(0);
+	let firmwareSize = $state(0);
+	let reconnecting = $state(false);
 
 	const editingSensor = $derived(sensors.find((s) => s.id === editingSensorId));
 	const editingDevice = $derived(devices.find((d) => d.id === editingDeviceId));
 	const hasAs7341 = $derived(sensors.some((s) => s.hardwareType === "as7341"));
 	const isCalibrated = $derived(ppfdCalibration.factor !== 1.0);
+	const otaInProgress = $derived(otaStatus !== "idle" && otaStatus !== "error");
+
+	$effect(() => {
+		const unsubscribe = websocket.on("ota_status", (data: any) => {
+			otaStatus = data.status;
+			if (data.progress !== undefined) {
+				otaProgress = data.progress;
+			}
+			if (data.error) {
+				otaError = data.error;
+				toast.error(`OTA failed: ${data.error}`);
+			}
+			if (data.status === "success") {
+				toast.success("Firmware update successful!");
+				// Device will reboot shortly after successful flash
+				reconnecting = true;
+				setTimeout(() => {
+					window.location.reload();
+				}, 10000);
+			}
+			if (data.status === "rebooting") {
+				reconnecting = true;
+				setTimeout(() => {
+					window.location.reload();
+				}, 10000);
+			}
+		});
+
+		return () => unsubscribe();
+	});
 
 	function handleCalibrate() {
 		const value = parseFloat(ppfdInput);
@@ -133,6 +180,126 @@
 		} finally {
 			restoring = false;
 			if (target) target.value = "";
+		}
+	}
+
+	function handleFirmwareUploadClick() {
+		firmwareFileInput?.click();
+	}
+
+	async function handleFirmwareFileSelect(event: Event) {
+		const target = event.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (!file) return;
+
+		if (!file.name.endsWith(".bin")) {
+			toast.error("Please select a .bin firmware file");
+			target.value = "";
+			return;
+		}
+
+		otaStatus = "uploading";
+		otaProgress = 0;
+		otaError = "";
+
+		try {
+			const formData = new FormData();
+			formData.append("firmware", file);
+
+			const xhr = new XMLHttpRequest();
+			xhr.upload.onprogress = (e) => {
+				if (e.lengthComputable) {
+					otaProgress = Math.round((e.loaded / e.total) * 100);
+				}
+			};
+
+			xhr.onload = () => {
+				// Success response received (but device will reboot soon)
+				// Don't set status here - WebSocket will handle it
+			};
+
+			xhr.onerror = () => {
+				// Network error can occur if device reboots before response completes
+				// Only treat as error if we're still in uploading state after a delay
+				setTimeout(() => {
+					if (otaStatus === "uploading") {
+						otaStatus = "error";
+						otaError = "Upload failed";
+						toast.error("Upload failed: Network error");
+					}
+				}, 2000);
+			};
+
+			xhr.open("POST", "/api/ota/upload");
+			xhr.send(formData);
+		} catch (error) {
+			otaStatus = "error";
+			otaError = error instanceof Error ? error.message : "Upload failed";
+			toast.error(`Upload failed: ${otaError}`);
+		} finally {
+			target.value = "";
+		}
+	}
+
+	async function handleCheckUpdate() {
+		checkingUpdate = true;
+		try {
+			const response = await fetch("/api/ota/check");
+			if (!response.ok) throw new Error("Failed to check for updates");
+
+			const data = await response.json();
+			latestVersion = data.latestVersion || "";
+			downloadUrl = data.downloadUrl || "";
+			firmwareFits = data.fits !== false;
+			sizeWarning = data.sizeWarning || "";
+			rateLimited = data.rateLimited === true;
+			maxFirmwareSize = data.maxFirmwareSize || 0;
+			firmwareSize = data.size || 0;
+			updateAvailable = data.currentVersion !== data.latestVersion && !!data.downloadUrl;
+
+			if (rateLimited) {
+				toast.info("GitHub rate limit reached. Try again later.");
+			} else if (updateAvailable) {
+				if (!firmwareFits) {
+					toast.warning(`Update ${latestVersion} available but too large for this device`);
+				} else {
+					toast.success(`Update available: ${latestVersion}`);
+				}
+			} else if (!data.downloadUrl) {
+				toast.info("No firmware found for your chip model");
+			} else {
+				toast.info("You're running the latest version");
+			}
+		} catch (error) {
+			console.error("Update check failed:", error);
+			toast.error(error instanceof Error ? error.message : "Update check failed");
+		} finally {
+			checkingUpdate = false;
+		}
+	}
+
+	async function handleInstallUpdate() {
+		if (!downloadUrl) return;
+
+		otaStatus = "downloading";
+		otaProgress = 0;
+		otaError = "";
+
+		try {
+			const response = await fetch("/api/ota/install", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ url: downloadUrl })
+			});
+
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(error.error || "Install failed");
+			}
+		} catch (error) {
+			otaStatus = "error";
+			otaError = error instanceof Error ? error.message : "Install failed";
+			toast.error(`Install failed: ${otaError}`);
 		}
 	}
 </script>
@@ -339,8 +506,135 @@
 		/>
 	</section>
 
+	<section>
+		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Firmware Update</h2>
+		<div class="divide-y divide-border rounded-lg border">
+			<div class="flex items-center justify-between p-3">
+				<div class="flex-1">
+					<p class="text-sm font-medium">Current Version</p>
+					<p class="text-xs text-muted-foreground">{systemInfo.data?.firmwareVersion || "Unknown"}</p>
+				</div>
+			</div>
+			
+		<div class="flex items-center justify-between p-3">
+			<div class="flex-1">
+				<p class="text-sm font-medium">Check for Updates</p>
+				<p class="text-xs text-muted-foreground">
+					{#if rateLimited}
+						GitHub rate limit reached — try again later
+					{:else if updateAvailable}
+						Update available: {latestVersion}
+					{:else}
+						Check GitHub for latest release
+					{/if}
+				</p>
+			</div>
+			<div class="flex gap-2">
+				<Button 
+					variant="outline" 
+					size="sm" 
+					disabled={checkingUpdate || otaInProgress}
+					onclick={handleCheckUpdate}
+				>
+					<RefreshCwIcon class={checkingUpdate ? "size-4 animate-spin" : "size-4"} />
+					Check
+				</Button>
+				{#if updateAvailable && !rateLimited}
+					<Button 
+						size="sm" 
+						disabled={otaInProgress || !firmwareFits}
+						onclick={handleInstallUpdate}
+					>
+						<DownloadIcon class="size-4" />
+						Install
+					</Button>
+				{/if}
+			</div>
+		</div>
+		
+		{#if sizeWarning}
+			<div class="border-t border-border p-3">
+				<div class="rounded-md bg-destructive/10 p-3">
+					<p class="text-xs font-medium text-destructive">{sizeWarning}</p>
+					{#if maxFirmwareSize > 0 && firmwareSize > 0}
+						<p class="mt-1 text-xs text-destructive/80">
+							Firmware: {(firmwareSize / 1024).toFixed(0)} KB / Partition: {(maxFirmwareSize / 1024).toFixed(0)} KB
+						</p>
+					{/if}
+				</div>
+			</div>
+		{/if}
+			
+			<div class="flex items-center justify-between p-3">
+				<div class="flex-1">
+					<p class="text-sm font-medium">Upload Firmware</p>
+					<p class="text-xs text-muted-foreground">Manually upload a .bin file</p>
+				</div>
+				<Button 
+					variant="outline" 
+					size="sm" 
+					disabled={otaInProgress}
+					onclick={handleFirmwareUploadClick}
+				>
+					<UploadIcon class="size-4" />
+					Upload
+				</Button>
+			</div>
+			
+			{#if otaInProgress || otaStatus === "error"}
+				<div class="p-3">
+					<div class="space-y-2">
+						<div class="flex items-center justify-between">
+							<p class="text-sm font-medium">
+								{#if otaStatus === "uploading"}
+									Uploading firmware...
+								{:else if otaStatus === "downloading"}
+									Downloading firmware...
+								{:else if otaStatus === "installing"}
+									Installing firmware...
+								{:else if otaStatus === "success"}
+									Update successful!
+								{:else if otaStatus === "error"}
+									Update failed
+								{/if}
+							</p>
+							{#if otaInProgress}
+								<span class="text-xs text-muted-foreground">{otaProgress}%</span>
+							{/if}
+						</div>
+						<Progress value={otaProgress} class="h-2" />
+						{#if otaStatus === "error" && otaError}
+							<p class="text-xs text-destructive">{otaError}</p>
+						{/if}
+					</div>
+				</div>
+			{/if}
+		</div>
+		<input
+			bind:this={firmwareFileInput}
+			type="file"
+			accept=".bin"
+			onchange={handleFirmwareFileSelect}
+			class="hidden"
+		/>
+	</section>
+
 	<SystemInfoCard />
 </div>
+
+{#if reconnecting}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+		<div class="flex flex-col items-center gap-4 rounded-lg border bg-card p-8 shadow-lg">
+			<div class="size-12 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+			<div class="text-center">
+				<p class="text-lg font-semibold">Rebooting...</p>
+				<p class="text-sm text-muted-foreground">Reconnecting in a moment</p>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<div class="h-20"></div>
 
 {#if editingSensor}
 	<EditSensorModal
