@@ -1,4 +1,5 @@
 #include "websocket_server.h"
+#include "ota_manager.h"
 #include "storage.h"
 #include "devices.h"
 #include "automation.h"
@@ -68,8 +69,6 @@ namespace {
 AsyncWebServer* getServer(uint16_t port) {
     if (!server) {
         server = new AsyncWebServer(port);
-        server->begin();
-        Serial.printf("[Server] Started on port %d\n", port);
     }
     return server;
 }
@@ -79,25 +78,12 @@ void init() {
     
     if (!server) {
         server = new AsyncWebServer(80);
-        server->begin();
-        Serial.println("[Server] Started on port 80");
     }
     
     ws = new AsyncWebSocket("/ws");
     ws->onEvent(onWsEvent);
     server->addHandler(ws);
     
-    server->serveStatic("/_app/immutable/", LittleFS, "/_app/immutable/")
-        .setCacheControl("max-age=31536000, immutable");
-
-    server->serveStatic("/", LittleFS, "/")
-        .setDefaultFile("index.html")
-        .setCacheControl("no-cache");
-    
-    server->onNotFound([](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/index.html", "text/html");
-    });
-
     // API: backup all config files as a single JSON bundle
     server->on("/api/config/backup", HTTP_GET, [](AsyncWebServerRequest *request) {
         JsonDocument doc;
@@ -205,8 +191,48 @@ void init() {
     
     server->addHandler(restoreHandler);
     
+    OtaManager::begin(server, [](const OtaManager::StatusEvent& event) {
+        JsonDocument doc;
+        doc["type"] = "ota_status";
+        
+        switch (event.status) {
+            case OtaManager::Status::Idle:       doc["status"] = "idle"; break;
+            case OtaManager::Status::Uploading:   doc["status"] = "uploading"; break;
+            case OtaManager::Status::Downloading: doc["status"] = "downloading"; break;
+            case OtaManager::Status::Installing:  doc["status"] = "installing"; break;
+            case OtaManager::Status::Success:     doc["status"] = "success"; break;
+            case OtaManager::Status::Error:       doc["status"] = "error"; break;
+            case OtaManager::Status::Rebooting:   doc["status"] = "rebooting"; break;
+        }
+        
+        if (event.progress >= 0) doc["progress"] = event.progress;
+        if (event.error.length() > 0) doc["error"] = event.error;
+        
+        String out;
+        serializeJson(doc, out);
+        broadcast(out);
+    });
+    
+    server->serveStatic("/_app/immutable/", LittleFS, "/_app/immutable/")
+        .setCacheControl("max-age=31536000, immutable");
+
+    server->serveStatic("/", LittleFS, "/")
+        .setDefaultFile("index.html")
+        .setCacheControl("no-cache");
+    
+    server->onNotFound([](AsyncWebServerRequest *request) {
+        if (request->url().startsWith("/api/")) {
+            request->send(404, "application/json", "{\"error\":\"Not found\"}");
+            return;
+        }
+        request->send(LittleFS, "/index.html", "text/html");
+    });
+    
+    server->begin();
+    Serial.println("[Server] Started on port 80");
+    
     initialized = true;
-    Serial.println("[WS] WebSocket and static routes configured");
+    Serial.println("[WS] WebSocket, API routes, and static files configured");
 }
 
 void loop() {

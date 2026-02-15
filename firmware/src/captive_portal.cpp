@@ -231,6 +231,7 @@ void start(const Config& config, SuccessCallback onSuccess) {
         request->send(200, "text/html", generateHTML());
     });
     
+    server->begin();
     portalActive = true;
     Serial.printf("[Portal] Ready: %s\n", config.apName);
 }

@@ -8,6 +8,7 @@
 #include "devices.h"
 #include "sensor_config.h"
 #include "history.h"
+#include "ota_manager.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
 #include <WiFi.h>
@@ -369,7 +370,7 @@ namespace {
             response["chipModel"] = ESP.getChipModel();
             response["wifiRssi"] = WiFi.RSSI();
             response["ipAddress"] = WiFiManager::getIP();
-            response["firmwareVersion"] = "1.0.0";
+            response["firmwareVersion"] = FIRMWARE_VERSION;
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
@@ -457,6 +458,8 @@ void setup() {
     });
     
     WebSocketServer::onMessage(handleMessage);
+    
+    OtaManager::validateRollback();
 }
 
 void loop() {
