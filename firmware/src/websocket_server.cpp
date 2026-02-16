@@ -239,30 +239,24 @@ void init() {
             }
             
             request->send(response);
-        } else {
-            request->send(404);
-        }
-    });
-    
-    server->onNotFound([](AsyncWebServerRequest *request) {
-        if (request->url().startsWith("/api/")) {
+        } else if (path.startsWith("/api/")) {
             request->send(404, "application/json", "{\"error\":\"Not found\"}");
-            return;
-        }
-        
-        const WebAsset* indexAsset = web_find_asset("/index.html");
-        if (indexAsset) {
-            AsyncWebServerResponse* response = request->beginResponse(
-                200, 
-                indexAsset->content_type, 
-                indexAsset->data, 
-                indexAsset->len
-            );
-            response->addHeader("Content-Encoding", "gzip");
-            response->addHeader("Cache-Control", "no-cache");
-            request->send(response);
         } else {
-            request->send(404, "text/plain", "Not found");
+            // SPA fallback: serve index.html for client-side routing
+            const WebAsset* indexAsset = web_find_asset("/index.html");
+            if (indexAsset) {
+                AsyncWebServerResponse* response = request->beginResponse(
+                    200, 
+                    indexAsset->content_type, 
+                    indexAsset->data, 
+                    indexAsset->len
+                );
+                response->addHeader("Content-Encoding", "gzip");
+                response->addHeader("Cache-Control", "no-cache");
+                request->send(response);
+            } else {
+                request->send(404, "text/plain", "Not found");
+            }
         }
     });
     
