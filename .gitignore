@@ -9,3 +9,6 @@ Thumbs.db
 
 # Planning artifacts
 .sisyphus/
+
+# Generated firmware assets
+firmware/src/web_assets.h
