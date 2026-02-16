@@ -4,6 +4,7 @@
 #include "devices.h"
 #include "automation.h"
 #include "sensor_config.h"
+#include "web_assets.h"
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
@@ -213,19 +214,56 @@ void init() {
         broadcast(out);
     });
     
-    server->serveStatic("/_app/immutable/", LittleFS, "/_app/immutable/")
-        .setCacheControl("max-age=31536000, immutable");
-
-    server->serveStatic("/", LittleFS, "/")
-        .setDefaultFile("index.html")
-        .setCacheControl("no-cache");
+    server->on("/*", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String path = request->url();
+        
+        if (path == "/") {
+            path = "/index.html";
+        }
+        
+        const WebAsset* asset = web_find_asset(path.c_str());
+        
+        if (asset) {
+            AsyncWebServerResponse* response = request->beginResponse(
+                200, 
+                asset->content_type, 
+                asset->data, 
+                asset->len
+            );
+            response->addHeader("Content-Encoding", "gzip");
+            
+            if (asset->cacheable) {
+                response->addHeader("Cache-Control", "max-age=31536000, immutable");
+            } else {
+                response->addHeader("Cache-Control", "no-cache");
+            }
+            
+            request->send(response);
+        } else {
+            request->send(404);
+        }
+    });
     
     server->onNotFound([](AsyncWebServerRequest *request) {
         if (request->url().startsWith("/api/")) {
             request->send(404, "application/json", "{\"error\":\"Not found\"}");
             return;
         }
-        request->send(LittleFS, "/index.html", "text/html");
+        
+        const WebAsset* indexAsset = web_find_asset("/index.html");
+        if (indexAsset) {
+            AsyncWebServerResponse* response = request->beginResponse(
+                200, 
+                indexAsset->content_type, 
+                indexAsset->data, 
+                indexAsset->len
+            );
+            response->addHeader("Content-Encoding", "gzip");
+            response->addHeader("Cache-Control", "no-cache");
+            request->send(response);
+        } else {
+            request->send(404, "text/plain", "Not found");
+        }
     });
     
     server->begin();
