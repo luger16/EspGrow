@@ -2,15 +2,11 @@
 
 > **Self-hosted grow tent monitoring. No cloud. No subscriptions.**
 
----
-
 ## What is EspGrow?
 
 A complete monitoring and automation system for indoor grow tents, running entirely on an ESP32 microcontroller. Monitor sensors, control devices, and automate your environment—all through a local web interface accessible from any device on your network.
 
 **No cloud dependency. No vendor lock-in. Just your tent, your data, your control.**
-
----
 
 ## Features
 
@@ -21,8 +17,6 @@ A complete monitoring and automation system for indoor grow tents, running entir
 🔄 **OTA updates** — Update firmware wirelessly via file upload or GitHub releases  
 💾 **Config backup/restore** — Export and import all settings as JSON  
 📱 **Mobile-ready** — Progressive web app, installable on iOS/Android
-
----
 
 ## Getting Started
 
@@ -58,8 +52,6 @@ just monitor  # Open serial monitor
 just check    # Type-check web + verify firmware compiles
 ```
 
----
-
 ## Hardware
 
 ### Microcontroller
@@ -83,8 +75,6 @@ just check    # Type-check web + verify firmware compiles
 | Shelly Gen2/Plus       | RPC over HTTP    | Plus Plug S, Pro series      |
 | Tasmota-flashed plugs  | HTTP             | Any Tasmota-compatible device|
 
----
-
 ## Project Structure
 
 ```
@@ -94,8 +84,6 @@ just check    # Type-check web + verify firmware compiles
 ```
 
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design details.
-
----
 
 ## Troubleshooting
 
@@ -117,8 +105,6 @@ See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design details.
 
 For more help, [open an issue](https://github.com/luger16/EspGrow/issues).
 
----
-
 ## Roadmap
 
 - 🔜 Device state history charts
@@ -129,15 +115,11 @@ For more help, [open an issue](https://github.com/luger16/EspGrow/issues).
 - 💡 AP-only mode (no WiFi network required)
 - 💡 Dashboard customization (reorder sensors, custom names)
 
----
-
 ## Tech Stack
 
 **Web**: SvelteKit 2, Svelte 5 (runes), TypeScript, Tailwind 4, shadcn-svelte  
 **Firmware**: PlatformIO, Arduino framework, ESPAsyncWebServer, ArduinoJson 7  
 **Communication**: WebSocket (sensor data broadcast) + HTTP (device control)
-
----
 
 ## License
 
