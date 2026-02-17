@@ -7,10 +7,11 @@ containing PROGMEM arrays and a route table mapping URL paths to embedded data.
 """
 
 import glob
+import gzip
 import sys
 import re
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 # Configuration
 WEB_BUILD_DIR = Path(__file__).parent.parent.parent / "web" / "build"
@@ -61,28 +62,37 @@ def is_cacheable(url_path: str) -> bool:
     return "/_app/immutable/" in url_path
 
 
-def find_gz_files() -> List[Tuple[str, Path]]:
-    """Find all .gz files in web/build, return list of (url_path, file_path) tuples."""
+def find_gz_files() -> List[Tuple[str, Union[Path, bytes]]]:
     files = []
     
     if not WEB_BUILD_DIR.exists():
         print(f"Error: {WEB_BUILD_DIR} does not exist", file=sys.stderr)
         sys.exit(1)
     
-    # Find all .gz files recursively
+    found_urls = set()
+    
     for gz_file in sorted(glob.glob(str(WEB_BUILD_DIR / "**" / "*.gz"), recursive=True)):
         file_path = Path(gz_file)
         
-        # Skip robots.txt
         if file_path.name == "robots.txt.gz":
             continue
         
-        # Convert filesystem path to URL path
-        # e.g., web/build/_app/immutable/nodes/2.1dwqN7F6.js.gz -> /_app/immutable/nodes/2.1dwqN7F6.js
         rel_path = file_path.relative_to(WEB_BUILD_DIR)
         url_path = "/" + str(rel_path).replace("\\", "/").replace(".gz", "")
         
         files.append((url_path, file_path))
+        found_urls.add(url_path)
+    
+    for png_file in sorted(glob.glob(str(WEB_BUILD_DIR / "**" / "*.png"), recursive=True)):
+        file_path = Path(png_file)
+        rel_path = file_path.relative_to(WEB_BUILD_DIR)
+        url_path = "/" + str(rel_path).replace("\\", "/")
+        
+        if url_path not in found_urls:
+            with open(file_path, "rb") as f:
+                png_data = f.read()
+            gzipped_data = gzip.compress(png_data)
+            files.append((url_path, gzipped_data))
     
     return files
 
@@ -103,7 +113,7 @@ def bytes_to_c_array(data: bytes) -> str:
     return ",\n".join(lines)
 
 
-def generate_header(files: List[Tuple[str, Path]]) -> str:
+def generate_header(files: List[Tuple[str, Union[Path, bytes]]]) -> str:
     """Generate C header file content."""
     header_guard = "WEB_ASSETS_H"
     
@@ -121,9 +131,12 @@ def generate_header(files: List[Tuple[str, Path]]) -> str:
     ]
     
     # Generate PROGMEM arrays for each file
-    for url_path, file_path in files:
+    for url_path, source in files:
         identifier = sanitize_identifier(url_path)
-        data = read_file_bytes(file_path)
+        if isinstance(source, bytes):
+            data = source
+        else:
+            data = read_file_bytes(source)
         size = len(data)
         
         lines.append(f"// {url_path} ({size} bytes)")
@@ -148,7 +161,7 @@ def generate_header(files: List[Tuple[str, Path]]) -> str:
     lines.append(f"const size_t WEB_ASSET_COUNT = {len(files)};")
     lines.append("const WebAsset WEB_ASSETS[] PROGMEM = {")
     
-    for url_path, file_path in files:
+    for url_path, _ in files:
         identifier = sanitize_identifier(url_path)
         content_type = get_content_type(url_path)
         cacheable = "true" if is_cacheable(url_path) else "false"
