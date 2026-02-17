@@ -90,6 +90,25 @@
 		return [min - padding, max + padding];
 	});
 
+	// Compute 5 y-axis tick values (array = bypass D3's "nice" suggestion)
+	const yTicks = $derived.by(() => {
+		if (yDomain[0] === undefined || yDomain[1] === undefined) return [0, 25, 50, 75, 100];
+		const min = yDomain[0];
+		const max = yDomain[1];
+		const step = (max - min) / 4;
+		return [min, min + step, min + step * 2, min + step * 3, max];
+	});
+
+	// Compute explicit x-axis tick dates (array = bypass D3's "nice" suggestion)
+	const xTicks = $derived.by(() => {
+		if (chartData.length < 2) return [];
+		const first = chartData[0].date.getTime();
+		const last = chartData[chartData.length - 1].date.getTime();
+		const count = 3;
+		const step = (last - first) / (count - 1);
+		return Array.from({ length: count }, (_, i) => new Date(first + step * i));
+	});
+
 	const sensorTypeLabels: Record<string, string> = {
 		temperature: "Temperature",
 		humidity: "Humidity",
@@ -107,10 +126,12 @@
 </script>
 
 <Dialog.Root {open} {onOpenChange}>
-	<Dialog.Content class="max-w-2xl" showCloseButton={false}>
-		<div class="flex items-center justify-between gap-4">
-			<Dialog.Title class="text-lg font-semibold">{sensor.name}</Dialog.Title>
-			<div class="flex items-center gap-1">
+	<Dialog.Content class="w-full max-w-[calc(100%-1rem)] sm:max-w-2xl overflow-hidden" showCloseButton={false}>
+		<div class="flex items-start justify-between gap-2">
+			<div class="min-w-0 flex-1">
+				<Dialog.Title class="text-lg font-semibold leading-tight">{sensor.name}</Dialog.Title>
+			</div>
+			<div class="flex items-center gap-1 shrink-0">
 				{#each timeRanges as range}
 					<Button
 						variant={timeRange === range.value ? "secondary" : "ghost"}
@@ -129,36 +150,39 @@
 			</div>
 		</div>
 		{#if !hasData}
-			<div class="text-muted-foreground flex aspect-2/1 w-full items-center justify-center text-sm">
+			<div class="text-muted-foreground flex h-64 sm:h-80 w-full items-center justify-center text-sm">
 				No data available for this time range
 			</div>
 		{:else}
 			{#if !hasFullInterval}
 				<div
-					class="bg-muted text-muted-foreground mb-2 rounded-md border px-3 py-2 text-sm"
+					class="bg-muted text-muted-foreground mb-2 rounded-md border px-3 py-2 text-sm break-words"
 				>
 					<strong>Note:</strong> Data is incomplete for this time range. Showing available data.
 				</div>
 			{/if}
-			<Chart.ChartContainer config={chartConfig} class="aspect-2/1 w-full px-2 py-4">
-				<AreaChart
-					data={chartData}
-					x="date"
-					xScale={scaleUtc()}
-					y="value"
-					yDomain={yDomain}
-					yBaseline={undefined}
-					props={{
-						area: {
-							curve: curveNatural,
-							"fill-opacity": 0.4,
-							defined: (d: { value: number | null }) => d.value !== null,
-							line: {
-								class: "stroke-1",
-							},
+		<Chart.ChartContainer config={chartConfig} class="h-64 sm:h-80 w-full overflow-hidden px-4 [&_.lc-axis-tick-label]:text-[10px] sm:[&_.lc-axis-tick-label]:text-xs">
+			{#key timeRange}
+			<AreaChart
+				data={chartData}
+				x="date"
+				xScale={scaleUtc()}
+				y="value"
+				yDomain={yDomain}
+				yBaseline={undefined}
+				padding={{ top: 4, left: 32, bottom: 20, right: 12 }}
+				props={{
+					area: {
+						curve: curveNatural,
+						"fill-opacity": 0.4,
+						defined: (d: { value: number | null }) => d.value !== null,
+						line: {
+							class: "stroke-1",
 						},
+					},
 					xAxis: {
-						ticks: timeRange === "7d" ? 4 : 5,
+						ticks: xTicks,
+						tickSpacing: undefined,
 						format: (v: Date) => {
 							if (timeRange === "7d") {
 								return v.toLocaleDateString(navigator.language, { month: "short", day: "numeric" });
@@ -167,15 +191,18 @@
 						},
 					},
 					yAxis: {
+						ticks: yTicks,
+						tickSpacing: undefined,
 						format: (v: number) => v.toLocaleString(navigator.language, { maximumFractionDigits: 1 }),
 					},
-					}}
+				}}
 				>
 					{#snippet tooltip()}
 						<Chart.Tooltip
-							labelFormatter={(v: Date) => {
+							labelFormatter={(v: unknown) => {
+								const date = v as Date;
 								if (timeRange === "7d") {
-									return v.toLocaleString(navigator.language, {
+									return date.toLocaleString(navigator.language, {
 										weekday: "short",
 										month: "short",
 										day: "numeric",
@@ -183,7 +210,7 @@
 										minute: "2-digit",
 									});
 								}
-								return v.toLocaleString(navigator.language, {
+								return date.toLocaleString(navigator.language, {
 									hour: "2-digit",
 									minute: "2-digit",
 								});
@@ -203,8 +230,9 @@
 						{/snippet}
 						</Chart.Tooltip>
 					{/snippet}
-				</AreaChart>
-			</Chart.ChartContainer>
+			</AreaChart>
+			{/key}
+		</Chart.ChartContainer>
 		{/if}
 	</Dialog.Content>
 </Dialog.Root>
