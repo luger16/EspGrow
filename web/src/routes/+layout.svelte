@@ -25,6 +25,7 @@
 </script>
 
 <svelte:head>
+	<title>EspGrow</title>
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
