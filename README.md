@@ -123,11 +123,11 @@ For more help, [open an issue](https://github.com/luger16/EspGrow/issues).
 
 - 🔜 Device state history charts
 - 🔜 Power usage tracking
-- 🔜 Cost counter (electricity usage)
-- 🔜 Granular device control (SpiderFarmer grow lights, inline fans with speed control)
-- 🔜 GPIO relay support (direct ESP32 control)
-- 🔜 AP-only mode (no WiFi network required)
-- 🔜 Dashboard customization (reorder sensors, custom names)
+- 💡 Cost counter (electricity usage)
+- 💡 Granular device control (SpiderFarmer grow lights, inline fans with speed control)
+- 💡 GPIO relay support (direct ESP32 control)
+- 💡 AP-only mode (no WiFi network required)
+- 💡 Dashboard customization (reorder sensors, custom names)
 
 ---
 
