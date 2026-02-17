@@ -109,6 +109,7 @@ For more help, [open an issue](https://github.com/luger16/EspGrow/issues).
 
 - 🔜 Device state history charts
 - 🔜 Power usage tracking
+- 🔜 Push notifications (PWA alerts)
 - 💡 Cost counter (electricity usage)
 - 💡 Granular device control (SpiderFarmer grow lights, inline fans with speed control)
 - 💡 GPIO relay support (direct ESP32 control)
