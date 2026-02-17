@@ -30,7 +30,7 @@
 					<Icon class="size-4 text-muted-foreground" />
 				</div>
 			</div>
-			<span class="text-2xl font-semibold tabular-nums">{displayValue}</span>
+			<span class="text-xl font-semibold tabular-nums sm:text-2xl">{displayValue}</span>
 		</Card.Content>
 	</Card.Root>
 </button>
