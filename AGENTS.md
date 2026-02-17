@@ -1,211 +1,129 @@
-# AGENTS.md — EspGrow Project Guidelines
+# AGENTS.md — EspGrow
 
-**Project**: EspGrow — ESP32 grow tent monitoring & automation
-**Stack**: SvelteKit 2 + Svelte 5 + TypeScript + Tailwind CSS 4 + shadcn-svelte
-**Structure**: `/web` (frontend) + `/firmware` (ESP32 firmware)
+**ESP32 grow tent monitoring & automation**
+**Stack**: SvelteKit 2 + Svelte 5 + TypeScript + Tailwind 4 + shadcn-svelte (web) / PlatformIO + Arduino (firmware)
 
 ---
 
-## 1. Commands (run from `/web`)
+## 1. Commands
 
 ```bash
-npm run dev              # Dev server
-npm run build            # Production build
-npm run check            # Type check (primary quality gate)
-npm run check:watch      # Type check watch mode
+# From repo root (requires just: brew install just)
+just build          # Build web → embed assets → compile firmware
+just upload         # Build + flash to ESP32
+just monitor        # Open serial monitor
+just dev            # Web dev server with mock ESP32 data
+just check          # Type-check web + compile firmware
+
+# Web only (from /web)
+npm run check       # svelte-check — primary quality gate
+npm run build       # Production build (static site + gzip)
+npm run dev:mock    # Dev server + mock WebSocket server
+
+# Firmware only (from /firmware)
+pio run -e c3               # Compile for ESP32-C3
+pio run -e xiao-s3          # Compile for ESP32-S3
+pio run -t upload -e c3     # Flash to device
 ```
 
-**Note**: No ESLint/Prettier/tests configured. TypeScript strict mode enforces quality.
+**No ESLint, Prettier, or tests.** TypeScript strict mode is the quality gate.
 
 ---
 
 ## 2. Project Structure
 
 ```
-/web
-├── src/
-│   ├── routes/             # SvelteKit routes (file-based routing)
-│   │   ├── +layout.svelte  # Root layout
-│   │   ├── +page.svelte    # Index page
-│   │   └── layout.css      # Global styles (Tailwind + custom CSS vars)
-│   ├── lib/
-│   │   ├── components/ui/  # shadcn-svelte components (future)
-│   │   ├── assets/         # Static assets (favicon, etc.)
-│   │   ├── hooks/          # Custom Svelte hooks/utilities
-│   │   ├── utils.ts        # Utility functions (cn, type helpers)
-│   │   └── index.ts        # $lib barrel export
-│   ├── app.html            # HTML template
-│   └── app.d.ts            # Global type definitions
-├── static/                 # Public assets (served at /)
-├── svelte.config.js        # SvelteKit configuration
-├── vite.config.ts          # Vite configuration
-├── tsconfig.json           # TypeScript configuration
-└── components.json         # shadcn-svelte configuration
+/web/src/
+├── routes/                    # SvelteKit file-based routing (+page.svelte, +layout.svelte)
+├── lib/components/            # App components (kebab-case: sensor-card.svelte)
+├── lib/components/ui/         # shadcn-svelte primitives (DO NOT edit manually)
+├── lib/stores/                # Global state (*.svelte.ts with module-level $state)
+├── lib/types.ts               # Shared type definitions
+└── lib/utils.ts               # cn() utility, type helpers
 
-/firmware                   # ESP32 firmware (currently empty)
+/firmware/src/
+├── main.cpp                   # Entry point (setup + loop)
+├── sensors.h/cpp              # I²C sensor reading
+├── automation.h/cpp           # Rule engine with hysteresis
+├── device_controller.h/cpp    # Shelly Gen1/Gen2, Tasmota HTTP control
+├── websocket_server.h/cpp     # WebSocket broadcast + PROGMEM web serving
+├── ota_manager.h/cpp          # OTA updates (file upload + GitHub releases)
+├── captive_portal.h/cpp       # WiFi setup on first boot
+├── storage.h/cpp              # LittleFS config persistence
+└── web_assets.h               # Auto-generated (DO NOT edit)
 ```
 
 ---
 
-## 3. Available MCP Servers
+## 3. Web Conventions
 
-### context7
-
-- **Tools**: `resolve-library-id`, `query-docs`
-- **Use for**: Looking up official documentation for any library/framework
-
-### svelte
-
-- **Tools**: `list-sections`, `get-documentation`, `playground-link`, `svelte-autofixer`
-- **Use for**: Svelte 5 & SvelteKit documentation, playground links, component validation
-
----
-
-## 4. Code Style & Conventions
-
-### TypeScript
-
-- **Strict mode enabled** — All strict checks on
-- **Use explicit types** for function parameters and return values
-- **Avoid `any`** — Use `unknown` or proper types; `@ts-ignore` forbidden
-- **Use type imports**: `import type { Foo } from './bar'`
-- Exception for utility types in `utils.ts`: `// eslint-disable-next-line @typescript-eslint/no-explicit-any` acceptable
-
-### Svelte 5 Runes (Required)
-
-- **Use runes syntax**: `$props()`, `$state()`, `$derived()`, `$effect()`
-- **Snippet syntax**: `{@render children()}` instead of `<slot />`
-- **Props**: `let { children, title = "Default" } = $props();`
-
-### Imports
-
-- **Use `$lib` alias**: `import { cn } from '$lib/utils'`
-- **Group imports**: (1) External packages (2) `$lib` (3) Relative (4) Type-only
-
-### Component Structure
+### Svelte 5 Runes (required — no legacy syntax)
 
 ```svelte
 <script lang="ts">
   import { cn } from '$lib/utils';
-  import type { ComponentProps } from 'svelte';
-  
-  type Props = ComponentProps<'button'> & {
-    variant?: 'default' | 'destructive';
-  };
-  let { children, variant = 'default', class: className, ...rest } = $props<Props>();
-  
+  import type { Sensor } from '$lib/types';
+
+  let { sensor, onclick }: { sensor: Sensor; onclick?: () => void } = $props();
   let count = $state(0);
   let doubled = $derived(count * 2);
-  
-  $effect(() => {
-    console.log('count changed:', count);
-  });
+  $effect(() => { console.log('changed:', count); });
 </script>
 
-<button class={cn('base-classes', className)} {...rest}>
+<!-- Tailwind first, cn() for conditionals, {@render} not <slot> -->
+<button class={cn('px-4 py-2', active && 'bg-primary')} {onclick}>
   {@render children?.()}
 </button>
 ```
 
-### Styling (Tailwind CSS 4)
+- **State**: `$state()`, `$derived()`, `$effect()` — never `writable()`
+- **Snippets**: `{@render children()}` — never `<slot />`
+- **Styling**: Tailwind utilities + `cn()` + shadcn theme vars (`text-muted-foreground`, `bg-muted`)
+- **Icons**: `@lucide/svelte` — `import { Thermometer } from '@lucide/svelte'`
 
-- **Use Tailwind utilities first** — Prefer `class="..."` over custom CSS
-- **Use `cn()` utility**: `<div class={cn('base-class', isActive && 'active-class', className)} />`
-- **Custom CSS variables** in `src/routes/layout.css` (shadcn-svelte theme system)
-- **Dark mode** via `.dark` class
-- **Use `tw-animate-css`** for animations
+### Stores
 
-### File Organization
+Global state in `$lib/stores/*.svelte.ts` — module-level `$state` + exported mutation functions + `init*WebSocket()` to register handlers via `websocket.on("type", handler)`.
 
-- **SvelteKit routes** use `+` prefix: `+page.svelte`, `+layout.svelte`, `+server.ts`
-- **Shared components** in `$lib/components/`
-- **UI primitives** (shadcn-svelte) in `$lib/components/ui/`
-- **Utilities** in `$lib/utils.ts`
+### TypeScript
 
----
+- **Strict mode** — all checks enabled
+- **Explicit types** for function params and return values
+- **`import type`** for type-only imports
+- **No `any`** — use `unknown` + narrowing; `@ts-ignore` forbidden
 
-## 5. UI/UX Guidelines
+### Imports (ordered)
 
-- **Modern minimal design** — Clean, data-focused interface
-- **Mobile-first responsive** — iOS progressive web app optimized
-- **Use shadcn-svelte components** — Install via CLI when needed
-- **Dark mode support** — Light/dark themes via `.dark` class
-- **Semantic colors** — Use theme variables (primary, muted, destructive, accent)
-- **Icons** — Lucide Svelte (`import { Thermometer } from 'lucide-svelte'`)
-- **Spacing** — Tailwind scale (`p-4`, `gap-6`, `space-y-2`)
-- **Typography** — `text-2xl font-bold` (headings), `text-muted-foreground` (subtle)
+1. External packages (`svelte`, `bits-ui`, `clsx`)
+2. `$lib/` imports
+3. Relative imports
+4. Type-only imports last
 
 ---
 
-## 6. Type Safety & Best Practices
+## 4. Firmware Conventions
 
-### Component Props
-
-```typescript
-type Props = {
-  title: string;
-  optional?: boolean;
-};
-let { title, optional = false } = $props<Props>();
-```
-
-### Utility Types (from `$lib/utils.ts`)
-
-- `WithoutChild<T>`, `WithoutChildren<T>`, `WithoutChildrenOrChild<T>`, `WithElementRef<T, U>`
-
-### Before Committing
-
-1. Run `npm run check` to verify types
-2. Run `npm run build` to verify production build
-3. Match existing Tailwind patterns in `layout.css`
+- **Namespaces** over classes: `Sensors::init()`, `Automation::loop()`, `DeviceController::control()`
+- **One namespace per file pair**: `sensors.h` (declarations) + `sensors.cpp` (implementations)
+- **`#pragma once`** for include guards
+- **`const` by default**, `constexpr` / `#define` for constants — no magic numbers
+- **Fixed-size char arrays** in structs (`char id[24]`), Arduino `String` in function signatures
+- **Error handling**: check sensor reads for `NaN`, check HTTP return codes, log via `Serial.println()`
+- **Libraries**: ArduinoJson 7, ESPAsyncWebServer, Sensirion I2C (SHT3x/4x, SCD4x), Adafruit AS7341
+- **`web_assets.h`** is auto-generated — never edit manually
 
 ---
 
-## 7. Firmware (PlatformIO + Arduino)
+## 5. Architecture
 
-### Commands (run from `/firmware`)
+**Communication**: Web → ESP32 via HTTP POST; ESP32 → Web via WebSocket broadcast. JSON messages: `{ type: "msg_type", ...payload }`.
 
-```bash
-pio run                  # Compile
-pio run -t upload        # Upload to ESP32
-pio device monitor       # Serial monitor (115200 baud)
-pio run -t upload && pio device monitor  # Upload + monitor
-```
+**Build pipeline**: `npm run build` → `embed_web.py` → `pio run` = single binary with PROGMEM-embedded web UI. LittleFS is for runtime config/history only.
 
-### Project Structure
+---
 
-```
-/firmware
-├── platformio.ini       # Board & library config
-├── src/
-│   └── main.cpp         # Entry point (setup + loop)
-├── include/             # Header files (.h)
-├── lib/                 # Project-specific libraries
-└── test/                # Unit tests
-```
+## 6. Commit Messages
 
-### Code Style
+Conventional commits with scope: `feat(web):`, `fix(firmware):`, `chore:`
 
-- **Modern C++** — Use `auto`, range-based loops, `nullptr`
-- **Prefer `const`** — Mark read-only variables
-- **No magic numbers** — Use `constexpr` or `#define` with clear names
-- **Error handling** — Check sensor reads, handle failures gracefully
-- **Serial output** — Use `Serial.println()` for debugging (115200 baud)
-
-### File Organization
-
-- **One class per file** — `SensorManager.h` + `SensorManager.cpp`
-- **Prefix private members** — `_variableName` or `m_variableName`
-- **Group by feature** — `sensors/`, `network/`, `config/`
-
-### Libraries (via platformio.ini)
-
-- **WiFi & WebSocket** — `AsyncTCP`, `ESPAsyncWebServer`
-- **Sensors** — Adafruit unified sensor libraries (SHT4x, SCD4x, AS7341)
-- **JSON** — `ArduinoJson`
-
-### Before Uploading
-
-1. Verify `platformio.ini` has correct board and upload port
-2. Check serial monitor output for errors
-3. Test WiFi connection before WebSocket setup
+**Before committing**: `npm run check` + `npm run build` (from `/web`), `pio run` (from `/firmware`)
