@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { page } from "$app/state";
-	import SproutIcon from "@lucide/svelte/icons/sprout";
+	import Logo from "$lib/assets/logo.svg?raw";
 	import LayoutDashboardIcon from "@lucide/svelte/icons/layout-dashboard";
 	import ZapIcon from "@lucide/svelte/icons/zap";
 	import SettingsIcon from "@lucide/svelte/icons/settings";
@@ -26,7 +26,7 @@
 							<div
 								class="bg-sidebar-primary dark:bg-sidebar-accent text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
 							>
-								<SproutIcon class="size-4" />
+								<div class="size-4 [&>svg]:size-full">{@html Logo}</div>
 							</div>
 							<span class="truncate font-semibold">EspGrow</span>
 						</a>
