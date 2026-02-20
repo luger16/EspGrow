@@ -7,7 +7,7 @@
 	import { curveNatural } from "d3-shape";
 	import type { Sensor } from "$lib/types";
 	import { getSensorHistory, requestHistory } from "$lib/stores/sensors.svelte";
-	import { settings, formatTemperature, convertTemperature } from "$lib/stores/settings.svelte";
+	import { settings, formatTemperature, convertTemperature, formatTimeFromDate } from "$lib/stores/settings.svelte";
 	import { formatUnit } from "$lib/utils";
 
 	let {
@@ -187,7 +187,7 @@
 							if (timeRange === "7d") {
 								return v.toLocaleDateString(navigator.language, { month: "short", day: "numeric" });
 							}
-							return v.toLocaleTimeString(navigator.language, { hour: "2-digit", minute: "2-digit" });
+							return formatTimeFromDate(v);
 						},
 					},
 					yAxis: {
@@ -206,14 +206,9 @@
 										weekday: "short",
 										month: "short",
 										day: "numeric",
-										hour: "2-digit",
-										minute: "2-digit",
-									});
+									}) + " " + formatTimeFromDate(date);
 								}
-								return date.toLocaleString(navigator.language, {
-									hour: "2-digit",
-									minute: "2-digit",
-								});
+								return formatTimeFromDate(date);
 							}}
 						>
 						{#snippet formatter({ value }: { value: unknown })}

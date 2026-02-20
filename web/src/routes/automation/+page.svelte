@@ -7,6 +7,7 @@
 	import { rules, toggleRule } from "$lib/stores/rules.svelte";
 	import { sensors } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
+	import { formatTime } from "$lib/stores/settings.svelte";
 	import type { AutomationRule } from "$lib/types";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import ZapIcon from "@lucide/svelte/icons/zap";
@@ -31,22 +32,12 @@
 		return action === "turn_on" ? "turn on" : "turn off";
 	}
 	
-	function utcToLocalTime(utcTime: string): string {
-		if (!utcTime) return "??:??";
-		const [hours, minutes] = utcTime.split(":").map(Number);
-		const now = new Date();
-		const utcDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes));
-		const localHours = String(utcDate.getHours()).padStart(2, "0");
-		const localMinutes = String(utcDate.getMinutes()).padStart(2, "0");
-		return `${localHours}:${localMinutes}`;
-	}
-	
 	function formatRuleDescription(rule: AutomationRule): string {
 		const deviceName = getDeviceName(rule.deviceId);
 		const actionText = formatAction(rule.action);
 		
 		if (rule.type === "schedule") {
-			return `${utcToLocalTime(rule.onTime ?? "")} - ${utcToLocalTime(rule.offTime ?? "")} → ${actionText} ${deviceName}`;
+			return `${formatTime(rule.onTime ?? "")} - ${formatTime(rule.offTime ?? "")} → ${actionText} ${deviceName}`;
 		}
 		
 		const sensorName = getSensorName(rule.sensorId ?? "");
@@ -105,7 +96,7 @@
 						</p>
 					</div>
 					<Switch checked={rule.enabled} onCheckedChange={() => toggleRule(rule.id)} />
-					<Button variant="ghost" size="icon" onclick={() => (editingRuleId = rule.id)}>
+					<Button variant="ghost" size="icon" aria-label="Edit {rule.name}" onclick={() => (editingRuleId = rule.id)}>
 						<PencilIcon class="size-4 text-muted-foreground" />
 					</Button>
 				</div>
