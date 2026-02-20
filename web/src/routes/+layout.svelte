@@ -5,7 +5,7 @@
 	import BottomTabs from "$lib/components/bottom-tabs.svelte";
 	import { Toaster } from "$lib/components/ui/sonner";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
-	import { initTheme } from "$lib/stores/settings.svelte";
+	import { initTheme, initSettingsWebSocket } from "$lib/stores/settings.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { initSensorWebSocket } from "$lib/stores/sensors.svelte";
 	import { initDeviceWebSocket } from "$lib/stores/devices.svelte";
@@ -20,6 +20,7 @@
 		initSensorWebSocket();
 		initDeviceWebSocket();
 		initRulesWebSocket();
+		initSettingsWebSocket();
 		return () => websocket.disconnect();
 	});
 </script>

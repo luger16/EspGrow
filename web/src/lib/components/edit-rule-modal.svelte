@@ -2,6 +2,7 @@
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
 	import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
 	import * as Select from "$lib/components/ui/select/index.js";
+	import * as Tabs from "$lib/components/ui/tabs/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
@@ -19,6 +20,7 @@
 	};
 	let { rule, open = $bindable(), onOpenChange }: Props = $props();
 
+	let ruleType = $state<"sensor" | "schedule">("sensor");
 	let name = $state("");
 	let submitted = $state(false);
 	let sensorId = $state("");
@@ -26,6 +28,8 @@
 	let threshold = $state("");
 	let useHysteresis = $state(false);
 	let thresholdOff = $state("");
+	let onTime = $state("");
+	let offTime = $state("");
 	let minRunTimeMs = $state("");
 	let deviceId = $state("");
 	let action = $state<AutomationRule["action"]>("turn_on");
@@ -49,41 +53,79 @@
 	$effect(() => {
 		if (open) {
 			submitted = false;
+			ruleType = rule.type;
 			name = rule.name;
-			sensorId = rule.sensorId;
-			operator = rule.operator;
-			threshold = rule.threshold.toString();
+			sensorId = rule.sensorId ?? "";
+			operator = rule.operator ?? ">";
+			threshold = rule.threshold?.toString() ?? "";
 			useHysteresis = rule.useHysteresis ?? false;
 			thresholdOff = rule.thresholdOff?.toString() ?? "";
+			onTime = rule.onTime ?? "";
+			offTime = rule.offTime ?? "";
 			minRunTimeMs = rule.minRunTimeMs ? (rule.minRunTimeMs / 60000).toString() : "";
 			deviceId = rule.deviceId;
 			action = rule.action;
 		}
 	});
+	
+	// Reset fields when switching rule type
+	$effect(() => {
+		if (ruleType === "sensor") {
+			onTime = "";
+			offTime = "";
+		} else {
+			sensorId = "";
+			operator = ">";
+			threshold = "";
+			useHysteresis = false;
+			thresholdOff = "";
+			minRunTimeMs = "";
+		}
+	});
 
-	function handleSubmit() {
+	function handleSubmit(e: Event) {
+		e.preventDefault();
 		submitted = true;
 		if (!isValid) return;
 		const updates: Partial<AutomationRule> = {
+			type: ruleType,
 			name,
-			sensorId,
-			operator,
-			threshold: parseFloat(threshold),
 			deviceId,
 			action,
 		};
 		
-		if (useHysteresis && thresholdOff) {
-			updates.useHysteresis = true;
-			updates.thresholdOff = parseFloat(thresholdOff);
+		if (ruleType === "sensor") {
+			updates.sensorId = sensorId;
+			updates.operator = operator;
+			updates.threshold = parseFloat(threshold);
+			
+			if (useHysteresis && thresholdOff) {
+				updates.useHysteresis = true;
+				updates.thresholdOff = parseFloat(thresholdOff);
+			} else {
+				updates.useHysteresis = false;
+				updates.thresholdOff = undefined;
+			}
+			
+			if (minRunTimeMs) {
+				updates.minRunTimeMs = parseInt(minRunTimeMs) * 60000;
+			} else {
+				updates.minRunTimeMs = undefined;
+			}
+			
+			// Clear schedule fields
+			updates.onTime = undefined;
+			updates.offTime = undefined;
 		} else {
-			updates.useHysteresis = false;
+			updates.onTime = onTime;
+			updates.offTime = offTime;
+			
+			// Clear sensor fields
+			updates.sensorId = undefined;
+			updates.operator = undefined;
+			updates.threshold = undefined;
+			updates.useHysteresis = undefined;
 			updates.thresholdOff = undefined;
-		}
-		
-		if (minRunTimeMs) {
-			updates.minRunTimeMs = parseInt(minRunTimeMs) * 60000;
-		} else {
 			updates.minRunTimeMs = undefined;
 		}
 		
@@ -99,10 +141,11 @@
 
 	const isValid = $derived(
 		name && 
-		sensorId && 
-		threshold && 
 		deviceId && 
-		(!useHysteresis || thresholdOff)
+		(ruleType === "sensor" 
+			? (sensorId && threshold && (!useHysteresis || thresholdOff))
+			: (onTime && offTime)
+		)
 	);
 
 </script>
@@ -114,16 +157,25 @@
 			<Dialog.Description>Update automation rule configuration.</Dialog.Description>
 		</Dialog.Header>
 		<form onsubmit={handleSubmit} class="grid gap-4 py-4">
-			<div class="grid gap-2">
-				<Label for="name">Rule Name</Label>
-				<Input id="name" bind:value={name} placeholder="e.g. High Temperature Fan" required />
-				{#if submitted && !name}
-					<p class="text-destructive text-xs">Rule name is required</p>
-				{/if}
-			</div>
+			<Tabs.Root bind:value={ruleType}>
+				<Tabs.List class="grid w-full grid-cols-2">
+					<Tabs.Trigger value="sensor">Sensor Rule</Tabs.Trigger>
+					<Tabs.Trigger value="schedule">Schedule Rule</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs.Root>
+			
+			<div class="grid gap-4">
+				<div class="grid gap-2">
+					<Label for="name">Rule Name</Label>
+					<Input id="name" bind:value={name} placeholder="e.g. High Temperature Fan" required />
+					{#if submitted && !name}
+						<p class="text-destructive text-xs">Rule name is required</p>
+					{/if}
+				</div>
 
-			<div class="grid gap-2">
-				<Label>When</Label>
+				{#if ruleType === "sensor"}
+				<div class="grid gap-2">
+					<Label>When</Label>
 				<Select.Root type="single" value={sensorId} onValueChange={(v) => v && (sensorId = v)}>
 					<Select.Trigger>
 						<span>{selectedSensor?.name ?? "Select sensor..."}</span>
@@ -200,6 +252,33 @@
 				/>
 				<p class="text-xs text-muted-foreground">Device must stay in new state for at least this long</p>
 			</div>
+			{:else}
+				<div class="grid gap-2">
+					<Label for="onTime">Turn On Time</Label>
+					<Input
+						id="onTime"
+						type="time"
+						bind:value={onTime}
+						required={rule.type === "schedule"}
+					/>
+					{#if submitted && !onTime}
+						<p class="text-destructive text-xs">On time is required</p>
+					{/if}
+				</div>
+				
+				<div class="grid gap-2">
+					<Label for="offTime">Turn Off Time</Label>
+					<Input
+						id="offTime"
+						type="time"
+						bind:value={offTime}
+						required={rule.type === "schedule"}
+					/>
+					{#if submitted && !offTime}
+						<p class="text-destructive text-xs">Off time is required</p>
+					{/if}
+				</div>
+			{/if}
 
 			<div class="grid gap-2">
 				<Label>Then</Label>
@@ -234,6 +313,7 @@
 				<Button type="button" variant="destructive" onclick={() => (showDeleteConfirm = true)}>Delete</Button>
 				<Button type="submit" disabled={!isValid}>Save Changes</Button>
 			</Dialog.Footer>
+			</div>
 		</form>
 	</Dialog.Content>
 </Dialog.Root>

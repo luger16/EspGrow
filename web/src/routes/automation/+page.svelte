@@ -10,6 +10,7 @@
 	import type { AutomationRule } from "$lib/types";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import ZapIcon from "@lucide/svelte/icons/zap";
+	import ClockIcon from "@lucide/svelte/icons/clock";
 
 	let editingRuleId = $state<string | null>(null);
 	const editingRule = $derived(rules.find((r) => r.id === editingRuleId));
@@ -31,12 +32,17 @@
 	}
 	
 	function formatRuleDescription(rule: AutomationRule): string {
-		const sensorName = getSensorName(rule.sensorId);
 		const deviceName = getDeviceName(rule.deviceId);
-		const unit = getSensorUnit(rule.sensorId);
 		const actionText = formatAction(rule.action);
 		
-		let description = `If ${sensorName} ${rule.operator} ${rule.threshold}${unit}, ${actionText} ${deviceName}`;
+		if (rule.type === "schedule") {
+			return `${rule.onTime ?? "??:??"} - ${rule.offTime ?? "??:??"} → ${actionText} ${deviceName}`;
+		}
+		
+		const sensorName = getSensorName(rule.sensorId ?? "");
+		const unit = getSensorUnit(rule.sensorId ?? "");
+		
+		let description = `If ${sensorName} ${rule.operator ?? ">"} ${rule.threshold ?? 0}${unit} → ${actionText} ${deviceName}`;
 		
 		if (rule.useHysteresis && rule.thresholdOff !== undefined) {
 			description += ` (off at ${rule.thresholdOff}${unit})`;
@@ -58,45 +64,44 @@
 			<h2 class="text-sm font-medium text-muted-foreground">Rules</h2>
 			<AddRuleModal />
 		</div>
-		{#if rules.length === 0}
-			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-				<ZapIcon class="size-8 text-muted-foreground/50" />
-				<p class="mt-3 text-sm font-medium">No automation rules</p>
-				{#if sensors.length === 0 || devices.length === 0}
-					<p class="mt-1 text-xs text-muted-foreground">
-						{#if sensors.length === 0 && devices.length === 0}
-							Add sensors and devices in <a href="/settings" class="underline">Settings</a> to create automation rules
-						{:else if sensors.length === 0}
-							Add sensors in <a href="/settings" class="underline">Settings</a> to create automation rules
-						{:else}
-							Add devices in <a href="/settings" class="underline">Settings</a> to create automation rules
-						{/if}
-					</p>
+	{#if rules.length === 0}
+		<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+			<ZapIcon class="size-8 text-muted-foreground/50" />
+			<p class="mt-3 text-sm font-medium">No automation rules</p>
+			{#if sensors.length === 0 && devices.length === 0}
+				<p class="mt-1 text-xs text-muted-foreground">
+					Add sensors and devices in <a href="/settings" class="underline">Settings</a> to create rules
+				</p>
+			{:else if devices.length === 0}
+				<p class="mt-1 text-xs text-muted-foreground">
+					Add devices in <a href="/settings" class="underline">Settings</a> to create rules
+				</p>
 				{:else}
-					<p class="mt-1 text-xs text-muted-foreground">Create rules to automate your devices based on sensor readings</p>
+					<p class="mt-1 text-xs text-muted-foreground">Create rules to automate your devices based on sensor readings or schedules</p>
 				{/if}
-			</div>
-		{:else}
-			<div class="divide-y divide-border rounded-lg border">
-				{#each rules as rule (rule.id)}
-					<div class="flex items-center gap-3 p-3">
-						<div class="flex size-9 items-center justify-center rounded-md bg-muted">
-							<ZapIcon class="size-4 text-muted-foreground" />
-						</div>
-						<div class="flex-1">
-							<p class="text-sm font-medium">{rule.name}</p>
-							<p class="text-xs text-muted-foreground">
-								{formatRuleDescription(rule)}
-							</p>
-						</div>
-						<Switch checked={rule.enabled} onCheckedChange={() => toggleRule(rule.id)} />
-						<Button variant="ghost" size="icon" onclick={() => (editingRuleId = rule.id)}>
-							<PencilIcon class="size-4 text-muted-foreground" />
-						</Button>
+		</div>
+	{:else}
+		<div class="divide-y divide-border rounded-lg border">
+			{#each rules as rule (rule.id)}
+				{@const Icon = rule.type === "schedule" ? ClockIcon : ZapIcon}
+				<div class="flex items-center gap-3 p-3">
+					<div class="flex size-9 items-center justify-center rounded-md bg-muted">
+						<Icon class="size-4 text-muted-foreground" />
 					</div>
-				{/each}
-			</div>
-		{/if}
+					<div class="flex-1">
+						<p class="text-sm font-medium">{rule.name}</p>
+						<p class="text-xs text-muted-foreground">
+							{formatRuleDescription(rule)}
+						</p>
+					</div>
+					<Switch checked={rule.enabled} onCheckedChange={() => toggleRule(rule.id)} />
+					<Button variant="ghost" size="icon" onclick={() => (editingRuleId = rule.id)}>
+						<PencilIcon class="size-4 text-muted-foreground" />
+					</Button>
+				</div>
+			{/each}
+		</div>
+	{/if}
 	</section>
 </div>
 

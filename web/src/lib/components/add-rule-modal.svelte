@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
 	import * as Select from "$lib/components/ui/select/index.js";
+	import * as Tabs from "$lib/components/ui/tabs/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
@@ -14,12 +15,15 @@
 
 	let open = $state(false);
 	let submitted = $state(false);
+	let ruleType = $state<"sensor" | "schedule">("sensor");
 	let name = $state("");
 	let sensorId = $state("");
 	let operator = $state<ComparisonOperator>(">");
 	let threshold = $state("");
 	let useHysteresis = $state(false);
 	let thresholdOff = $state("");
+	let onTime = $state("");
+	let offTime = $state("");
 	let minRunTimeMs = $state("");
 	let deviceId = $state("");
 	let action = $state<AutomationRule["action"]>("turn_on");
@@ -40,27 +44,36 @@
 	const selectedSensor = $derived(sensors.find((s) => s.id === sensorId));
 	const canCreateRule = $derived(sensors.length > 0 && devices.length > 0);
 
-	function handleSubmit() {
+	function handleSubmit(e: Event) {
+		e.preventDefault();
 		submitted = true;
 		if (!isValid) return;
+		
 		const rule: AutomationRule = {
 			id: `rule-${Date.now()}`,
 			name,
 			enabled: true,
-			sensorId,
-			operator,
-			threshold: parseFloat(threshold),
+			type: ruleType,
 			deviceId,
 			action,
 		};
 		
-		if (useHysteresis && thresholdOff) {
-			rule.useHysteresis = true;
-			rule.thresholdOff = parseFloat(thresholdOff);
-		}
-		
-		if (minRunTimeMs) {
-			rule.minRunTimeMs = parseInt(minRunTimeMs) * 60000;
+		if (ruleType === "sensor") {
+			rule.sensorId = sensorId;
+			rule.operator = operator;
+			rule.threshold = parseFloat(threshold);
+			
+			if (useHysteresis && thresholdOff) {
+				rule.useHysteresis = true;
+				rule.thresholdOff = parseFloat(thresholdOff);
+			}
+			
+			if (minRunTimeMs) {
+				rule.minRunTimeMs = parseInt(minRunTimeMs) * 60000;
+			}
+		} else {
+			rule.onTime = onTime;
+			rule.offTime = offTime;
 		}
 		
 		addRule(rule);
@@ -70,12 +83,15 @@
 
 	function resetForm() {
 		submitted = false;
+		ruleType = "sensor";
 		name = "";
 		sensorId = "";
 		operator = ">";
 		threshold = "";
 		useHysteresis = false;
 		thresholdOff = "";
+		onTime = "";
+		offTime = "";
 		minRunTimeMs = "";
 		deviceId = "";
 		action = "turn_on";
@@ -83,10 +99,11 @@
 
 	const isValid = $derived(
 		name && 
-		sensorId && 
-		threshold && 
 		deviceId && 
-		(!useHysteresis || thresholdOff)
+		(ruleType === "sensor" 
+			? (sensorId && threshold && (!useHysteresis || thresholdOff))
+			: (onTime && offTime)
+		)
 	);
 
 </script>
@@ -103,35 +120,44 @@
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>Add Automation Rule</Dialog.Title>
-			<Dialog.Description>Create a rule to automate device control based on sensor readings.</Dialog.Description>
+			<Dialog.Description>Create a rule to automate device control.</Dialog.Description>
 		</Dialog.Header>
 		<form onsubmit={handleSubmit} class="grid gap-4 py-4">
-			<div class="grid gap-2">
-				<Label for="name">Rule Name</Label>
-				<Input id="name" bind:value={name} placeholder="e.g. High Temperature Fan" required />
-				{#if submitted && !name}
-					<p class="text-destructive text-xs">Rule name is required</p>
-				{/if}
-			</div>
+			<Tabs.Root bind:value={ruleType}>
+				<Tabs.List class="grid w-full grid-cols-2">
+					<Tabs.Trigger value="sensor">Sensor Rule</Tabs.Trigger>
+					<Tabs.Trigger value="schedule">Schedule Rule</Tabs.Trigger>
+				</Tabs.List>
+			</Tabs.Root>
+			
+			<div class="grid gap-4">
+				<div class="grid gap-2">
+					<Label for="name">Rule Name</Label>
+					<Input id="name" bind:value={name} placeholder="e.g. High Temperature Fan" required />
+					{#if submitted && !name}
+						<p class="text-destructive text-xs">Rule name is required</p>
+					{/if}
+				</div>
+				
+				{#if ruleType === "sensor"}
+				<div class="grid gap-2">
+					<Label>When</Label>
+					<Select.Root type="single" value={sensorId} onValueChange={(v) => v && (sensorId = v)}>
+						<Select.Trigger>
+							<span>{selectedSensor?.name ?? "Select sensor..."}</span>
+						</Select.Trigger>
+						<Select.Content>
+							{#each sensors as sensor (sensor.id)}
+								<Select.Item value={sensor.id}>{sensor.name}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+					{#if submitted && !sensorId}
+						<p class="text-destructive text-xs">Select a sensor</p>
+					{/if}
+				</div>
 
-			<div class="grid gap-2">
-				<Label>When</Label>
-				<Select.Root type="single" value={sensorId} onValueChange={(v) => v && (sensorId = v)}>
-					<Select.Trigger>
-						<span>{selectedSensor?.name ?? "Select sensor..."}</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each sensors as sensor (sensor.id)}
-							<Select.Item value={sensor.id}>{sensor.name}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-				{#if submitted && !sensorId}
-					<p class="text-destructive text-xs">Select a sensor</p>
-				{/if}
-			</div>
-
-			<div class="grid grid-cols-[80px_1fr] gap-2">
+				<div class="grid grid-cols-[80px_1fr] gap-2">
 				<Select.Root type="single" value={operator} onValueChange={(v) => v && (operator = v as ComparisonOperator)}>
 					<Select.Trigger>
 						<span>{operator}</span>
@@ -192,6 +218,33 @@
 				/>
 				<p class="text-xs text-muted-foreground">Device must stay in new state for at least this long</p>
 			</div>
+			{:else}
+				<div class="grid gap-2">
+					<Label for="onTime">Turn On Time</Label>
+					<Input
+						id="onTime"
+						type="time"
+						bind:value={onTime}
+						required={ruleType === "schedule"}
+					/>
+					{#if submitted && !onTime}
+						<p class="text-destructive text-xs">On time is required</p>
+					{/if}
+				</div>
+				
+				<div class="grid gap-2">
+					<Label for="offTime">Turn Off Time</Label>
+					<Input
+						id="offTime"
+						type="time"
+						bind:value={offTime}
+						required={ruleType === "schedule"}
+					/>
+					{#if submitted && !offTime}
+						<p class="text-destructive text-xs">Off time is required</p>
+					{/if}
+				</div>
+			{/if}
 
 			<div class="grid gap-2">
 				<Label>Then</Label>
@@ -225,6 +278,7 @@
 			<Dialog.Footer>
 				<Button type="submit" disabled={!isValid}>Add Rule</Button>
 			</Dialog.Footer>
+			</div>
 		</form>
 	</Dialog.Content>
 </Dialog.Root>

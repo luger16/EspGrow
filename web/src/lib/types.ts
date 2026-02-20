@@ -42,12 +42,15 @@ export interface AutomationRule {
 	id: string;
 	name: string;
 	enabled: boolean;
-	sensorId: string;
-	operator: ComparisonOperator;
-	threshold: number;
+	type: "sensor" | "schedule";
+	sensorId?: string;
+	operator?: ComparisonOperator;
+	threshold?: number;
 	thresholdOff?: number;
 	useHysteresis?: boolean;
 	minRunTimeMs?: number;
+	onTime?: string;
+	offTime?: string;
 	deviceId: string;
 	action: "turn_on" | "turn_off";
 }

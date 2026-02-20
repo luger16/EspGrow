@@ -18,11 +18,14 @@ export function addRule(rule: AutomationRule): void {
 		id: rule.id,
 		name: rule.name,
 		enabled: rule.enabled,
+		ruleType: rule.type,
 		sensorId: rule.sensorId,
 		operator: rule.operator,
 		threshold: rule.threshold,
 		thresholdOff: rule.thresholdOff,
 		useHysteresis: rule.useHysteresis,
+		onTime: rule.onTime,
+		offTime: rule.offTime,
 		minRunTimeMs: rule.minRunTimeMs,
 		deviceId: rule.deviceId,
 		deviceMethod: method,
@@ -32,7 +35,12 @@ export function addRule(rule: AutomationRule): void {
 }
 
 export function updateRule(ruleId: string, updates: Partial<Omit<AutomationRule, "id">>): void {
-	const payload: Record<string, unknown> = { id: ruleId, ...updates };
+	const { type: ruleType, ...rest } = updates;
+	const payload: Record<string, unknown> = { id: ruleId, ...rest };
+	
+	if (ruleType) {
+		payload.ruleType = ruleType;
+	}
 	
 	if (updates.deviceId) {
 		const { method, target } = getDeviceTarget(updates.deviceId);

@@ -27,6 +27,8 @@ const SENSORS: SensorConfig[] = [
 	{ id: "vpd_calc", name: "VPD", type: "vpd", unit: "kPa", hardwareType: "calculated" },
 ];
 
+const DEFAULT_TIMEZONE_OFFSET_MINUTES = 60;
+
 // --- Devices ---
 
 interface DeviceConfig {
@@ -51,12 +53,15 @@ interface RuleConfig {
 	id: string;
 	name: string;
 	enabled: boolean;
-	sensorId: string;
-	operator: string;
-	threshold: number;
+	type?: string;
+	sensorId?: string;
+	operator?: string;
+	threshold?: number;
 	thresholdOff?: number;
-	useHysteresis: boolean;
-	minRunTimeMs: number;
+	useHysteresis?: boolean;
+	minRunTimeMs?: number;
+	onTime?: string;
+	offTime?: string;
 	deviceId: string;
 	action: string;
 }
@@ -66,6 +71,7 @@ const RULES: RuleConfig[] = [
 		id: "rule_temp_fan",
 		name: "Cool when hot",
 		enabled: true,
+		type: "sensor",
 		sensorId: "sht4x_temp",
 		operator: ">",
 		threshold: 28,
@@ -79,6 +85,7 @@ const RULES: RuleConfig[] = [
 		id: "rule_hum_humid",
 		name: "Humidify when dry",
 		enabled: true,
+		type: "sensor",
 		sensorId: "sht4x_hum",
 		operator: "<",
 		threshold: 50,
@@ -250,21 +257,25 @@ function handleMessage(ws: WebSocket, raw: string): void {
 		}
 
 		case "add_rule": {
-			const rule = {
+			const rule: RuleConfig = {
 				id: msg.id as string,
 				name: msg.name as string,
 				enabled: msg.enabled as boolean,
-				sensorId: msg.sensorId as string,
-				operator: msg.operator as string,
-				threshold: msg.threshold as number,
+				type: msg.ruleType as string | undefined,
+				sensorId: msg.sensorId as string | undefined,
+				operator: msg.operator as string | undefined,
+				threshold: msg.threshold as number | undefined,
 				thresholdOff: msg.thresholdOff as number | undefined,
-				useHysteresis: msg.useHysteresis as boolean,
-				minRunTimeMs: msg.minRunTimeMs as number,
+				useHysteresis: msg.useHysteresis as boolean | undefined,
+				minRunTimeMs: msg.minRunTimeMs as number | undefined,
+				onTime: msg.onTime as string | undefined,
+				offTime: msg.offTime as string | undefined,
 				deviceId: msg.deviceId as string,
 				action: msg.action as string,
 			};
 			RULES.push(rule);
 			broadcast({ type: "rules", data: RULES });
+			console.log("[Mock] Added rule:", rule);
 			break;
 		}
 
@@ -374,6 +385,22 @@ function handleMessage(ws: WebSocket, raw: string): void {
 		case "reset_ppfd_calibration":
 			sendTo(ws, { type: "ppfd_calibration", factor: 1.0, success: true });
 			break;
+
+		case "get_settings":
+			sendTo(ws, { 
+				type: "settings", 
+				data: { 
+					timezoneOffsetMinutes: DEFAULT_TIMEZONE_OFFSET_MINUTES
+				} 
+			});
+			break;
+
+		case "set_timezone": {
+			const offsetMinutes = msg.offsetMinutes as number;
+			console.log("[Mock] Set timezone offset:", offsetMinutes);
+			sendTo(ws, { type: "settings", data: { timezoneOffsetMinutes: offsetMinutes } });
+			break;
+		}
 
 		default:
 			console.log(`[Mock] Unknown message type: ${type}`);
