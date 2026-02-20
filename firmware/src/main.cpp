@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "storage.h"
+#include "settings.h"
 #include "wifi_manager.h"
 #include "websocket_server.h"
 #include "device_controller.h"
@@ -180,12 +181,15 @@ namespace {
             ruleDoc["id"] = doc["id"];
             ruleDoc["name"] = doc["name"];
             ruleDoc["enabled"] = doc["enabled"];
+            ruleDoc["ruleType"] = doc["ruleType"];
             ruleDoc["sensorId"] = doc["sensorId"];
             ruleDoc["operator"] = doc["operator"];
             ruleDoc["threshold"] = doc["threshold"];
             ruleDoc["thresholdOff"] = doc["thresholdOff"];
             ruleDoc["useHysteresis"] = doc["useHysteresis"];
             ruleDoc["minRunTimeMs"] = doc["minRunTimeMs"];
+            ruleDoc["onTime"] = doc["onTime"];
+            ruleDoc["offTime"] = doc["offTime"];
             ruleDoc["deviceId"] = doc["deviceId"];
             ruleDoc["deviceMethod"] = doc["deviceMethod"];
             ruleDoc["deviceTarget"] = doc["deviceTarget"];
@@ -200,12 +204,15 @@ namespace {
             JsonDocument updates;
             if (doc["name"].is<const char*>()) updates["name"] = doc["name"];
             if (doc["enabled"].is<bool>()) updates["enabled"] = doc["enabled"];
+            if (doc["ruleType"].is<const char*>()) updates["ruleType"] = doc["ruleType"];
             if (doc["sensorId"].is<const char*>()) updates["sensorId"] = doc["sensorId"];
             if (doc["operator"].is<const char*>()) updates["operator"] = doc["operator"];
             if (doc["threshold"].is<float>()) updates["threshold"] = doc["threshold"];
             if (doc["thresholdOff"].is<float>()) updates["thresholdOff"] = doc["thresholdOff"];
             if (doc["useHysteresis"].is<bool>()) updates["useHysteresis"] = doc["useHysteresis"];
             if (doc["minRunTimeMs"].is<unsigned long>()) updates["minRunTimeMs"] = doc["minRunTimeMs"];
+            if (doc["onTime"].is<const char*>()) updates["onTime"] = doc["onTime"];
+            if (doc["offTime"].is<const char*>()) updates["offTime"] = doc["offTime"];
             if (doc["deviceId"].is<const char*>()) updates["deviceId"] = doc["deviceId"];
             if (doc["deviceMethod"].is<const char*>()) updates["deviceMethod"] = doc["deviceMethod"];
             if (doc["deviceTarget"].is<const char*>()) updates["deviceTarget"] = doc["deviceTarget"];
@@ -375,6 +382,25 @@ namespace {
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
+        else if (strcmp(type, "get_settings") == 0) {
+            JsonDocument response;
+            response["type"] = "settings";
+            response["timezoneOffsetMinutes"] = Settings::getTimezoneOffsetMinutes();
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
+        }
+        else if (strcmp(type, "set_timezone") == 0) {
+            int offsetMinutes = doc["offsetMinutes"] | 0;
+            Settings::setTimezoneOffsetMinutes(offsetMinutes);
+            
+            JsonDocument response;
+            response["type"] = "settings";
+            response["timezoneOffsetMinutes"] = offsetMinutes;
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
+        }
     }
 
     void broadcastSensorData() {
@@ -438,6 +464,7 @@ void setup() {
         Serial.println("[ERROR] Storage init failed!");
     }
     
+    Settings::init();
     WiFiManager::init();
     DeviceController::init();
     Sensors::init();

@@ -11,11 +11,14 @@ struct Rule {
     char id[24];
     char name[32];
     bool enabled;
+    char ruleType[12];
     char sensorId[24];
     char op[3];
     float threshold;
     float thresholdOff;
     bool useHysteresis;
+    char onTime[6];
+    char offTime[6];
     unsigned long minRunTimeMs;
     char deviceId[24];
     char deviceMethod[16];

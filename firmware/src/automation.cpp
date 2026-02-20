@@ -2,6 +2,7 @@
 #include "storage.h"
 #include "device_controller.h"
 #include "devices.h"
+#include "time_utils.h"
 #include <vector>
 #include <map>
 #include <cmath>
@@ -12,6 +13,7 @@ namespace {
     const char* RULES_PATH = "/rules.json";
     std::vector<Rule> rules;
     std::map<String, bool> lastTriggerState;
+    std::map<String, bool> lastScheduleState;
     std::map<String, unsigned long> manualOverrides;
     unsigned long lastEvaluation = 0;
     const unsigned long EVAL_INTERVAL = 2000;
@@ -70,11 +72,14 @@ namespace {
             obj["id"] = rule.id;
             obj["name"] = rule.name;
             obj["enabled"] = rule.enabled;
+            obj["type"] = rule.ruleType;
             obj["sensorId"] = rule.sensorId;
             obj["operator"] = rule.op;
             obj["threshold"] = rule.threshold;
             obj["thresholdOff"] = rule.thresholdOff;
             obj["useHysteresis"] = rule.useHysteresis;
+            obj["onTime"] = rule.onTime;
+            obj["offTime"] = rule.offTime;
             obj["minRunTimeMs"] = rule.minRunTimeMs;
             obj["deviceId"] = rule.deviceId;
             obj["deviceMethod"] = rule.deviceMethod;
@@ -100,11 +105,14 @@ namespace {
             strlcpy(rule.id, obj["id"] | "", sizeof(rule.id));
             strlcpy(rule.name, obj["name"] | "", sizeof(rule.name));
             rule.enabled = obj["enabled"] | false;
+            strlcpy(rule.ruleType, obj["type"] | "sensor", sizeof(rule.ruleType));
             strlcpy(rule.sensorId, obj["sensorId"] | "", sizeof(rule.sensorId));
             strlcpy(rule.op, obj["operator"] | ">", sizeof(rule.op));
             rule.threshold = obj["threshold"] | 0.0f;
             rule.thresholdOff = obj["thresholdOff"] | rule.threshold;
             rule.useHysteresis = obj["useHysteresis"] | false;
+            strlcpy(rule.onTime, obj["onTime"] | "", sizeof(rule.onTime));
+            strlcpy(rule.offTime, obj["offTime"] | "", sizeof(rule.offTime));
             rule.minRunTimeMs = obj["minRunTimeMs"] | 0UL;
             strlcpy(rule.deviceId, obj["deviceId"] | "", sizeof(rule.deviceId));
             strlcpy(rule.deviceMethod, obj["deviceMethod"] | "", sizeof(rule.deviceMethod));
@@ -143,45 +151,68 @@ void loop(const std::map<String, float>& sensorReadings) {
             continue;
         }
         
-        float value = getSensorValue(rule.sensorId, sensorReadings);
-        
         String ruleKey(rule.id);
-        bool wasMet = lastTriggerState.count(ruleKey) ? lastTriggerState[ruleKey] : false;
-        bool deviceCurrentlyOn = (wasMet == rule.actionOn);
         
-        bool conditionMet = evaluateCondition(value, rule.op, rule.threshold, deviceCurrentlyOn, rule.thresholdOff, rule.useHysteresis);
-        
-        bool wantsToChange = (conditionMet && !wasMet) || (!conditionMet && wasMet);
-        
-        if (wantsToChange && rule.minRunTimeMs > 0 && rule.lastStateChangeMs > 0) {
-            unsigned long timeSinceChange = millis() - rule.lastStateChangeMs;
-            if (timeSinceChange < rule.minRunTimeMs) {
-                continue;
-            }
-        }
-        
-        lastTriggerState[ruleKey] = conditionMet;
-        
-        if (conditionMet && !wasMet) {
-            Serial.printf("[Automation] Rule '%s' triggered: %s %.1f %s %.1f\n", 
-                rule.name, rule.sensorId, value, rule.op, rule.threshold);
-            bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, rule.actionOn);
-            if (success) {
-                Devices::setDeviceState(rule.deviceId, rule.actionOn);
-                rule.lastStateChangeMs = millis();
-                if (onDeviceStateChange) {
-                    onDeviceStateChange(rule.deviceId, rule.deviceMethod, rule.deviceTarget, rule.actionOn);
+        if (strcmp(rule.ruleType, "schedule") == 0) {
+            bool inRange = TimeUtils::isTimeInRange(rule.onTime, rule.offTime);
+            bool wasOn = lastScheduleState.count(ruleKey) ? lastScheduleState[ruleKey] : false;
+            
+            if (inRange && !wasOn) {
+                Serial.printf("[Automation] Schedule '%s' activated\n", rule.name);
+                bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, rule.actionOn);
+                if (success) {
+                    Devices::setDeviceState(rule.deviceId, rule.actionOn);
+                    lastScheduleState[ruleKey] = true;
+                }
+            } else if (!inRange && wasOn) {
+                Serial.printf("[Automation] Schedule '%s' deactivated\n", rule.name);
+                bool revertState = !rule.actionOn;
+                bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, revertState);
+                if (success) {
+                    Devices::setDeviceState(rule.deviceId, revertState);
+                    lastScheduleState[ruleKey] = false;
                 }
             }
-        } else if (!conditionMet && wasMet) {
-            Serial.printf("[Automation] Rule '%s' condition cleared, reverting device\n", rule.name);
-            bool revertState = !rule.actionOn;
-            bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, revertState);
-            if (success) {
-                Devices::setDeviceState(rule.deviceId, revertState);
-                rule.lastStateChangeMs = millis();
-                if (onDeviceStateChange) {
-                    onDeviceStateChange(rule.deviceId, rule.deviceMethod, rule.deviceTarget, revertState);
+        } else {
+            float value = getSensorValue(rule.sensorId, sensorReadings);
+            
+            bool wasMet = lastTriggerState.count(ruleKey) ? lastTriggerState[ruleKey] : false;
+            bool deviceCurrentlyOn = (wasMet == rule.actionOn);
+            
+            bool conditionMet = evaluateCondition(value, rule.op, rule.threshold, deviceCurrentlyOn, rule.thresholdOff, rule.useHysteresis);
+            
+            bool wantsToChange = (conditionMet && !wasMet) || (!conditionMet && wasMet);
+            
+            if (wantsToChange && rule.minRunTimeMs > 0 && rule.lastStateChangeMs > 0) {
+                unsigned long timeSinceChange = millis() - rule.lastStateChangeMs;
+                if (timeSinceChange < rule.minRunTimeMs) {
+                    continue;
+                }
+            }
+            
+            lastTriggerState[ruleKey] = conditionMet;
+            
+            if (conditionMet && !wasMet) {
+                Serial.printf("[Automation] Rule '%s' triggered: %s %.1f %s %.1f\n", 
+                    rule.name, rule.sensorId, value, rule.op, rule.threshold);
+                bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, rule.actionOn);
+                if (success) {
+                    Devices::setDeviceState(rule.deviceId, rule.actionOn);
+                    rule.lastStateChangeMs = millis();
+                    if (onDeviceStateChange) {
+                        onDeviceStateChange(rule.deviceId, rule.deviceMethod, rule.deviceTarget, rule.actionOn);
+                    }
+                }
+            } else if (!conditionMet && wasMet) {
+                Serial.printf("[Automation] Rule '%s' condition cleared, reverting device\n", rule.name);
+                bool revertState = !rule.actionOn;
+                bool success = DeviceController::control(rule.deviceMethod, rule.deviceTarget, revertState);
+                if (success) {
+                    Devices::setDeviceState(rule.deviceId, revertState);
+                    rule.lastStateChangeMs = millis();
+                    if (onDeviceStateChange) {
+                        onDeviceStateChange(rule.deviceId, rule.deviceMethod, rule.deviceTarget, revertState);
+                    }
                 }
             }
         }
@@ -193,11 +224,14 @@ bool addRule(JsonDocument& doc) {
     strlcpy(rule.id, doc["id"] | "", sizeof(rule.id));
     strlcpy(rule.name, doc["name"] | "", sizeof(rule.name));
     rule.enabled = doc["enabled"] | true;
+    strlcpy(rule.ruleType, doc["ruleType"] | "sensor", sizeof(rule.ruleType));
     strlcpy(rule.sensorId, doc["sensorId"] | "", sizeof(rule.sensorId));
     strlcpy(rule.op, doc["operator"] | ">", sizeof(rule.op));
     rule.threshold = doc["threshold"] | 0.0f;
     rule.thresholdOff = doc["thresholdOff"] | rule.threshold;
     rule.useHysteresis = doc["useHysteresis"] | false;
+    strlcpy(rule.onTime, doc["onTime"] | "", sizeof(rule.onTime));
+    strlcpy(rule.offTime, doc["offTime"] | "", sizeof(rule.offTime));
     rule.minRunTimeMs = doc["minRunTimeMs"] | 0UL;
     strlcpy(rule.deviceId, doc["deviceId"] | "", sizeof(rule.deviceId));
     strlcpy(rule.deviceMethod, doc["deviceMethod"] | "", sizeof(rule.deviceMethod));
@@ -220,11 +254,14 @@ bool updateRule(const char* ruleId, JsonDocument& doc) {
         if (strcmp(rule.id, ruleId) == 0) {
             if (doc["name"].is<const char*>()) strlcpy(rule.name, doc["name"], sizeof(rule.name));
             if (doc["enabled"].is<bool>()) rule.enabled = doc["enabled"];
+            if (doc["ruleType"].is<const char*>()) strlcpy(rule.ruleType, doc["ruleType"], sizeof(rule.ruleType));
             if (doc["sensorId"].is<const char*>()) strlcpy(rule.sensorId, doc["sensorId"], sizeof(rule.sensorId));
             if (doc["operator"].is<const char*>()) strlcpy(rule.op, doc["operator"], sizeof(rule.op));
             if (doc["threshold"].is<float>()) rule.threshold = doc["threshold"];
             if (doc["thresholdOff"].is<float>()) rule.thresholdOff = doc["thresholdOff"];
             if (doc["useHysteresis"].is<bool>()) rule.useHysteresis = doc["useHysteresis"];
+            if (doc["onTime"].is<const char*>()) strlcpy(rule.onTime, doc["onTime"], sizeof(rule.onTime));
+            if (doc["offTime"].is<const char*>()) strlcpy(rule.offTime, doc["offTime"], sizeof(rule.offTime));
             if (doc["minRunTimeMs"].is<unsigned long>()) rule.minRunTimeMs = doc["minRunTimeMs"];
             if (doc["deviceId"].is<const char*>()) strlcpy(rule.deviceId, doc["deviceId"], sizeof(rule.deviceId));
             if (doc["deviceMethod"].is<const char*>()) strlcpy(rule.deviceMethod, doc["deviceMethod"], sizeof(rule.deviceMethod));
@@ -279,12 +316,15 @@ void getRulesJson(String& out) {
         obj["id"] = rule.id;
         obj["name"] = rule.name;
         obj["enabled"] = rule.enabled;
+        obj["type"] = rule.ruleType;
         obj["sensorId"] = rule.sensorId;
         obj["operator"] = rule.op;
         obj["threshold"] = rule.threshold;
         obj["thresholdOff"] = rule.thresholdOff;
         obj["useHysteresis"] = rule.useHysteresis;
         obj["minRunTimeMs"] = rule.minRunTimeMs;
+        obj["onTime"] = rule.onTime;
+        obj["offTime"] = rule.offTime;
         obj["deviceId"] = rule.deviceId;
         obj["deviceMethod"] = rule.deviceMethod;
         obj["deviceTarget"] = rule.deviceTarget;
