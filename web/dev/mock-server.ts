@@ -201,10 +201,12 @@ function handleMessage(ws: WebSocket, raw: string): void {
 	}
 
 	const type = msg.type as string;
+	// New protocol: payload lives under "data" key, fallback to top-level for legacy
+	const payload = (typeof msg.data === "object" && msg.data !== null ? msg.data : msg) as Record<string, unknown>;
 
 	switch (type) {
 		case "ping":
-			sendTo(ws, { type: "pong", timestamp: Date.now() });
+			sendTo(ws, { type: "pong", data: { timestamp: Date.now() } });
 			break;
 
 		case "get_sensors":
@@ -220,34 +222,38 @@ function handleMessage(ws: WebSocket, raw: string): void {
 			break;
 
 		case "get_history": {
-			const sensorId = msg.sensorId as string;
-			const range = msg.range as string;
+			const sensorId = payload.sensorId as string;
+			const range = payload.range as string;
 			const buf = generateHistory(sensorId, range);
 			if (buf.length > 0) {
 				sendTo(ws, {
 					type: "history",
-					sensorId,
-					range,
-					pointSize: 8,
-					count: buf.length / 8,
-					data: buf.toString("base64"),
+					data: {
+						sensorId,
+						range,
+						pointSize: 8,
+						count: buf.length / 8,
+						payload: buf.toString("base64"),
+					},
 				});
 			}
 			break;
 		}
 
 		case "device_control": {
-			const target = msg.target as string;
-			const on = msg.on as boolean;
+			const target = payload.target as string;
+			const on = payload.on as boolean;
 			const device = DEVICES.find((d) => d.ipAddress === target);
 			if (device) {
 				device.isOn = on;
 				broadcast({
 					type: "device_status",
-					deviceId: device.id,
-					target,
-					on,
-					success: true,
+					data: {
+						deviceId: device.id,
+						target,
+						on,
+						success: true,
+					},
 				});
 			broadcast({ type: "devices", data: DEVICES });
 			}
@@ -256,20 +262,20 @@ function handleMessage(ws: WebSocket, raw: string): void {
 
 		case "add_rule": {
 			const rule: RuleConfig = {
-				id: msg.id as string,
-				name: msg.name as string,
-				enabled: msg.enabled as boolean,
-				type: msg.ruleType as string | undefined,
-				sensorId: msg.sensorId as string | undefined,
-				operator: msg.operator as string | undefined,
-				threshold: msg.threshold as number | undefined,
-				thresholdOff: msg.thresholdOff as number | undefined,
-				useHysteresis: msg.useHysteresis as boolean | undefined,
-				minRunTimeMs: msg.minRunTimeMs as number | undefined,
-				onTime: msg.onTime as string | undefined,
-				offTime: msg.offTime as string | undefined,
-				deviceId: msg.deviceId as string,
-				action: msg.action as string,
+				id: payload.id as string,
+				name: payload.name as string,
+				enabled: payload.enabled as boolean,
+				type: payload.ruleType as string | undefined,
+				sensorId: payload.sensorId as string | undefined,
+				operator: payload.operator as string | undefined,
+				threshold: payload.threshold as number | undefined,
+				thresholdOff: payload.thresholdOff as number | undefined,
+				useHysteresis: payload.useHysteresis as boolean | undefined,
+				minRunTimeMs: payload.minRunTimeMs as number | undefined,
+				onTime: payload.onTime as string | undefined,
+				offTime: payload.offTime as string | undefined,
+				deviceId: payload.deviceId as string,
+				action: payload.action as string,
 			};
 			RULES.push(rule);
 			broadcast({ type: "rules", data: RULES });
@@ -278,24 +284,24 @@ function handleMessage(ws: WebSocket, raw: string): void {
 		}
 
 		case "update_rule": {
-			const ruleId = msg.id as string;
+			const ruleId = payload.id as string;
 			const rule = RULES.find((r) => r.id === ruleId);
 			if (rule) {
-				Object.assign(rule, msg);
+				Object.assign(rule, payload);
 			}
 			broadcast({ type: "rules", data: RULES });
 			break;
 		}
 
 		case "remove_rule": {
-			const idx = RULES.findIndex((r) => r.id === (msg.id as string));
+			const idx = RULES.findIndex((r) => r.id === (payload.id as string));
 			if (idx !== -1) RULES.splice(idx, 1);
 			broadcast({ type: "rules", data: RULES });
 			break;
 		}
 
 		case "toggle_rule": {
-			const rule = RULES.find((r) => r.id === (msg.id as string));
+			const rule = RULES.find((r) => r.id === (payload.id as string));
 			if (rule) rule.enabled = !rule.enabled;
 			broadcast({ type: "rules", data: RULES });
 			break;
@@ -303,11 +309,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
 
 		case "add_device": {
 			DEVICES.push({
-				id: msg.id as string,
-				name: msg.name as string,
-				type: msg.deviceType as string,
-				controlMethod: msg.controlMethod as string,
-				ipAddress: msg.ipAddress as string,
+				id: payload.id as string,
+				name: payload.name as string,
+				type: payload.deviceType as string,
+				controlMethod: payload.controlMethod as string,
+				ipAddress: payload.ipAddress as string,
 				isOn: false,
 				controlMode: "manual",
 			});
@@ -316,19 +322,19 @@ function handleMessage(ws: WebSocket, raw: string): void {
 		}
 
 		case "update_device": {
-			const device = DEVICES.find((d) => d.id === (msg.id as string));
+			const device = DEVICES.find((d) => d.id === (payload.id as string));
 			if (device) {
-				if (msg.name) device.name = msg.name as string;
-				if (msg.deviceType) device.type = msg.deviceType as string;
-				if (msg.controlMethod) device.controlMethod = msg.controlMethod as string;
-				if (msg.ipAddress) device.ipAddress = msg.ipAddress as string;
+				if (payload.name) device.name = payload.name as string;
+				if (payload.deviceType) device.type = payload.deviceType as string;
+				if (payload.controlMethod) device.controlMethod = payload.controlMethod as string;
+				if (payload.ipAddress) device.ipAddress = payload.ipAddress as string;
 			}
 			broadcast({ type: "devices", data: DEVICES });
 			break;
 		}
 
 		case "remove_device": {
-			const idx = DEVICES.findIndex((d) => d.id === (msg.id as string));
+			const idx = DEVICES.findIndex((d) => d.id === (payload.id as string));
 			if (idx !== -1) DEVICES.splice(idx, 1);
 			broadcast({ type: "devices", data: DEVICES });
 			break;
@@ -336,58 +342,52 @@ function handleMessage(ws: WebSocket, raw: string): void {
 
 		case "add_sensor": {
 			SENSORS.push({
-				id: msg.id as string,
-				name: msg.name as string,
-				type: msg.sensorType as string,
-				unit: msg.unit as string,
-				hardwareType: msg.hardwareType as string,
+				id: payload.id as string,
+				name: payload.name as string,
+				type: payload.sensorType as string,
+				unit: payload.unit as string,
+				hardwareType: payload.hardwareType as string,
 			});
 			broadcast({ type: "sensor_config", data: SENSORS });
 			break;
 		}
 
 		case "update_sensor": {
-			const sensor = SENSORS.find((s) => s.id === (msg.id as string));
+			const sensor = SENSORS.find((s) => s.id === (payload.id as string));
 			if (sensor) {
-				if (msg.name) sensor.name = msg.name as string;
-				if (msg.sensorType) sensor.type = msg.sensorType as string;
-				if (msg.unit) sensor.unit = msg.unit as string;
-				if (msg.hardwareType) sensor.hardwareType = msg.hardwareType as string;
+				if (payload.name) sensor.name = payload.name as string;
+				if (payload.sensorType) sensor.type = payload.sensorType as string;
+				if (payload.unit) sensor.unit = payload.unit as string;
+				if (payload.hardwareType) sensor.hardwareType = payload.hardwareType as string;
 			}
 			broadcast({ type: "sensor_config", data: SENSORS });
 			break;
 		}
 
 		case "remove_sensor": {
-			const idx = SENSORS.findIndex((s) => s.id === (msg.id as string));
+			const idx = SENSORS.findIndex((s) => s.id === (payload.id as string));
 			if (idx !== -1) SENSORS.splice(idx, 1);
 			broadcast({ type: "sensor_config", data: SENSORS });
 			break;
 		}
 
 		case "get_ppfd_calibration":
-			sendTo(ws, { type: "ppfd_calibration", factor: 1.0 });
+			sendTo(ws, { type: "ppfd_calibration", data: { factor: 1.0 } });
 			break;
 
 		case "calibrate_ppfd": {
-			const knownPpfd = msg.knownPpfd as number;
+			const knownPpfd = payload.knownPpfd as number;
 			if (knownPpfd > 0) {
 				const factor = knownPpfd / 450;
-				sendTo(ws, { type: "ppfd_calibration", factor, success: true });
+				sendTo(ws, { type: "ppfd_calibration", data: { factor, success: true } });
 			} else {
-				sendTo(ws, { type: "ppfd_calibration", success: false, error: "invalid_value" });
+				sendTo(ws, { type: "ppfd_calibration", data: { success: false, error: "invalid_value" } });
 			}
 			break;
 		}
 
 		case "reset_ppfd_calibration":
-			sendTo(ws, { type: "ppfd_calibration", factor: 1.0, success: true });
-			break;
-
-		case "get_settings":
-			sendTo(ws, { 
-				type: "settings", 
-			});
+			sendTo(ws, { type: "ppfd_calibration", data: { factor: 1.0, success: true } });
 			break;
 
 		default:
@@ -406,7 +406,7 @@ setInterval(() => {
 		value: stepSensor(sensorSims[s.id]),
 	}));
 
-	broadcast({ type: "sensors", data, timestamp: Date.now() });
+	broadcast({ type: "sensors", data });
 }, BROADCAST_INTERVAL);
 
 // --- Connection handling ---

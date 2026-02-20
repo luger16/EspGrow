@@ -195,19 +195,20 @@ void init() {
     OtaManager::begin(server, [](const OtaManager::StatusEvent& event) {
         JsonDocument doc;
         doc["type"] = "ota_status";
+        JsonObject otaData = doc["data"].to<JsonObject>();
         
         switch (event.status) {
-            case OtaManager::Status::Idle:       doc["status"] = "idle"; break;
-            case OtaManager::Status::Uploading:   doc["status"] = "uploading"; break;
-            case OtaManager::Status::Downloading: doc["status"] = "downloading"; break;
-            case OtaManager::Status::Installing:  doc["status"] = "installing"; break;
-            case OtaManager::Status::Success:     doc["status"] = "success"; break;
-            case OtaManager::Status::Error:       doc["status"] = "error"; break;
-            case OtaManager::Status::Rebooting:   doc["status"] = "rebooting"; break;
+            case OtaManager::Status::Idle:       otaData["status"] = "idle"; break;
+            case OtaManager::Status::Uploading:   otaData["status"] = "uploading"; break;
+            case OtaManager::Status::Downloading: otaData["status"] = "downloading"; break;
+            case OtaManager::Status::Installing:  otaData["status"] = "installing"; break;
+            case OtaManager::Status::Success:     otaData["status"] = "success"; break;
+            case OtaManager::Status::Error:       otaData["status"] = "error"; break;
+            case OtaManager::Status::Rebooting:   otaData["status"] = "rebooting"; break;
         }
         
-        if (event.progress >= 0) doc["progress"] = event.progress;
-        if (event.error.length() > 0) doc["error"] = event.error;
+        if (event.progress >= 0) otaData["progress"] = event.progress;
+        if (event.error.length() > 0) otaData["error"] = event.error;
         
         String out;
         serializeJson(doc, out);

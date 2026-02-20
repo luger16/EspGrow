@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include "storage.h"
-#include "settings.h"
 #include "wifi_manager.h"
 #include "websocket_server.h"
 #include "device_controller.h"
@@ -84,10 +83,11 @@ namespace {
         if (size > 0) {
             JsonDocument doc;
             doc["type"] = "history";
-            doc["sensorId"] = sensorId;
-            doc["range"] = range;
-            doc["pointSize"] = sizeof(History::HistoryPoint);
-            doc["count"] = size / sizeof(History::HistoryPoint);
+            JsonObject histData = doc["data"].to<JsonObject>();
+            histData["sensorId"] = sensorId;
+            histData["range"] = range;
+            histData["pointSize"] = sizeof(History::HistoryPoint);
+            histData["count"] = size / sizeof(History::HistoryPoint);
             
             String base64Data;
             size_t encodedLen = (size + 2) / 3 * 4;
@@ -105,7 +105,7 @@ namespace {
                 base64Data += (i + 2 < size) ? b64chars[n & 0x3F] : '=';
             }
             
-            doc["data"] = base64Data;
+            histData["payload"] = base64Data;
             
             String out;
             serializeJson(doc, out);
@@ -124,18 +124,21 @@ namespace {
         const char* type = doc["type"];
         if (!type) return;
 
+        // Extract payload from "data" key (new protocol), fallback to top-level (legacy)
+        JsonObject payload = doc["data"].is<JsonObject>() ? doc["data"].as<JsonObject>() : doc.as<JsonObject>();
+
         if (strcmp(type, "ping") == 0) {
             JsonDocument response;
             response["type"] = "pong";
-            response["timestamp"] = millis();
+            response["data"]["timestamp"] = millis();
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
         else if (strcmp(type, "device_control") == 0) {
-            const char* method = doc["method"];
-            const char* target = doc["target"];
-            bool on = doc["on"];
+            const char* method = payload["method"];
+            const char* target = payload["target"];
+            bool on = payload["on"];
             
             bool success = DeviceController::control(
                 method ? method : "",
@@ -159,15 +162,16 @@ namespace {
             
             JsonDocument response;
             response["type"] = "device_status";
-            response["target"] = target;
-            response["on"] = on;
-            response["success"] = success;
+            JsonObject respData = response["data"].to<JsonObject>();
+            respData["target"] = target;
+            respData["on"] = on;
+            respData["success"] = success;
             if (device) {
-                response["deviceId"] = device->id;
+                respData["deviceId"] = device->id;
             }
             if (overrideActive) {
-                response["overrideActive"] = true;
-                response["overrideRemainingMs"] = overrideRemaining;
+                respData["overrideActive"] = true;
+                respData["overrideRemainingMs"] = overrideRemaining;
             }
             String out;
             serializeJson(response, out);
@@ -178,58 +182,58 @@ namespace {
         }
         else if (strcmp(type, "add_rule") == 0) {
             JsonDocument ruleDoc;
-            ruleDoc["id"] = doc["id"];
-            ruleDoc["name"] = doc["name"];
-            ruleDoc["enabled"] = doc["enabled"];
-            ruleDoc["ruleType"] = doc["ruleType"];
-            ruleDoc["sensorId"] = doc["sensorId"];
-            ruleDoc["operator"] = doc["operator"];
-            ruleDoc["threshold"] = doc["threshold"];
-            ruleDoc["thresholdOff"] = doc["thresholdOff"];
-            ruleDoc["useHysteresis"] = doc["useHysteresis"];
-            ruleDoc["minRunTimeMs"] = doc["minRunTimeMs"];
-            ruleDoc["onTime"] = doc["onTime"];
-            ruleDoc["offTime"] = doc["offTime"];
-            ruleDoc["deviceId"] = doc["deviceId"];
-            ruleDoc["deviceMethod"] = doc["deviceMethod"];
-            ruleDoc["deviceTarget"] = doc["deviceTarget"];
-            ruleDoc["action"] = doc["action"];
+            ruleDoc["id"] = payload["id"];
+            ruleDoc["name"] = payload["name"];
+            ruleDoc["enabled"] = payload["enabled"];
+            ruleDoc["ruleType"] = payload["ruleType"];
+            ruleDoc["sensorId"] = payload["sensorId"];
+            ruleDoc["operator"] = payload["operator"];
+            ruleDoc["threshold"] = payload["threshold"];
+            ruleDoc["thresholdOff"] = payload["thresholdOff"];
+            ruleDoc["useHysteresis"] = payload["useHysteresis"];
+            ruleDoc["minRunTimeMs"] = payload["minRunTimeMs"];
+            ruleDoc["onTime"] = payload["onTime"];
+            ruleDoc["offTime"] = payload["offTime"];
+            ruleDoc["deviceId"] = payload["deviceId"];
+            ruleDoc["deviceMethod"] = payload["deviceMethod"];
+            ruleDoc["deviceTarget"] = payload["deviceTarget"];
+            ruleDoc["action"] = payload["action"];
             
             Automation::addRule(ruleDoc);
             broadcastRules();
             broadcastDevices();
         }
         else if (strcmp(type, "update_rule") == 0) {
-            const char* ruleId = doc["id"];
+            const char* ruleId = payload["id"];
             JsonDocument updates;
-            if (doc["name"].is<const char*>()) updates["name"] = doc["name"];
-            if (doc["enabled"].is<bool>()) updates["enabled"] = doc["enabled"];
-            if (doc["ruleType"].is<const char*>()) updates["ruleType"] = doc["ruleType"];
-            if (doc["sensorId"].is<const char*>()) updates["sensorId"] = doc["sensorId"];
-            if (doc["operator"].is<const char*>()) updates["operator"] = doc["operator"];
-            if (doc["threshold"].is<float>()) updates["threshold"] = doc["threshold"];
-            if (doc["thresholdOff"].is<float>()) updates["thresholdOff"] = doc["thresholdOff"];
-            if (doc["useHysteresis"].is<bool>()) updates["useHysteresis"] = doc["useHysteresis"];
-            if (doc["minRunTimeMs"].is<unsigned long>()) updates["minRunTimeMs"] = doc["minRunTimeMs"];
-            if (doc["onTime"].is<const char*>()) updates["onTime"] = doc["onTime"];
-            if (doc["offTime"].is<const char*>()) updates["offTime"] = doc["offTime"];
-            if (doc["deviceId"].is<const char*>()) updates["deviceId"] = doc["deviceId"];
-            if (doc["deviceMethod"].is<const char*>()) updates["deviceMethod"] = doc["deviceMethod"];
-            if (doc["deviceTarget"].is<const char*>()) updates["deviceTarget"] = doc["deviceTarget"];
-            if (doc["action"].is<const char*>()) updates["action"] = doc["action"];
+            if (payload["name"].is<const char*>()) updates["name"] = payload["name"];
+            if (payload["enabled"].is<bool>()) updates["enabled"] = payload["enabled"];
+            if (payload["ruleType"].is<const char*>()) updates["ruleType"] = payload["ruleType"];
+            if (payload["sensorId"].is<const char*>()) updates["sensorId"] = payload["sensorId"];
+            if (payload["operator"].is<const char*>()) updates["operator"] = payload["operator"];
+            if (payload["threshold"].is<float>()) updates["threshold"] = payload["threshold"];
+            if (payload["thresholdOff"].is<float>()) updates["thresholdOff"] = payload["thresholdOff"];
+            if (payload["useHysteresis"].is<bool>()) updates["useHysteresis"] = payload["useHysteresis"];
+            if (payload["minRunTimeMs"].is<unsigned long>()) updates["minRunTimeMs"] = payload["minRunTimeMs"];
+            if (payload["onTime"].is<const char*>()) updates["onTime"] = payload["onTime"];
+            if (payload["offTime"].is<const char*>()) updates["offTime"] = payload["offTime"];
+            if (payload["deviceId"].is<const char*>()) updates["deviceId"] = payload["deviceId"];
+            if (payload["deviceMethod"].is<const char*>()) updates["deviceMethod"] = payload["deviceMethod"];
+            if (payload["deviceTarget"].is<const char*>()) updates["deviceTarget"] = payload["deviceTarget"];
+            if (payload["action"].is<const char*>()) updates["action"] = payload["action"];
             
             Automation::updateRule(ruleId, updates);
             broadcastRules();
             broadcastDevices();
         }
         else if (strcmp(type, "remove_rule") == 0) {
-            const char* ruleId = doc["id"];
+            const char* ruleId = payload["id"];
             Automation::removeRule(ruleId);
             broadcastRules();
             broadcastDevices();
         }
         else if (strcmp(type, "toggle_rule") == 0) {
-            const char* ruleId = doc["id"];
+            const char* ruleId = payload["id"];
             Automation::toggleRule(ruleId);
             broadcastRules();
             broadcastDevices();
@@ -239,29 +243,29 @@ namespace {
         }
         else if (strcmp(type, "add_device") == 0) {
             JsonDocument deviceDoc;
-            deviceDoc["id"] = doc["id"];
-            deviceDoc["name"] = doc["name"];
-            deviceDoc["type"] = doc["deviceType"];
-            deviceDoc["controlMethod"] = doc["controlMethod"];
-            deviceDoc["ipAddress"] = doc["ipAddress"];
-            deviceDoc["controlMode"] = doc["controlMode"];
+            deviceDoc["id"] = payload["id"];
+            deviceDoc["name"] = payload["name"];
+            deviceDoc["type"] = payload["deviceType"];
+            deviceDoc["controlMethod"] = payload["controlMethod"];
+            deviceDoc["ipAddress"] = payload["ipAddress"];
+            deviceDoc["controlMode"] = payload["controlMode"];
             
             Devices::addDevice(deviceDoc);
             broadcastDevices();
         }
         else if (strcmp(type, "update_device") == 0) {
-            const char* deviceId = doc["id"];
+            const char* deviceId = payload["id"];
             JsonDocument updates;
-            if (doc["name"].is<const char*>()) updates["name"] = doc["name"];
-            if (doc["deviceType"].is<const char*>()) updates["type"] = doc["deviceType"];
-            if (doc["controlMethod"].is<const char*>()) updates["controlMethod"] = doc["controlMethod"];
-            if (doc["ipAddress"].is<const char*>()) updates["ipAddress"] = doc["ipAddress"];
+            if (payload["name"].is<const char*>()) updates["name"] = payload["name"];
+            if (payload["deviceType"].is<const char*>()) updates["type"] = payload["deviceType"];
+            if (payload["controlMethod"].is<const char*>()) updates["controlMethod"] = payload["controlMethod"];
+            if (payload["ipAddress"].is<const char*>()) updates["ipAddress"] = payload["ipAddress"];
             
             Devices::updateDevice(deviceId, updates);
             broadcastDevices();
         }
         else if (strcmp(type, "remove_device") == 0) {
-            const char* deviceId = doc["id"];
+            const char* deviceId = payload["id"];
             Automation::removeRulesForDevice(deviceId);
             Devices::removeDevice(deviceId);
             broadcastDevices();
@@ -272,40 +276,40 @@ namespace {
         }
         else if (strcmp(type, "add_sensor") == 0) {
             JsonDocument sensorDoc;
-            sensorDoc["id"] = doc["id"];
-            sensorDoc["name"] = doc["name"];
-            sensorDoc["type"] = doc["sensorType"];
-            sensorDoc["unit"] = doc["unit"];
-            sensorDoc["hardwareType"] = doc["hardwareType"];
-            sensorDoc["address"] = doc["address"];
-            sensorDoc["tempSourceId"] = doc["tempSourceId"];
-            sensorDoc["humSourceId"] = doc["humSourceId"];
+            sensorDoc["id"] = payload["id"];
+            sensorDoc["name"] = payload["name"];
+            sensorDoc["type"] = payload["sensorType"];
+            sensorDoc["unit"] = payload["unit"];
+            sensorDoc["hardwareType"] = payload["hardwareType"];
+            sensorDoc["address"] = payload["address"];
+            sensorDoc["tempSourceId"] = payload["tempSourceId"];
+            sensorDoc["humSourceId"] = payload["humSourceId"];
             
             SensorConfig::addSensor(sensorDoc);
             broadcastSensors();
         }
         else if (strcmp(type, "update_sensor") == 0) {
-            const char* sensorId = doc["id"];
+            const char* sensorId = payload["id"];
             JsonDocument updates;
-            if (doc["name"].is<const char*>()) updates["name"] = doc["name"];
-            if (doc["sensorType"].is<const char*>()) updates["type"] = doc["sensorType"];
-            if (doc["unit"].is<const char*>()) updates["unit"] = doc["unit"];
-            if (doc["hardwareType"].is<const char*>()) updates["hardwareType"] = doc["hardwareType"];
-            if (doc["address"].is<const char*>()) updates["address"] = doc["address"];
-            if (doc["tempSourceId"].is<const char*>()) updates["tempSourceId"] = doc["tempSourceId"];
-            if (doc["humSourceId"].is<const char*>()) updates["humSourceId"] = doc["humSourceId"];
+            if (payload["name"].is<const char*>()) updates["name"] = payload["name"];
+            if (payload["sensorType"].is<const char*>()) updates["type"] = payload["sensorType"];
+            if (payload["unit"].is<const char*>()) updates["unit"] = payload["unit"];
+            if (payload["hardwareType"].is<const char*>()) updates["hardwareType"] = payload["hardwareType"];
+            if (payload["address"].is<const char*>()) updates["address"] = payload["address"];
+            if (payload["tempSourceId"].is<const char*>()) updates["tempSourceId"] = payload["tempSourceId"];
+            if (payload["humSourceId"].is<const char*>()) updates["humSourceId"] = payload["humSourceId"];
             
             SensorConfig::updateSensor(sensorId, updates);
             broadcastSensors();
         }
         else if (strcmp(type, "remove_sensor") == 0) {
-            const char* sensorId = doc["id"];
+            const char* sensorId = payload["id"];
             SensorConfig::removeSensor(sensorId);
             broadcastSensors();
         }
         else if (strcmp(type, "get_history") == 0) {
-            const char* sensorId = doc["sensorId"];
-            const char* range = doc["range"];
+            const char* sensorId = payload["sensorId"];
+            const char* range = payload["range"];
             if (sensorId && range) {
                 sendHistory(sensorId, range);
             }
@@ -313,13 +317,13 @@ namespace {
         else if (strcmp(type, "get_ppfd_calibration") == 0) {
             JsonDocument response;
             response["type"] = "ppfd_calibration";
-            response["factor"] = Sensors::getPpfdCalibrationFactor();
+            response["data"]["factor"] = Sensors::getPpfdCalibrationFactor();
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
         else if (strcmp(type, "calibrate_ppfd") == 0) {
-            float knownPpfd = doc["knownPpfd"] | 0.0f;
+            float knownPpfd = payload["knownPpfd"] | 0.0f;
             float rawPpfd = Sensors::getRawPpfd();
             
             if (knownPpfd > 0 && !isnan(rawPpfd) && rawPpfd > 0) {
@@ -328,16 +332,18 @@ namespace {
                 
                 JsonDocument response;
                 response["type"] = "ppfd_calibration";
-                response["factor"] = factor;
-                response["success"] = true;
+                JsonObject respData = response["data"].to<JsonObject>();
+                respData["factor"] = factor;
+                respData["success"] = true;
                 String out;
                 serializeJson(response, out);
                 WebSocketServer::broadcast(out);
             } else {
                 JsonDocument response;
                 response["type"] = "ppfd_calibration";
-                response["success"] = false;
-                response["error"] = isnan(rawPpfd) || rawPpfd <= 0 
+                JsonObject respData = response["data"].to<JsonObject>();
+                respData["success"] = false;
+                respData["error"] = isnan(rawPpfd) || rawPpfd <= 0 
                     ? "no_reading" : "invalid_value";
                 String out;
                 serializeJson(response, out);
@@ -349,21 +355,22 @@ namespace {
             
             JsonDocument response;
             response["type"] = "ppfd_calibration";
-            response["factor"] = 1.0f;
-            response["success"] = true;
+            JsonObject respData = response["data"].to<JsonObject>();
+            respData["factor"] = 1.0f;
+            respData["success"] = true;
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
         else if (strcmp(type, "clear_override") == 0) {
-            const char* deviceId = doc["deviceId"];
+            const char* deviceId = payload["deviceId"];
             if (deviceId) {
                 Automation::clearOverride(deviceId);
                 Automation::forceEvaluation(cachedSensorReadings);
                 
                 JsonDocument response;
                 response["type"] = "override_cleared";
-                response["deviceId"] = deviceId;
+                response["data"]["deviceId"] = deviceId;
                 String out;
                 serializeJson(response, out);
                 WebSocketServer::broadcast(out);
@@ -372,19 +379,13 @@ namespace {
         else if (strcmp(type, "get_system_info") == 0) {
             JsonDocument response;
             response["type"] = "system_info";
-            response["uptime"] = millis() / 1000;
-            response["freeHeap"] = ESP.getFreeHeap();
-            response["chipModel"] = ESP.getChipModel();
-            response["wifiRssi"] = WiFi.RSSI();
-            response["ipAddress"] = WiFiManager::getIP();
-            response["firmwareVersion"] = FIRMWARE_VERSION;
-            String out;
-            serializeJson(response, out);
-            WebSocketServer::broadcast(out);
-        }
-        else if (strcmp(type, "get_settings") == 0) {
-            JsonDocument response;
-            response["type"] = "settings";
+            JsonObject respData = response["data"].to<JsonObject>();
+            respData["uptime"] = millis() / 1000;
+            respData["freeHeap"] = ESP.getFreeHeap();
+            respData["chipModel"] = ESP.getChipModel();
+            respData["wifiRssi"] = WiFi.RSSI();
+            respData["ipAddress"] = WiFiManager::getIP();
+            respData["firmwareVersion"] = FIRMWARE_VERSION;
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
@@ -425,7 +426,6 @@ namespace {
         if (!anyValid) return;
         
         sensorReadingsDirty = true;
-        doc["timestamp"] = millis();
 
         String out;
         serializeJson(doc, out);
@@ -452,7 +452,6 @@ void setup() {
         Serial.println("[ERROR] Storage init failed!");
     }
     
-    Settings::init();
     WiFiManager::init();
     DeviceController::init();
     Sensors::init();
@@ -463,10 +462,11 @@ void setup() {
     Automation::setDeviceStateCallback([](const char* deviceId, const char* method, const char* target, bool on) {
         JsonDocument response;
         response["type"] = "device_status";
-        response["deviceId"] = deviceId;
-        response["target"] = target;
-        response["on"] = on;
-        response["success"] = true;
+        JsonObject respData = response["data"].to<JsonObject>();
+        respData["deviceId"] = deviceId;
+        respData["target"] = target;
+        respData["on"] = on;
+        respData["success"] = true;
         String out;
         serializeJson(response, out);
         WebSocketServer::broadcast(out);

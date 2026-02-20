@@ -52,17 +52,14 @@ export function updateRule(ruleId: string, updates: Partial<Omit<AutomationRule,
 		payload.ruleType = ruleType;
 	}
 	
-	if (ruleType === "schedule" || (updates.onTime && updates.offTime)) {
-		const effectiveType = ruleType ?? "schedule";
-		if (effectiveType === "schedule") {
-			payload.onTime = localToUtcTime(onTime ?? "");
-			payload.offTime = localToUtcTime(offTime ?? "");
-		}
-	} else if (onTime) {
-		payload.onTime = onTime;
-	}
-	if (offTime) {
-		payload.offTime = offTime;
+	const isSchedule = ruleType === "schedule";
+	
+	if (isSchedule) {
+		payload.onTime = localToUtcTime(onTime ?? "");
+		payload.offTime = localToUtcTime(offTime ?? "");
+	} else {
+		if (onTime !== undefined) payload.onTime = onTime;
+		if (offTime !== undefined) payload.offTime = offTime;
 	}
 	
 	if (updates.deviceId) {
@@ -84,12 +81,14 @@ export function toggleRule(ruleId: string): void {
 
 export function initRulesWebSocket(): void {
 	websocket.on("rules", (data: unknown) => {
-		const msg = data as { data: AutomationRule[] };
-		if (Array.isArray(msg.data)) {
-			rules.length = 0;
-			rules.push(...msg.data);
-		}
+		if (!Array.isArray(data)) return;
+		const items = data.filter(
+			(item): item is AutomationRule =>
+				item && typeof item === "object" && typeof item.id === "string" && typeof item.name === "string"
+		);
+		rules.length = 0;
+		rules.push(...items);
 	});
 	
-	websocket.send("get_rules", {});
+	websocket.send("get_rules");
 }

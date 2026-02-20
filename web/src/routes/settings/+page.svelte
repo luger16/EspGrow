@@ -12,7 +12,7 @@
 	import { Progress } from "$lib/components/ui/progress/index.js";
 	import { sensors, ppfdCalibration, calibratePpfd, resetPpfdCalibration } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
-	import { settings, updateSettings, type Theme, type TemperatureUnit } from "$lib/stores/settings.svelte";
+	import { settings, updateSettings, type Theme, type TemperatureUnit, type TimeFormat } from "$lib/stores/settings.svelte";
 	import { systemInfo, initSystemInfoWebSocket } from "$lib/stores/system.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { toast } from "svelte-sonner";
@@ -55,6 +55,11 @@
 		{ value: "fahrenheit", label: "Fahrenheit (°F)" },
 	];
 
+	const timeFormatOptions: { value: TimeFormat; label: string }[] = [
+		{ value: "24h", label: "24 hour" },
+		{ value: "12h", label: "12 hour" },
+	];
+
 	let editingSensorId = $state<string | null>(null);
 	let editingDeviceId = $state<string | null>(null);
 	let ppfdInput = $state("");
@@ -83,24 +88,26 @@
 	const otaInProgress = $derived(otaStatus !== "idle" && otaStatus !== "error");
 
 	$effect(() => {
-		const unsubscribe = websocket.on("ota_status", (data: any) => {
-			otaStatus = data.status;
-			if (data.progress !== undefined) {
-				otaProgress = data.progress;
+		const unsubscribe = websocket.on("ota_status", (data: unknown) => {
+			if (!data || typeof data !== "object") return;
+			const msg = data as Record<string, unknown>;
+			if (typeof msg.status !== "string") return;
+			otaStatus = msg.status as typeof otaStatus;
+			if (typeof msg.progress === "number") {
+				otaProgress = msg.progress;
 			}
-			if (data.error) {
-				otaError = data.error;
-				toast.error(`OTA failed: ${data.error}`);
+			if (typeof msg.error === "string") {
+				otaError = msg.error;
+				toast.error(`OTA failed: ${msg.error}`);
 			}
-			if (data.status === "success") {
+			if (msg.status === "success") {
 				toast.success("Firmware update successful!");
-				// Device will reboot shortly after successful flash
 				reconnecting = true;
 				setTimeout(() => {
 					window.location.reload();
 				}, 10000);
 			}
-			if (data.status === "rebooting") {
+			if (msg.status === "rebooting") {
 				reconnecting = true;
 				setTimeout(() => {
 					window.location.reload();
@@ -338,6 +345,23 @@
 					</Select.Trigger>
 					<Select.Content>
 						{#each themeOptions as option (option.value)}
+							<Select.Item value={option.value}>{option.label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+			<div class="flex items-center justify-between p-3">
+				<Label>Time Format</Label>
+				<Select.Root
+					type="single"
+					value={settings.timeFormat}
+					onValueChange={(v) => v && updateSettings({ timeFormat: v as TimeFormat })}
+				>
+					<Select.Trigger class="w-44">
+						<span>{timeFormatOptions.find((o) => o.value === settings.timeFormat)?.label}</span>
+					</Select.Trigger>
+					<Select.Content>
+						{#each timeFormatOptions as option (option.value)}
 							<Select.Item value={option.value}>{option.label}</Select.Item>
 						{/each}
 					</Select.Content>

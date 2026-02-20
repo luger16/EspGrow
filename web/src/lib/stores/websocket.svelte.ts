@@ -42,7 +42,11 @@ export function connect(url?: string): void {
 		state.connected = true;
 		state.error = null;
 		for (const msg of pendingMessages) {
-			ws!.send(JSON.stringify({ type: msg.type, ...msg.payload }));
+			const frame: Record<string, unknown> = { type: msg.type };
+			if (msg.payload && Object.keys(msg.payload).length > 0) {
+				frame.data = msg.payload;
+			}
+			ws!.send(JSON.stringify(frame));
 		}
 		pendingMessages = [];
 	};
@@ -61,15 +65,16 @@ export function connect(url?: string): void {
 
 	ws.onmessage = (event) => {
 		try {
-			const data = JSON.parse(event.data);
-			if (typeof data !== "object" || data === null || !("type" in data)) return;
+			const msg = JSON.parse(event.data);
+			if (typeof msg !== "object" || msg === null || !("type" in msg)) return;
 			
-			const type = (data as { type: unknown }).type;
+			const type = (msg as { type: unknown }).type;
 			if (typeof type !== "string") return;
 
 			const typeHandlers = handlers.get(type);
 			if (typeHandlers) {
-				typeHandlers.forEach((handler) => handler(data));
+				const payload = (msg as Record<string, unknown>).data ?? msg;
+				typeHandlers.forEach((handler) => handler(payload));
 			}
 		} catch (err) {
 			console.error("WebSocket parse error:", err);
@@ -91,8 +96,12 @@ export function disconnect(): void {
 }
 
 export function send(type: string, payload?: Record<string, unknown>): void {
+	const frame: Record<string, unknown> = { type };
+	if (payload && Object.keys(payload).length > 0) {
+		frame.data = payload;
+	}
 	if (ws?.readyState === WebSocket.OPEN) {
-		ws.send(JSON.stringify({ type, ...payload }));
+		ws.send(JSON.stringify(frame));
 	} else {
 		pendingMessages.push({ type, payload });
 	}

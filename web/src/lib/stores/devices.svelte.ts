@@ -66,38 +66,46 @@ export function clearOverride(deviceId: string): void {
 
 export function initDeviceWebSocket(): void {
 	websocket.on("devices", (data: unknown) => {
-		const msg = data as { data: Device[] };
-		if (Array.isArray(msg.data)) {
-			devices.length = 0;
-			msg.data.forEach((d) => {
-				devices.push({
-					...d,
-					isOn: d.isOn ?? false,
-				});
+		if (!Array.isArray(data)) return;
+		const items = data.filter(
+			(item): item is Device =>
+				item && typeof item === "object" && typeof item.id === "string" && typeof item.name === "string"
+		);
+		devices.length = 0;
+		items.forEach((d) => {
+			devices.push({
+				...d,
+				isOn: d.isOn ?? false,
 			});
-		}
+		});
 	});
 
 	websocket.on("device_status", (data: unknown) => {
-		const msg = data as { deviceId?: string; target: string; on: boolean; success: boolean; overrideActive?: boolean; overrideRemainingMs?: number };
-		const device = msg.deviceId 
+		if (!data || typeof data !== "object") return;
+		const msg = data as Record<string, unknown>;
+		if (typeof msg.on !== "boolean" || typeof msg.success !== "boolean") return;
+		
+		const device = typeof msg.deviceId === "string"
 			? devices.find((d) => d.id === msg.deviceId)
-			: devices.find((d) => d.ipAddress === msg.target);
+			: typeof msg.target === "string"
+				? devices.find((d) => d.ipAddress === msg.target)
+				: undefined;
 		if (device) {
 			if (msg.success) device.isOn = msg.on;
 			pendingDevices.delete(device.id);
-			if (msg.overrideActive && msg.overrideRemainingMs) {
+			if (msg.overrideActive && typeof msg.overrideRemainingMs === "number") {
 				overriddenDevices[device.id] = Date.now() + msg.overrideRemainingMs;
 			}
 		}
 	});
 
 	websocket.on("override_cleared", (data: unknown) => {
-		const msg = data as { deviceId: string };
-		if (msg.deviceId && overriddenDevices[msg.deviceId]) {
+		if (!data || typeof data !== "object") return;
+		const msg = data as Record<string, unknown>;
+		if (typeof msg.deviceId === "string" && overriddenDevices[msg.deviceId]) {
 			delete overriddenDevices[msg.deviceId];
 		}
 	});
 
-	websocket.send("get_devices", {});
+	websocket.send("get_devices");
 }

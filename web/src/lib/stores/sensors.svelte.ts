@@ -61,58 +61,58 @@ export function updateSensorReading(sensorId: string, value: number): void {
 
 export function initSensorWebSocket(): void {
 	websocket.on("sensor_config", (data: unknown) => {
-		const msg = data as { data: Sensor[] };
-		if (Array.isArray(msg.data)) {
-			sensors.length = 0;
-			sensors.push(...msg.data);
-		}
+		if (!Array.isArray(data)) return;
+		const items = data.filter(
+			(item): item is Sensor =>
+				item && typeof item === "object" && typeof item.id === "string" && typeof item.name === "string"
+		);
+		sensors.length = 0;
+		sensors.push(...items);
 	});
 
 	websocket.on("sensors", (data: unknown) => {
-		const msg = data as { data: { id: string; type: string; value: number }[] };
-		if (Array.isArray(msg.data)) {
-			for (const reading of msg.data) {
-				if (typeof reading.value === "number") {
-					updateSensorReading(reading.id, reading.value);
-				}
+		if (!Array.isArray(data)) return;
+		for (const reading of data) {
+			if (
+				reading && typeof reading === "object" &&
+				typeof reading.id === "string" &&
+				typeof reading.value === "number"
+			) {
+				updateSensorReading(reading.id, reading.value);
 			}
 		}
 	});
 
 	websocket.on("history", (data: unknown) => {
-		const msg = data as {
-			sensorId: string;
-			range: HistoryRange;
-			data: string;
-			count: number;
-		};
+		if (!data || typeof data !== "object") return;
+		const msg = data as Record<string, unknown>;
+		if (typeof msg.sensorId !== "string" || typeof msg.range !== "string" || typeof msg.payload !== "string") return;
 		
-		if (msg.sensorId && msg.range && msg.data) {
-			const bytes = decodeBase64(msg.data);
-			const points = decodeHistoryPoints(bytes);
-			
-			if (!sensorHistory[msg.sensorId]) {
-				sensorHistory[msg.sensorId] = {};
-			}
-			sensorHistory[msg.sensorId][msg.range] = points;
+		const bytes = decodeBase64(msg.payload);
+		const points = decodeHistoryPoints(bytes);
+		
+		if (!sensorHistory[msg.sensorId]) {
+			sensorHistory[msg.sensorId] = {};
 		}
+		sensorHistory[msg.sensorId][msg.range as HistoryRange] = points;
 	});
 
 	websocket.on("ppfd_calibration", (data: unknown) => {
-		const msg = data as { factor?: number; success?: boolean; error?: string };
+		if (!data || typeof data !== "object") return;
+		const msg = data as Record<string, unknown>;
 		ppfdCalibration.loading = false;
 		if (msg.success === false) {
 			ppfdCalibration.error = msg.error === "no_reading" 
 				? "No light reading available. Make sure the AS7341 sensor is connected and the grow light is on."
 				: "Invalid calibration value.";
 		} else {
-			ppfdCalibration.factor = msg.factor ?? 1.0;
+			ppfdCalibration.factor = typeof msg.factor === "number" ? msg.factor : 1.0;
 			ppfdCalibration.error = null;
 		}
 	});
 
-	websocket.send("get_sensors", {});
-	websocket.send("get_ppfd_calibration", {});
+	websocket.send("get_sensors");
+	websocket.send("get_ppfd_calibration");
 }
 
 export function getSensorReading(sensorId: string): SensorReading | undefined {
