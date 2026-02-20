@@ -4,7 +4,4 @@
 
 namespace Settings {
     void init();
-    
-    int getTimezoneOffsetMinutes();
-    void setTimezoneOffsetMinutes(int minutes);
 }

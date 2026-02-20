@@ -31,12 +31,22 @@
 		return action === "turn_on" ? "turn on" : "turn off";
 	}
 	
+	function utcToLocalTime(utcTime: string): string {
+		if (!utcTime) return "??:??";
+		const [hours, minutes] = utcTime.split(":").map(Number);
+		const now = new Date();
+		const utcDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes));
+		const localHours = String(utcDate.getHours()).padStart(2, "0");
+		const localMinutes = String(utcDate.getMinutes()).padStart(2, "0");
+		return `${localHours}:${localMinutes}`;
+	}
+	
 	function formatRuleDescription(rule: AutomationRule): string {
 		const deviceName = getDeviceName(rule.deviceId);
 		const actionText = formatAction(rule.action);
 		
 		if (rule.type === "schedule") {
-			return `${rule.onTime ?? "??:??"} - ${rule.offTime ?? "??:??"} → ${actionText} ${deviceName}`;
+			return `${utcToLocalTime(rule.onTime ?? "")} - ${utcToLocalTime(rule.offTime ?? "")} → ${actionText} ${deviceName}`;
 		}
 		
 		const sensorName = getSensorName(rule.sensorId ?? "");

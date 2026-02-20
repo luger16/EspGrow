@@ -385,18 +385,6 @@ namespace {
         else if (strcmp(type, "get_settings") == 0) {
             JsonDocument response;
             response["type"] = "settings";
-            response["timezoneOffsetMinutes"] = Settings::getTimezoneOffsetMinutes();
-            String out;
-            serializeJson(response, out);
-            WebSocketServer::broadcast(out);
-        }
-        else if (strcmp(type, "set_timezone") == 0) {
-            int offsetMinutes = doc["offsetMinutes"] | 0;
-            Settings::setTimezoneOffsetMinutes(offsetMinutes);
-            
-            JsonDocument response;
-            response["type"] = "settings";
-            response["timezoneOffsetMinutes"] = offsetMinutes;
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);

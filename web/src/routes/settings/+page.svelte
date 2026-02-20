@@ -12,7 +12,7 @@
 	import { Progress } from "$lib/components/ui/progress/index.js";
 	import { sensors, ppfdCalibration, calibratePpfd, resetPpfdCalibration } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
-	import { settings, updateSettings, setTimezoneOffset, type Theme, type TemperatureUnit } from "$lib/stores/settings.svelte";
+	import { settings, updateSettings, type Theme, type TemperatureUnit } from "$lib/stores/settings.svelte";
 	import { systemInfo, initSystemInfoWebSocket } from "$lib/stores/system.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { toast } from "svelte-sonner";
@@ -53,19 +53,6 @@
 	const temperatureUnitOptions: { value: TemperatureUnit; label: string }[] = [
 		{ value: "celsius", label: "Celsius (°C)" },
 		{ value: "fahrenheit", label: "Fahrenheit (°F)" },
-	];
-
-	const timezoneOptions: { value: number; label: string }[] = [
-		{ value: -480, label: "UTC-8 (Los Angeles)" },
-		{ value: -300, label: "UTC-5 (New York)" },
-		{ value: 0, label: "UTC+0 (London)" },
-		{ value: 60, label: "UTC+1 (Berlin)" },
-		{ value: 120, label: "UTC+2 (Cairo)" },
-		{ value: 180, label: "UTC+3 (Moscow)" },
-		{ value: 330, label: "UTC+5:30 (Mumbai)" },
-		{ value: 480, label: "UTC+8 (Singapore)" },
-		{ value: 540, label: "UTC+9 (Tokyo)" },
-		{ value: 600, label: "UTC+10 (Sydney)" },
 	];
 
 	let editingSensorId = $state<string | null>(null);
@@ -352,23 +339,6 @@
 					<Select.Content>
 						{#each themeOptions as option (option.value)}
 							<Select.Item value={option.value}>{option.label}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
-			<div class="flex items-center justify-between p-3">
-				<Label>Timezone</Label>
-				<Select.Root
-					type="single"
-					value={settings.timezoneOffsetMinutes.toString()}
-					onValueChange={(v) => v && setTimezoneOffset(parseInt(v, 10))}
-				>
-					<Select.Trigger class="w-44">
-						<span>{timezoneOptions.find((o) => o.value === settings.timezoneOffsetMinutes)?.label || `UTC${settings.timezoneOffsetMinutes >= 0 ? '+' : ''}${(settings.timezoneOffsetMinutes / 60).toFixed(settings.timezoneOffsetMinutes % 60 === 0 ? 0 : 1)}`}</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each timezoneOptions as option (option.value)}
-							<Select.Item value={option.value.toString()}>{option.label}</Select.Item>
 						{/each}
 					</Select.Content>
 				</Select.Root>

@@ -11,6 +11,16 @@ function getDeviceTarget(deviceId: string): { method: string; target: string } {
 	return { method: device.controlMethod, target: device.ipAddress ?? "" };
 }
 
+function localToUtcTime(localTime: string): string {
+	if (!localTime) return "";
+	const [hours, minutes] = localTime.split(":").map(Number);
+	const now = new Date();
+	const localDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+	const utcHours = String(localDate.getUTCHours()).padStart(2, "0");
+	const utcMinutes = String(localDate.getUTCMinutes()).padStart(2, "0");
+	return `${utcHours}:${utcMinutes}`;
+}
+
 export function addRule(rule: AutomationRule): void {
 	const { method, target } = getDeviceTarget(rule.deviceId);
 	
@@ -24,8 +34,8 @@ export function addRule(rule: AutomationRule): void {
 		threshold: rule.threshold,
 		thresholdOff: rule.thresholdOff,
 		useHysteresis: rule.useHysteresis,
-		onTime: rule.onTime,
-		offTime: rule.offTime,
+		onTime: rule.type === "schedule" ? localToUtcTime(rule.onTime ?? "") : rule.onTime,
+		offTime: rule.type === "schedule" ? localToUtcTime(rule.offTime ?? "") : rule.offTime,
 		minRunTimeMs: rule.minRunTimeMs,
 		deviceId: rule.deviceId,
 		deviceMethod: method,
@@ -35,11 +45,24 @@ export function addRule(rule: AutomationRule): void {
 }
 
 export function updateRule(ruleId: string, updates: Partial<Omit<AutomationRule, "id">>): void {
-	const { type: ruleType, ...rest } = updates;
+	const { type: ruleType, onTime, offTime, ...rest } = updates;
 	const payload: Record<string, unknown> = { id: ruleId, ...rest };
 	
 	if (ruleType) {
 		payload.ruleType = ruleType;
+	}
+	
+	if (ruleType === "schedule" || (updates.onTime && updates.offTime)) {
+		const effectiveType = ruleType ?? "schedule";
+		if (effectiveType === "schedule") {
+			payload.onTime = localToUtcTime(onTime ?? "");
+			payload.offTime = localToUtcTime(offTime ?? "");
+		}
+	} else if (onTime) {
+		payload.onTime = onTime;
+	}
+	if (offTime) {
+		payload.offTime = offTime;
 	}
 	
 	if (updates.deviceId) {

@@ -6,7 +6,6 @@ export type TemperatureUnit = "celsius" | "fahrenheit";
 export type Settings = {
 	temperatureUnit: TemperatureUnit;
 	theme: Theme;
-	timezoneOffsetMinutes: number;
 };
 
 const STORAGE_KEY = "espgrow-settings";
@@ -14,7 +13,6 @@ const STORAGE_KEY = "espgrow-settings";
 const defaultSettings: Settings = {
 	temperatureUnit: "celsius",
 	theme: "system",
-	timezoneOffsetMinutes: 0,
 };
 
 function loadSettings(): Settings {
@@ -26,7 +24,6 @@ function loadSettings(): Settings {
 		return {
 			temperatureUnit: parsed.temperatureUnit === "fahrenheit" ? "fahrenheit" : "celsius",
 			theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
-			timezoneOffsetMinutes: typeof parsed.timezoneOffsetMinutes === "number" ? parsed.timezoneOffsetMinutes : 0,
 		};
 	} catch {
 		return { ...defaultSettings };
@@ -94,20 +91,6 @@ export function formatTemperature(celsius: number, unit: TemperatureUnit): strin
 	return `${value.toFixed(1)}${symbol}`;
 }
 
-export function setTimezoneOffset(minutes: number): void {
-	settings.timezoneOffsetMinutes = minutes;
-	saveSettings(settings);
-	websocket.send("set_timezone", { offsetMinutes: minutes });
-}
-
 export function initSettingsWebSocket(): void {
-	websocket.on("settings", (data: unknown) => {
-		const msg = data as { timezoneOffsetMinutes?: number };
-		if (typeof msg.timezoneOffsetMinutes === "number") {
-			settings.timezoneOffsetMinutes = msg.timezoneOffsetMinutes;
-			saveSettings(settings);
-		}
-	});
-	
 	websocket.send("get_settings", {});
 }

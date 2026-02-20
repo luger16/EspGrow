@@ -27,8 +27,6 @@ const SENSORS: SensorConfig[] = [
 	{ id: "vpd_calc", name: "VPD", type: "vpd", unit: "kPa", hardwareType: "calculated" },
 ];
 
-const DEFAULT_TIMEZONE_OFFSET_MINUTES = 60;
-
 // --- Devices ---
 
 interface DeviceConfig {
@@ -389,18 +387,8 @@ function handleMessage(ws: WebSocket, raw: string): void {
 		case "get_settings":
 			sendTo(ws, { 
 				type: "settings", 
-				data: { 
-					timezoneOffsetMinutes: DEFAULT_TIMEZONE_OFFSET_MINUTES
-				} 
 			});
 			break;
-
-		case "set_timezone": {
-			const offsetMinutes = msg.offsetMinutes as number;
-			console.log("[Mock] Set timezone offset:", offsetMinutes);
-			sendTo(ws, { type: "settings", data: { timezoneOffsetMinutes: offsetMinutes } });
-			break;
-		}
 
 		default:
 			console.log(`[Mock] Unknown message type: ${type}`);
