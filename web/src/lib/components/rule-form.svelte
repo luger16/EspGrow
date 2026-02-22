@@ -3,7 +3,6 @@
 	import * as Tabs from "$lib/components/ui/tabs/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
-	import { Switch } from "$lib/components/ui/switch/index.js";
 	import { sensors } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
 	import { formatUnit } from "$lib/utils";
@@ -15,7 +14,6 @@
 		sensorId: string;
 		operator: ComparisonOperator;
 		threshold: string;
-		useHysteresis: boolean;
 		thresholdOff: string;
 		onTime: string;
 		offTime: string;
@@ -31,7 +29,6 @@
 		sensorId = $bindable(),
 		operator = $bindable(),
 		threshold = $bindable(),
-		useHysteresis = $bindable(),
 		thresholdOff = $bindable(),
 		onTime = $bindable(),
 		offTime = $bindable(),
@@ -55,6 +52,7 @@
 	];
 
 	const selectedSensor = $derived(sensors.find((s) => s.id === sensorId));
+	const unit = $derived(formatUnit(selectedSensor?.unit || ""));
 </script>
 
 <Tabs.Root bind:value={ruleType}>
@@ -91,56 +89,44 @@
 			{/if}
 		</div>
 
-		<div class="grid grid-cols-[80px_1fr] gap-2">
-			<Select.Root type="single" value={operator} onValueChange={(v) => v && (operator = v as ComparisonOperator)}>
-				<Select.Trigger>
-					<span>{operator}</span>
-				</Select.Trigger>
-				<Select.Content>
-					{#each operatorOptions as opt (opt.value)}
-						<Select.Item value={opt.value}>{opt.label}</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
-			<Input
-				type="number"
-				bind:value={threshold}
-				placeholder={selectedSensor ? `Value (${selectedSensor.unit})` : "Value"}
-				required
-			/>
-		</div>
-		{#if submitted && !threshold}
-			<p class="text-destructive text-xs -mt-2">Threshold value is required</p>
-		{/if}
-
-		<div class="grid gap-3 rounded-lg border p-3">
-			<div class="flex items-center justify-between">
-				<div class="space-y-0.5">
-					<Label class="text-sm font-medium">Enable Hysteresis</Label>
-					<p class="text-xs text-muted-foreground">Use two thresholds to prevent rapid switching</p>
-				</div>
-				<Switch bind:checked={useHysteresis} />
+		<div class="grid gap-1">
+			<div class="grid grid-cols-[80px_1fr_16px_1fr_auto] items-center gap-2">
+				<Select.Root type="single" value={operator} onValueChange={(v) => v && (operator = v as ComparisonOperator)}>
+					<Select.Trigger>
+						<span>{operator}</span>
+					</Select.Trigger>
+					<Select.Content>
+						{#each operatorOptions as opt (opt.value)}
+							<Select.Item value={opt.value}>{opt.label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+				<Input
+					type="number"
+					bind:value={threshold}
+					placeholder="ON"
+					required
+				/>
+				<span class="text-muted-foreground text-center">→</span>
+				<Input
+					type="number"
+					bind:value={thresholdOff}
+					placeholder="OFF"
+				/>
+				<span class="text-muted-foreground text-sm w-12">{unit}</span>
 			</div>
-
-			{#if useHysteresis}
-				<div class="grid gap-2">
-					<Label for="thresholdOff">Turn Off Threshold</Label>
-					<Input
-						id="thresholdOff"
-						type="number"
-						bind:value={thresholdOff}
-						placeholder={selectedSensor ? `Value (${selectedSensor.unit})` : "Value"}
-						required={useHysteresis}
-					/>
-					{#if submitted && useHysteresis && !thresholdOff}
-						<p class="text-destructive text-xs">Turn off threshold is required</p>
-					{/if}
-					<p class="text-xs text-muted-foreground">
-						Device turns on at {threshold || "___"}{formatUnit(selectedSensor?.unit || "")}, turns off at {thresholdOff || "___"}{formatUnit(selectedSensor?.unit || "")}
-					</p>
-				</div>
+			<div class="grid grid-cols-[80px_1fr_16px_1fr_auto] items-center gap-2 text-xs text-muted-foreground">
+				<span></span>
+				<span class="text-center">ON</span>
+				<span></span>
+				<span class="text-center">OFF (optional)</span>
+				<span class="w-12"></span>
+			</div>
+			{#if submitted && !threshold}
+				<p class="text-destructive text-xs">Threshold value is required</p>
 			{/if}
 		</div>
+
 
 		<div class="grid gap-2">
 			<Label for="minRunTime">Minimum Run Time (minutes)</Label>

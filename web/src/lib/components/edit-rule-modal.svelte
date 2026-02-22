@@ -19,7 +19,6 @@
 	let sensorId = $state("");
 	let operator = $state<ComparisonOperator>(">");
 	let threshold = $state("");
-	let useHysteresis = $state(false);
 	let thresholdOff = $state("");
 	let onTime = $state("");
 	let offTime = $state("");
@@ -38,7 +37,6 @@
 			sensorId = rule.sensorId ?? "";
 			operator = rule.operator ?? ">";
 			threshold = rule.threshold?.toString() ?? "";
-			useHysteresis = rule.useHysteresis ?? false;
 			thresholdOff = rule.thresholdOff?.toString() ?? "";
 			onTime = rule.onTime ?? "";
 			offTime = rule.offTime ?? "";
@@ -58,7 +56,6 @@
 			sensorId = "";
 			operator = ">";
 			threshold = "";
-			useHysteresis = false;
 			thresholdOff = "";
 			minRunTimeMin = "";
 		}
@@ -80,7 +77,7 @@
 			updates.operator = operator;
 			updates.threshold = parseFloat(threshold);
 			
-			if (useHysteresis && thresholdOff) {
+			if (thresholdOff) {
 				updates.useHysteresis = true;
 				updates.thresholdOff = parseFloat(thresholdOff);
 			} else {
@@ -124,7 +121,7 @@
 		name && 
 		deviceId && 
 		(ruleType === "sensor" 
-			? (sensorId && threshold && (!useHysteresis || thresholdOff))
+			? (sensorId && threshold)
 			: (onTime && offTime)
 		)
 	);
@@ -144,7 +141,6 @@
 				bind:sensorId
 				bind:operator
 				bind:threshold
-				bind:useHysteresis
 				bind:thresholdOff
 				bind:onTime
 				bind:offTime
