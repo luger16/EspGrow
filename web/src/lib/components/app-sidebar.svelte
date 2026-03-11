@@ -24,11 +24,11 @@
 					{#snippet child({ props })}
 						<a href="/" {...props}>
 							<div
-								class="bg-sidebar-primary dark:bg-sidebar-accent text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
+								class="bg-muted flex aspect-square size-8 items-center justify-center rounded-lg"
 							>
 								<div class="size-4 [&>svg]:size-full">{@html Logo}</div>
 							</div>
-							<span class="truncate font-semibold">EspGrow</span>
+							<span class="truncate text-lg font-semibold">EspGrow</span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
