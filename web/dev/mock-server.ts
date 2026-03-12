@@ -25,6 +25,7 @@ const SENSORS: SensorConfig[] = [
 	{ id: "scd4x_co2", name: "CO₂", type: "co2", unit: "ppm", hardwareType: "scd4x" },
 	{ id: "as7341_ppfd", name: "Light (PPFD)", type: "light", unit: "µmol/m²/s", hardwareType: "as7341" },
 	{ id: "vpd_calc", name: "VPD", type: "vpd", unit: "kPa", hardwareType: "calculated" },
+	{ id: "dewpoint_calc", name: "Dew Point", type: "dewpoint", unit: "°C", hardwareType: "calculated" },
 ];
 
 // --- Devices ---
@@ -111,6 +112,7 @@ const sensorSims: Record<string, SensorSim> = {
 	scd4x_co2: { value: 800, min: 400, max: 1800, drift: 15, noise: 30 },
 	as7341_ppfd: { value: 450, min: 0, max: 900, drift: 5, noise: 15 },
 	vpd_calc: { value: 1.1, min: 0.4, max: 2.0, drift: 0.02, noise: 0.05 },
+	dewpoint_calc: { value: 14.0, min: 5, max: 25, drift: 0.1, noise: 0.3 },
 };
 
 function stepSensor(sim: SensorSim): number {

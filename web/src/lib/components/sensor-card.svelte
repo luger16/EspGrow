@@ -14,7 +14,7 @@
 	const Icon = $derived(sensorIcons[sensor.type]);
 	const displayValue = $derived.by(() => {
 		if (!reading) return "—";
-		if (sensor.type === "temperature") {
+		if (sensor.type === "temperature" || sensor.type === "dewpoint") {
 			return formatTemperature(reading.value, settings.temperatureUnit);
 		}
 		return `${reading.value}${formatUnit(sensor.unit)}`;

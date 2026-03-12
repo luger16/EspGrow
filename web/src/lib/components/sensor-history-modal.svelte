@@ -51,7 +51,7 @@
 		if (history.length < 2) {
 			return history.map((point) => ({
 				date: point.date,
-				value: sensor.type === "temperature"
+				value: sensor.type === "temperature" || sensor.type === "dewpoint"
 					? convertTemperature(point.value, settings.temperatureUnit)
 					: point.value,
 			}));
@@ -69,7 +69,7 @@
 					result.push({ date: gapMid, value: null });
 				}
 			}
-			const convertedValue = sensor.type === "temperature"
+			const convertedValue = sensor.type === "temperature" || sensor.type === "dewpoint"
 				? convertTemperature(history[i].value, settings.temperatureUnit)
 				: history[i].value;
 			result.push({ date: history[i].date, value: convertedValue });
@@ -79,7 +79,7 @@
 
 	const yDomain = $derived.by(() => {
 		const values = history.map((d) => {
-			if (sensor.type === "temperature") {
+			if (sensor.type === "temperature" || sensor.type === "dewpoint") {
 				return convertTemperature(d.value, settings.temperatureUnit);
 			}
 			return d.value;
@@ -126,6 +126,7 @@
 		co2: "CO₂",
 		light: "Light",
 		vpd: "VPD",
+		dewpoint: "Dew Point",
 	};
 
 	const chartConfig = $derived({
@@ -225,7 +226,7 @@
 									<div class="flex w-full items-center justify-between gap-2">
 										<span class="text-muted-foreground">{sensorTypeLabels[sensor.type] || sensor.type}</span>
 										<span class="text-foreground font-mono font-medium tabular-nums">
-											{#if sensor.type === "temperature"}
+											{#if sensor.type === "temperature" || sensor.type === "dewpoint"}
 												{typeof value === "number" ? value.toFixed(1) : value}{settings.temperatureUnit === "fahrenheit" ? "°F" : "°C"}
 											{:else}
 												{value}{formatUnit(sensor.unit)}

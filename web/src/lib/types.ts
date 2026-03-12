@@ -1,4 +1,4 @@
-export type SensorType = "temperature" | "humidity" | "co2" | "light" | "vpd";
+export type SensorType = "temperature" | "humidity" | "co2" | "light" | "vpd" | "dewpoint";
 
 export interface Sensor {
 	id: string;

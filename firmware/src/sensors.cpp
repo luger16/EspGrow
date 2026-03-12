@@ -67,6 +67,14 @@ namespace {
         return svp - avp;
     }
 
+    // Magnus-Tetens approximation for dew point (°C)
+    float calculateDewPoint(float tempC, float rhPercent) {
+        const float a = 17.27f;
+        const float b = 237.3f;
+        float gamma = (a * tempC) / (b + tempC) + logf(rhPercent / 100.0f);
+        return (b * gamma) / (a - gamma);
+    }
+
     float getValueFromHardware(const char* hardwareType, const char* sensorType) {
         if (strcmp(hardwareType, "sht3x") == 0) {
             if (!sht3xFound || !sht3xData.valid) return NAN;
@@ -235,21 +243,23 @@ float getSensorValue(const char* sensorId) {
     if (!cfg) return NAN;
 
     if (strcmp(cfg->hardwareType, "calculated") == 0) {
+        float temp = NAN;
+        float hum = NAN;
+
+        if (cfg->tempSourceId[0] != '\0') {
+            temp = getSensorValue(cfg->tempSourceId);
+        }
+        if (cfg->humSourceId[0] != '\0') {
+            hum = getSensorValue(cfg->humSourceId);
+        }
+
+        if (isnan(temp) || isnan(hum) || hum <= 0) return NAN;
+
         if (strcmp(cfg->type, "vpd") == 0) {
-            float temp = NAN;
-            float hum = NAN;
-
-            if (cfg->tempSourceId[0] != '\0') {
-                temp = getSensorValue(cfg->tempSourceId);
-            }
-            if (cfg->humSourceId[0] != '\0') {
-                hum = getSensorValue(cfg->humSourceId);
-            }
-
-            if (!isnan(temp) && !isnan(hum) && hum > 0) {
-                return calculateVPD(temp, hum);
-            }
-            return NAN;
+            return calculateVPD(temp, hum);
+        }
+        if (strcmp(cfg->type, "dewpoint") == 0) {
+            return calculateDewPoint(temp, hum);
         }
         return NAN;
     }

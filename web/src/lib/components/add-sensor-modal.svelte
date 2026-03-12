@@ -23,7 +23,7 @@
 		{ value: "sht4x", label: "SHT4x (Temp + Humidity)", types: ["temperature", "humidity"] },
 		{ value: "scd4x", label: "SCD4x (CO₂ + Temp + Humidity)", types: ["co2", "temperature", "humidity"] },
 		{ value: "as7341", label: "AS7341 (Light Spectrum)", types: ["light"] },
-		{ value: "calculated", label: "Calculated (VPD)", types: ["vpd"] },
+		{ value: "calculated", label: "Calculated (VPD, Dew Point)", types: ["vpd", "dewpoint"] },
 	];
 
 	const sensorTypeOptions: { value: Sensor["type"]; label: string; unit: string }[] = [
@@ -32,6 +32,7 @@
 		{ value: "co2", label: "CO₂", unit: "ppm" },
 		{ value: "light", label: "Light", unit: "PPFD" },
 		{ value: "vpd", label: "VPD", unit: "kPa" },
+		{ value: "dewpoint", label: "Dew Point", unit: "°C" },
 	];
 
 	const availableSensorTypes = $derived(
@@ -42,7 +43,7 @@
 		sensorTypeOptions.filter((opt) => availableSensorTypes.includes(opt.value))
 	);
 
-	const isVpd = $derived(hardwareType === "calculated" && sensorType === "vpd");
+	const needsSources = $derived(hardwareType === "calculated" && (sensorType === "vpd" || sensorType === "dewpoint"));
 
 	const tempSensors = $derived(sensors.filter((s) => s.type === "temperature"));
 	const humSensors = $derived(sensors.filter((s) => s.type === "humidity"));
@@ -60,7 +61,7 @@
 	function handleSubmit() {
 		submitted = true;
 		if (!name) return;
-		if (isVpd && (!tempSourceId || !humSourceId)) return;
+		if (needsSources && (!tempSourceId || !humSourceId)) return;
 		const typeOption = sensorTypeOptions.find((o) => o.value === sensorType);
 		const sensor: Sensor = {
 			id: `sensor-${Date.now()}`,
@@ -69,8 +70,8 @@
 			unit: typeOption?.unit ?? "",
 			hardwareType,
 			address: address || undefined,
-			tempSourceId: isVpd ? tempSourceId : undefined,
-			humSourceId: isVpd ? humSourceId : undefined,
+			tempSourceId: needsSources ? tempSourceId : undefined,
+			humSourceId: needsSources ? humSourceId : undefined,
 		};
 		addSensor(sensor);
 		resetForm();
@@ -140,7 +141,7 @@
 				<Label for="address">I²C Address (optional)</Label>
 				<Input id="address" bind:value={address} placeholder="e.g. 0x44" />
 			</div>
-			{#if isVpd}
+			{#if needsSources}
 				<div class="grid gap-2">
 					<Label>Temperature Source</Label>
 					<Select.Root type="single" value={tempSourceId} onValueChange={(v) => v && (tempSourceId = v)}>
@@ -154,7 +155,7 @@
 						</Select.Content>
 					</Select.Root>
 					{#if submitted && !tempSourceId}
-						<p class="text-destructive text-xs">Temperature source is required for VPD</p>
+						<p class="text-destructive text-xs">Temperature source is required</p>
 					{/if}
 				</div>
 				<div class="grid gap-2">
@@ -170,12 +171,12 @@
 						</Select.Content>
 					</Select.Root>
 					{#if submitted && !humSourceId}
-						<p class="text-destructive text-xs">Humidity source is required for VPD</p>
+						<p class="text-destructive text-xs">Humidity source is required</p>
 					{/if}
 				</div>
 			{/if}
 			<Dialog.Footer>
-				<Button type="submit" disabled={!name || (isVpd && (!tempSourceId || !humSourceId))}>Add Sensor</Button>
+				<Button type="submit" disabled={!name || (needsSources && (!tempSourceId || !humSourceId))}>Add Sensor</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>
