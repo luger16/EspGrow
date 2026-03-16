@@ -2,6 +2,7 @@
 	import PageHeader from "$lib/components/page-header.svelte";
 	import SensorCard from "$lib/components/sensor-card.svelte";
 	import DeviceCard from "$lib/components/device-card.svelte";
+	import AnalyticsChart from "$lib/components/analytics-chart.svelte";
 	import SensorHistoryModal from "$lib/components/sensor-history-modal.svelte";
 	import { sensors, sensorReadings } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
@@ -34,6 +35,12 @@
 			</div>
 		{/if}
 	</section>
+
+	{#if sensors.length > 0}
+		<section>
+			<AnalyticsChart />
+		</section>
+	{/if}
 
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Devices</h2>
