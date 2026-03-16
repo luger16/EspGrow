@@ -17,7 +17,7 @@ export const ppfdCalibration = $state<PpfdCalibration>({
 	error: null,
 });
 
-type HistoryRange = "12h" | "24h" | "7d";
+type HistoryRange = "24h" | "7d" | "30d";
 
 function decodeBase64(base64: string): Uint8Array {
 	const binaryString = atob(base64);
@@ -119,7 +119,8 @@ export function getSensorReading(sensorId: string): SensorReading | undefined {
 	return sensorReadings[sensorId];
 }
 
-export function requestHistory(sensorId: string, range: HistoryRange): void {
+export function requestHistory(sensorId: string, range: HistoryRange, force = false): void {
+	if (!force && sensorHistory[sensorId]?.[range]?.length) return;
 	websocket.send("get_history", { sensorId, range });
 }
 

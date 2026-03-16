@@ -20,13 +20,13 @@
 		onOpenChange?: (open: boolean) => void;
 	} = $props();
 
-	type TimeRange = "12h" | "24h" | "7d";
+	type TimeRange = "24h" | "7d" | "30d";
 	let timeRange = $state<TimeRange>("24h");
 
 	const timeRanges: { value: TimeRange; label: string }[] = [
-		{ value: "12h", label: "12h" },
 		{ value: "24h", label: "24h" },
 		{ value: "7d", label: "7d" },
+		{ value: "30d", label: "30d" },
 	];
 
 	$effect(() => {
@@ -37,7 +37,7 @@
 
 	const history = $derived(getSensorHistory(sensor.id, timeRange));
 
-	const intervalHours = $derived({ "12h": 12, "24h": 24, "7d": 168 }[timeRange]);
+	const intervalHours = $derived({ "24h": 24, "7d": 168, "30d": 720 }[timeRange]);
 	const hasData = $derived(history.length >= 2);
 	const hasFullInterval = $derived.by(() => {
 		if (!hasData) return false;
@@ -57,7 +57,7 @@
 			}));
 		}
 
-		const expectedInterval = { "12h": 5 * 60 * 1000, "24h": 10 * 60 * 1000, "7d": 60 * 60 * 1000 }[timeRange];
+		const expectedInterval = { "24h": 10 * 60 * 1000, "7d": 60 * 60 * 1000, "30d": 4 * 60 * 60 * 1000 }[timeRange];
 		const gapThreshold = expectedInterval * 1.5;
 
 		const result: { date: Date; value: number | null }[] = [];
