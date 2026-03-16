@@ -23,7 +23,7 @@ const SENSORS: SensorConfig[] = [
 	{ id: "sht4x_temp", name: "Temperature", type: "temperature", unit: "°C", hardwareType: "sht4x" },
 	{ id: "sht4x_hum", name: "Humidity", type: "humidity", unit: "%", hardwareType: "sht4x" },
 	{ id: "scd4x_co2", name: "CO₂", type: "co2", unit: "ppm", hardwareType: "scd4x" },
-	{ id: "as7341_ppfd", name: "Light (PPFD)", type: "light", unit: "µmol/m²/s", hardwareType: "as7341" },
+	{ id: "as7341_ppfd", name: "Light (PPFD)", type: "light", unit: "PPFD", hardwareType: "as7341" },
 	{ id: "vpd_calc", name: "VPD", type: "vpd", unit: "kPa", hardwareType: "calculated" },
 	{ id: "dewpoint_calc", name: "Dew Point", type: "dewpoint", unit: "°C", hardwareType: "calculated" },
 ];
@@ -98,28 +98,56 @@ const RULES: RuleConfig[] = [
 
 // --- Realistic sensor value simulation ---
 
-interface SensorSim {
-	value: number;
-	min: number;
-	max: number;
-	drift: number;
-	noise: number;
-}
-
-const sensorSims: Record<string, SensorSim> = {
-	sht4x_temp: { value: 24.5, min: 18, max: 35, drift: 0.1, noise: 0.3 },
-	sht4x_hum: { value: 55, min: 30, max: 85, drift: 0.5, noise: 1.5 },
-	scd4x_co2: { value: 800, min: 400, max: 1800, drift: 15, noise: 30 },
-	as7341_ppfd: { value: 450, min: 0, max: 900, drift: 5, noise: 15 },
-	vpd_calc: { value: 1.1, min: 0.4, max: 2.0, drift: 0.02, noise: 0.05 },
-	dewpoint_calc: { value: 14.0, min: 5, max: 25, drift: 0.1, noise: 0.3 },
-};
-
-function stepSensor(sim: SensorSim): number {
-	sim.value += (Math.random() - 0.5) * 2 * sim.drift;
-	const noisy = sim.value + (Math.random() - 0.5) * 2 * sim.noise;
-	sim.value = Math.max(sim.min, Math.min(sim.max, sim.value));
-	return Math.round(Math.max(sim.min, Math.min(sim.max, noisy)) * 10) / 10;
+function generateRealisticValue(sensorId: string, timestamp: number): number {
+	const hour = new Date(timestamp * 1000).getUTCHours();
+	
+	switch (sensorId) {
+		case 'sht4x_temp': {
+			const base = 25;
+			const amplitude = 7;
+			const cycle = Math.sin((hour - 8) * Math.PI / 12);
+			const random = (Math.random() - 0.5) * 2;
+			return Math.round((base + cycle * amplitude + random * 0.5) * 10) / 10;
+		}
+		case 'sht4x_hum': {
+			const base = 65;
+			const amplitude = 20;
+			const cycle = -Math.sin((hour - 8) * Math.PI / 12);
+			const random = (Math.random() - 0.5) * 4;
+			return Math.round(Math.max(30, Math.min(90, base + cycle * amplitude + random)) * 10) / 10;
+		}
+		case 'scd4x_co2': {
+			const base = 800;
+			const isDay = hour >= 8 && hour <= 20;
+			const cycle = isDay ? -200 : 200;
+			const random = (Math.random() - 0.5) * 60;
+			return Math.round(Math.max(400, Math.min(1800, base + cycle + random)) * 10) / 10;
+		}
+		case 'as7341_ppfd': {
+			const isNight = hour < 6 || hour > 20;
+			if (isNight) return 0;
+			const intensity = Math.sin((hour - 6) * Math.PI / 14);
+			const base = intensity * 800;
+			const random = (Math.random() - 0.5) * 20;
+			return Math.round(Math.max(0, Math.min(900, base + random)) * 10) / 10;
+		}
+		case 'vpd_calc': {
+			const base = 1.0;
+			const amplitude = 0.5;
+			const cycle = Math.sin((hour - 8) * Math.PI / 12);
+			const random = (Math.random() - 0.5) * 0.1;
+			return Math.round(Math.max(0.4, Math.min(2.0, base + cycle * amplitude + random)) * 100) / 100;
+		}
+		case 'dewpoint_calc': {
+			const base = 14;
+			const amplitude = 5;
+			const cycle = -Math.sin((hour - 8) * Math.PI / 12);
+			const random = (Math.random() - 0.5) * 0.5;
+			return Math.round(Math.max(5, Math.min(25, base + cycle * amplitude + random)) * 10) / 10;
+		}
+		default:
+			return 0;
+	}
 }
 
 // --- History generation ---
@@ -130,17 +158,14 @@ interface HistoryConfig {
 }
 
 const HISTORY_CONFIG: Record<string, HistoryConfig> = {
-	"12h": { intervalSec: 5 * 60, points: 144 },
 	"24h": { intervalSec: 10 * 60, points: 144 },
 	"7d": { intervalSec: 60 * 60, points: 168 },
+	"30d": { intervalSec: 4 * 60 * 60, points: 180 },
 };
 
 function generateHistory(sensorId: string, range: string): Buffer {
 	const config = HISTORY_CONFIG[range];
 	if (!config) return Buffer.alloc(0);
-
-	const sim = sensorSims[sensorId];
-	if (!sim) return Buffer.alloc(0);
 
 	const now = Math.floor(Date.now() / 1000);
 	const startTime = now - config.points * config.intervalSec;
@@ -149,24 +174,20 @@ function generateHistory(sensorId: string, range: string): Buffer {
 	const gapEnd = gapStart + config.intervalSec * 6;
 
 	const points: Array<{ timestamp: number; value: number }> = [];
-	let simValue = sim.min + (sim.max - sim.min) * 0.3;
 
 	for (let i = 0; i < config.points; i++) {
 		const timestamp = startTime + i * config.intervalSec;
 
 		if (timestamp >= gapStart && timestamp < gapEnd) continue;
 
-		simValue += (Math.random() - 0.48) * sim.drift * 3;
-		simValue = Math.max(sim.min, Math.min(sim.max, simValue));
-		const value = simValue + (Math.random() - 0.5) * sim.noise;
+		const value = generateRealisticValue(sensorId, timestamp);
 
 		points.push({
 			timestamp,
-			value: Math.round(Math.max(sim.min, Math.min(sim.max, value)) * 10) / 10,
+			value,
 		});
 	}
 
-	// Encode as binary: uint32_le timestamp + float32_le value per point
 	const buf = Buffer.alloc(points.length * 8);
 	for (let i = 0; i < points.length; i++) {
 		buf.writeUInt32LE(points[i].timestamp, i * 8);
@@ -402,10 +423,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
 const BROADCAST_INTERVAL = 5000;
 
 setInterval(() => {
+	const now = Math.floor(Date.now() / 1000);
 	const data = SENSORS.map((s) => ({
 		id: s.id,
 		type: s.type,
-		value: stepSensor(sensorSims[s.id]),
+		value: generateRealisticValue(s.id, now),
 	}));
 
 	broadcast({ type: "sensors", data });
