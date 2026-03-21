@@ -63,3 +63,42 @@ export interface SystemInfo {
 	ipAddress: string;
 	firmwareVersion: string;
 }
+
+// Climate supervision
+
+export type ClimatePhase = "seedling" | "veg" | "flower" | "dry";
+
+export type SensorStatus = "optimal" | "warning" | "critical";
+
+export interface PhaseTargets {
+	temp: { day: number; night: number };
+	humidity: { day: number; night: number };
+	vpd: { day: number; night: number };
+	co2: { day: number; night: number };
+}
+
+export interface ClimateConfig {
+	activePhase: ClimatePhase;
+	phases: Record<ClimatePhase, PhaseTargets>;
+	dayNightMode: "auto" | "manual";
+	manualSchedule?: { dayStart: string; nightStart: string };
+	lightThreshold: number;
+}
+
+export interface ClimateAlert {
+	id: string;
+	sensorId: string;
+	sensorType: SensorType;
+	value: number;
+	target: { min: number; max: number };
+	severity: "warning" | "critical";
+	timestamp: Date;
+}
+
+export interface ClimateStatus {
+	isDay: boolean;
+	healthScore: number;
+	sensorStatuses: Record<string, SensorStatus>;
+	currentTargets: PhaseTargets;
+	latestAlert?: ClimateAlert;
+}
