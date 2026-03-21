@@ -10,6 +10,7 @@
 	import { initSensorWebSocket } from "$lib/stores/sensors.svelte";
 	import { initDeviceWebSocket } from "$lib/stores/devices.svelte";
 	import { initRulesWebSocket } from "$lib/stores/rules.svelte";
+	import { initClimateWebSocket } from "$lib/stores/climate.svelte";
 	import { onMount } from "svelte";
 
 	let { children } = $props();
@@ -20,6 +21,7 @@
 		initSensorWebSocket();
 		initDeviceWebSocket();
 		initRulesWebSocket();
+		initClimateWebSocket();
 		return () => websocket.disconnect();
 	});
 </script>

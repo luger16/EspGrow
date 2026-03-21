@@ -4,6 +4,11 @@
 	import DeviceCard from "$lib/components/device-card.svelte";
 	import AnalyticsChart from "$lib/components/analytics-chart.svelte";
 	import SensorHistoryModal from "$lib/components/sensor-history-modal.svelte";
+	import ClimateOverviewCard from "$lib/components/climate-overview-card.svelte";
+	import AlertHistoryModal from "$lib/components/alert-history-modal.svelte";
+	import VpdZoneChart from "$lib/components/vpd-zone-chart.svelte";
+	import * as Tabs from "$lib/components/ui/tabs/index.js";
+
 	import { sensors, sensorReadings } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
@@ -11,10 +16,17 @@
 
 	let selectedSensorId = $state<string | null>(null);
 	const selectedSensor = $derived(sensors.find((s) => s.id === selectedSensorId));
+
+	let alertHistoryOpen = $state(false);
 </script>
 
 <PageHeader title="Dashboard" />
 <div class="flex flex-1 flex-col gap-6 p-4 pt-0">
+	<section>
+		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Overview</h2>
+		<ClimateOverviewCard onalertclick={() => (alertHistoryOpen = true)} />
+	</section>
+
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Sensors</h2>
 		{#if sensors.length === 0}
@@ -38,7 +50,18 @@
 
 	{#if sensors.length > 0}
 		<section>
-			<AnalyticsChart />
+			<Tabs.Root value="trends">
+				<Tabs.List>
+					<Tabs.Trigger value="trends">Trends</Tabs.Trigger>
+					<Tabs.Trigger value="vpd">VPD Zone</Tabs.Trigger>
+				</Tabs.List>
+				<Tabs.Content value="trends">
+					<AnalyticsChart />
+				</Tabs.Content>
+				<Tabs.Content value="vpd">
+					<VpdZoneChart />
+				</Tabs.Content>
+			</Tabs.Root>
 		</section>
 	{/if}
 
@@ -67,3 +90,8 @@
 		onOpenChange={(open) => !open && (selectedSensorId = null)}
 	/>
 {/if}
+
+<AlertHistoryModal
+	bind:open={alertHistoryOpen}
+	onOpenChange={(open) => (alertHistoryOpen = open)}
+/>
