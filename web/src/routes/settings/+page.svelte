@@ -24,7 +24,11 @@
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 	import PowerIcon from "@lucide/svelte/icons/power";
 	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
-	import type { Sensor, Device } from "$lib/types";
+	import SunIcon from "@lucide/svelte/icons/sun";
+	import MoonIcon from "@lucide/svelte/icons/moon";
+	import { climateConfig, setActivePhase, setDayNightMode, setManualSchedule, setLightThreshold, updatePhaseTargets } from "$lib/stores/climate.svelte";
+	import type { Sensor, Device, ClimatePhase, PhaseTargets } from "$lib/types";
+	import { formatTemperature } from "$lib/stores/settings.svelte";
 	import { onMount } from "svelte";
 
 	onMount(() => {
@@ -59,6 +63,25 @@
 	const timeFormatOptions: { value: TimeFormat; label: string }[] = [
 		{ value: "24h", label: "24 hour" },
 		{ value: "12h", label: "12 hour" },
+	];
+
+	const phaseLabels: Record<ClimatePhase, string> = {
+		seedling: "Seedling",
+		veg: "Vegetative",
+		flower: "Flower",
+		dry: "Drying",
+	};
+
+	const phaseOptions: { value: ClimatePhase; label: string }[] = [
+		{ value: "seedling", label: "Seedling" },
+		{ value: "veg", label: "Vegetative" },
+		{ value: "flower", label: "Flower" },
+		{ value: "dry", label: "Drying" },
+	];
+
+	const dayNightOptions: { value: "auto" | "manual"; label: string }[] = [
+		{ value: "auto", label: "Auto (light sensor)" },
+		{ value: "manual", label: "Manual schedule" },
 	];
 
 	let editingSensorId = $state<string | null>(null);
@@ -359,6 +382,138 @@
 						{/each}
 					</Select.Content>
 				</Select.Root>
+			</div>
+		</div>
+	</section>
+
+	<section>
+		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Climate</h2>
+		<div class="divide-y divide-border rounded-lg border">
+			<div class="flex items-center justify-between p-3">
+				<Label>Growth Phase</Label>
+				<Select.Root
+					type="single"
+					value={climateConfig.activePhase}
+					onValueChange={(v) => v && setActivePhase(v as ClimatePhase)}
+				>
+					<Select.Trigger class="w-44">
+						<span>{phaseOptions.find((o) => o.value === climateConfig.activePhase)?.label}</span>
+					</Select.Trigger>
+					<Select.Content>
+						{#each phaseOptions as option (option.value)}
+							<Select.Item value={option.value}>{option.label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+			<div class="flex items-center justify-between p-3">
+				<Label>Day/Night Detection</Label>
+				<Select.Root
+					type="single"
+					value={climateConfig.dayNightMode}
+					onValueChange={(v) => v && setDayNightMode(v as "auto" | "manual")}
+				>
+					<Select.Trigger class="w-44">
+						<span>{dayNightOptions.find((o) => o.value === climateConfig.dayNightMode)?.label}</span>
+					</Select.Trigger>
+					<Select.Content>
+						{#each dayNightOptions as option (option.value)}
+							<Select.Item value={option.value}>{option.label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			</div>
+			{#if climateConfig.dayNightMode === "manual"}
+				<div class="flex items-center justify-between p-3">
+					<Label>Manual Schedule</Label>
+					<div class="flex gap-2">
+						<Input
+							type="time"
+							value={climateConfig.manualSchedule?.dayStart || "06:00"}
+							onchange={(e) => {
+								const target = e.target as HTMLInputElement;
+								const dayStart = target.value;
+								const nightStart = climateConfig.manualSchedule?.nightStart || "18:00";
+								setManualSchedule(dayStart, nightStart);
+							}}
+							class="w-24"
+						/>
+						<Input
+							type="time"
+							value={climateConfig.manualSchedule?.nightStart || "18:00"}
+							onchange={(e) => {
+								const target = e.target as HTMLInputElement;
+								const nightStart = target.value;
+								const dayStart = climateConfig.manualSchedule?.dayStart || "06:00";
+								setManualSchedule(dayStart, nightStart);
+							}}
+							class="w-24"
+						/>
+					</div>
+				</div>
+			{/if}
+			{#if climateConfig.dayNightMode === "auto"}
+				<div class="flex items-center justify-between p-3">
+					<Label>Light Threshold (PPFD)</Label>
+					<Input
+						type="number"
+						value={climateConfig.lightThreshold}
+						onchange={(e) => {
+							const target = e.target as HTMLInputElement;
+							setLightThreshold(Number(target.value));
+						}}
+						class="w-24"
+					/>
+				</div>
+			{/if}
+			<div class="p-3">
+				<div class="mb-2">
+					<p class="text-sm font-medium">Phase Targets</p>
+					<p class="text-xs text-muted-foreground">
+						Day / Night targets for {phaseLabels[climateConfig.activePhase]}
+					</p>
+				</div>
+				<div class="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+					<div>Temp</div>
+					<div class="flex items-center gap-1">
+						<SunIcon class="size-3" />
+						<span>{formatTemperature(climateConfig.phases[climateConfig.activePhase].temp.day, settings.temperatureUnit)}</span>
+					</div>
+					<div class="flex items-center gap-1">
+						<MoonIcon class="size-3" />
+						<span>{formatTemperature(climateConfig.phases[climateConfig.activePhase].temp.night, settings.temperatureUnit)}</span>
+					</div>
+
+					<div>Humidity</div>
+					<div class="flex items-center gap-1">
+						<SunIcon class="size-3" />
+						<span>{climateConfig.phases[climateConfig.activePhase].humidity.day.toFixed(0)}%</span>
+					</div>
+					<div class="flex items-center gap-1">
+						<MoonIcon class="size-3" />
+						<span>{climateConfig.phases[climateConfig.activePhase].humidity.night.toFixed(0)}%</span>
+					</div>
+
+					<div>VPD</div>
+					<div class="flex items-center gap-1">
+						<SunIcon class="size-3" />
+						<span>{climateConfig.phases[climateConfig.activePhase].vpd.day.toFixed(2)}</span>
+					</div>
+					<div class="flex items-center gap-1">
+						<MoonIcon class="size-3" />
+						<span>{climateConfig.phases[climateConfig.activePhase].vpd.night.toFixed(2)}</span>
+					</div>
+
+					<div>CO₂</div>
+					<div class="flex items-center gap-1">
+						<SunIcon class="size-3" />
+						<span>{climateConfig.phases[climateConfig.activePhase].co2.day.toFixed(0)}</span>
+					</div>
+					<div class="flex items-center gap-1">
+						<MoonIcon class="size-3" />
+						<span>{climateConfig.phases[climateConfig.activePhase].co2.night.toFixed(0)}</span>
+					</div>
+				</div>
 			</div>
 		</div>
 	</section>
