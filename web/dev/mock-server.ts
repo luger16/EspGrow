@@ -196,6 +196,111 @@ function generateHistory(sensorId: string, range: string): Buffer {
 	return buf;
 }
 
+// --- Climate mock data ---
+
+const CLIMATE_CONFIG = {
+	activePhase: "veg",
+	dayNightMode: "auto" as "auto" | "manual",
+	lightThreshold: 50,
+	manualSchedule: { dayStart: "06:00", nightStart: "22:00" },
+	phases: {
+		seedling: {
+			temp: { day: 24, night: 20 },
+			humidity: { day: 70, night: 75 },
+			vpd: { day: 0.5, night: 0.4 },
+			co2: { day: 800, night: 600 },
+		},
+		veg: {
+			temp: { day: 26, night: 21 },
+			humidity: { day: 60, night: 65 },
+			vpd: { day: 1.0, night: 0.7 },
+			co2: { day: 1000, night: 600 },
+		},
+		flower: {
+			temp: { day: 25, night: 19 },
+			humidity: { day: 50, night: 55 },
+			vpd: { day: 1.2, night: 0.9 },
+			co2: { day: 1200, night: 600 },
+		},
+		dry: {
+			temp: { day: 20, night: 18 },
+			humidity: { day: 40, night: 45 },
+			vpd: { day: 1.4, night: 1.2 },
+			co2: { day: 600, night: 600 },
+		},
+	},
+};
+
+let alertIdCounter = 0;
+
+function generateMockAlert(): Record<string, unknown> {
+	const scenarios = [
+		{ sensorId: "sht4x_temp", sensorType: "temperature", value: 31.2, target: { min: 24, max: 28 }, severity: "warning" },
+		{ sensorId: "sht4x_temp", sensorType: "temperature", value: 33.5, target: { min: 24, max: 28 }, severity: "critical" },
+		{ sensorId: "sht4x_hum", sensorType: "humidity", value: 82, target: { min: 55, max: 65 }, severity: "warning" },
+		{ sensorId: "sht4x_hum", sensorType: "humidity", value: 38, target: { min: 55, max: 65 }, severity: "warning" },
+		{ sensorId: "scd4x_co2", sensorType: "co2", value: 1650, target: { min: 800, max: 1200 }, severity: "warning" },
+		{ sensorId: "scd4x_co2", sensorType: "co2", value: 1900, target: { min: 800, max: 1200 }, severity: "critical" },
+		{ sensorId: "vpd_calc", sensorType: "vpd", value: 1.8, target: { min: 0.8, max: 1.2 }, severity: "warning" },
+	];
+
+	const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
+	alertIdCounter++;
+
+	return {
+		id: `alert_${alertIdCounter}`,
+		...scenario,
+		timestamp: new Date().toISOString(),
+	};
+}
+
+// Send a few initial alerts on connection, then periodic random ones
+function sendInitialAlerts(ws: WebSocket): void {
+	const initialAlerts = [
+		{
+			id: "alert_init_1",
+			sensorId: "sht4x_temp",
+			sensorType: "temperature",
+			value: 30.4,
+			target: { min: 24, max: 28 },
+			severity: "warning",
+			timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+		},
+		{
+			id: "alert_init_2",
+			sensorId: "sht4x_hum",
+			sensorType: "humidity",
+			value: 84,
+			target: { min: 55, max: 65 },
+			severity: "critical",
+			timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+		},
+		{
+			id: "alert_init_3",
+			sensorId: "vpd_calc",
+			sensorType: "vpd",
+			value: 1.75,
+			target: { min: 0.8, max: 1.2 },
+			severity: "warning",
+			timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+		},
+	];
+
+	for (const alert of initialAlerts) {
+		sendTo(ws, { type: "alert", data: alert });
+	}
+}
+
+function scheduleRandomAlert(): void {
+	setTimeout(() => {
+		const alert = generateMockAlert();
+		broadcast({ type: "alert", data: alert });
+		console.log(`[Mock] Alert broadcast: ${alert.sensorType} ${alert.severity}`);
+		scheduleRandomAlert();
+	}, 30_000 + Math.random() * 60_000);
+}
+scheduleRandomAlert();
+
 // --- WebSocket server ---
 
 const wss = new WebSocketServer({ port: PORT });
@@ -398,6 +503,32 @@ function handleMessage(ws: WebSocket, raw: string): void {
 			sendTo(ws, { type: "ppfd_calibration", data: { factor: 1.0 } });
 			break;
 
+		case "get_climate_config":
+			sendTo(ws, { type: "climate_config", data: CLIMATE_CONFIG });
+			break;
+
+		case "get_climate_status": {
+			const hour = new Date().getUTCHours();
+			const isDay = hour >= 6 && hour <= 20;
+			const phase = CLIMATE_CONFIG.activePhase as "seedling" | "veg" | "flower" | "dry";
+
+			sendTo(ws, {
+				type: "climate_status",
+				data: {
+					isDay,
+					healthScore: 72 + Math.round(Math.random() * 20),
+					currentTargets: CLIMATE_CONFIG.phases[phase],
+					sensorStatuses: {
+						sht4x_temp: "warning",
+						sht4x_hum: "optimal",
+						scd4x_co2: "optimal",
+						vpd_calc: "warning",
+					},
+				},
+			});
+			break;
+		}
+
 		case "calibrate_ppfd": {
 			const knownPpfd = payload.knownPpfd as number;
 			if (knownPpfd > 0) {
@@ -441,6 +572,7 @@ wss.on("connection", (ws) => {
 	sendTo(ws, { type: "sensor_config", data: SENSORS });
 	sendTo(ws, { type: "devices", data: DEVICES });
 	sendTo(ws, { type: "rules", data: RULES });
+	sendInitialAlerts(ws);
 
 	ws.on("message", (raw) => handleMessage(ws, raw.toString()));
 	ws.on("close", () => console.log("[Mock] Client disconnected"));
