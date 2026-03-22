@@ -47,42 +47,42 @@
 	}
 </script>
 
-<Card.Root class="flex flex-col py-4">
-	<Card.Content class="flex items-center gap-4 px-4">
+<Card.Root class="flex flex-col py-2.5">
+	<Card.Content class="flex items-center gap-3 px-3">
 		<div
-			class="flex size-10 shrink-0 items-center justify-center rounded-lg {device.isOn
+			class="flex size-7 shrink-0 items-center justify-center rounded-md {device.isOn
 				? 'bg-primary/10 text-primary'
 				: 'bg-muted text-muted-foreground'}"
 		>
-			<Icon class="size-5" />
+			<Icon class="size-3.5" />
 		</div>
-		<div class="flex flex-1 flex-col gap-1">
-			<span class="font-medium">{device.name}</span>
-			<div class="flex items-center gap-2">
-				<span class="text-muted-foreground text-xs">{device.isOn ? "On" : "Off"}</span>
+		<div class="min-w-0 flex-1">
+			<p class="truncate text-xs text-muted-foreground">{device.name}</p>
+			<div class="flex items-center gap-1.5">
+				<span class="text-base font-semibold">{device.isOn ? "On" : "Off"}</span>
 				{#if isOverridden}
-					<Badge variant="destructive" class="text-xs px-1.5 py-0 gap-1">
-						<TriangleAlertIcon class="size-3" />
+					<Badge variant="destructive" class="text-[10px] px-1 py-0 gap-0.5">
+						<TriangleAlertIcon class="size-2.5" />
 						Override
 					</Badge>
 				{:else}
-					<Badge variant={device.controlMode === "automatic" ? "secondary" : "outline"} class="text-xs px-1.5 py-0">
+					<Badge variant={device.controlMode === "automatic" ? "secondary" : "outline"} class="text-[10px] px-1 py-0">
 						{device.controlMode === "automatic" ? "Auto" : "Manual"}
 					</Badge>
 				{/if}
 			</div>
 		</div>
 		{#if isPending}
-			<LoaderIcon class="size-5 animate-spin text-muted-foreground" />
+			<LoaderIcon class="size-4 animate-spin text-muted-foreground" />
 		{:else}
 			<Switch checked={device.isOn} onCheckedChange={handleToggle} />
 		{/if}
 	</Card.Content>
 	{#if isOverridden}
-		<Card.Content class="flex items-center justify-between gap-2 px-4 pt-2 border-t mt-2">
-			<span class="text-muted-foreground text-xs">Override active ({timeRemaining} remaining)</span>
-			<Button variant="outline" size="sm" class="h-7 text-xs" onclick={handleClearOverride}>
-				Resume Automation
+		<Card.Content class="flex items-center justify-between gap-2 px-3 pt-2 border-t mt-2">
+			<span class="text-muted-foreground text-[10px]">Override ({timeRemaining})</span>
+			<Button variant="outline" size="sm" class="h-6 text-[10px] px-2" onclick={handleClearOverride}>
+				Resume
 			</Button>
 		</Card.Content>
 	{/if}

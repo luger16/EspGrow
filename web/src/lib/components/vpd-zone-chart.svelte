@@ -161,8 +161,8 @@
 									{cx}
 									{cy}
 									r="5"
-									fill="hsl(var(--foreground))"
-									stroke="hsl(var(--background))"
+									fill="rgba(255,255,255,0.3)"
+									stroke="white"
 									stroke-width="2"
 								/>
 							{/if}
