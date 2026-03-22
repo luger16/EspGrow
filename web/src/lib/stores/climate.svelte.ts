@@ -12,6 +12,41 @@ import { websocket } from "./websocket.svelte";
 import { sensors, sensorReadings } from "./sensors.svelte";
 import { toast } from "svelte-sonner";
 
+const SENSOR_TYPE_LABELS: Record<SensorType, string> = {
+	temperature: "Temperature",
+	humidity: "Humidity",
+	co2: "CO₂",
+	vpd: "VPD",
+	light: "Light",
+	dewpoint: "Dew Point",
+};
+
+const SENSOR_TYPE_UNITS: Record<SensorType, string> = {
+	temperature: "°C",
+	humidity: "%",
+	co2: "ppm",
+	vpd: "kPa",
+	light: "PPFD",
+	dewpoint: "°C",
+};
+
+export function formatAlertDescription(alert: ClimateAlert): string {
+	const label = SENSOR_TYPE_LABELS[alert.sensorType] ?? alert.sensorType;
+	const unit = SENSOR_TYPE_UNITS[alert.sensorType] ?? "";
+	const direction = alert.value > alert.target.max ? "high" : "low";
+	const precision = alert.sensorType === "vpd" || alert.sensorType === "dewpoint" ? 2
+		: alert.sensorType === "temperature" ? 1 : 0;
+	const valueStr = `${alert.value.toFixed(precision)}${unit}`;
+	const rangeStr = `${alert.target.min}–${alert.target.max}${unit}`;
+	return `${label} too ${direction} at ${valueStr} (target ${rangeStr})`;
+}
+
+export function formatAlertTitle(alert: ClimateAlert): string {
+	const label = SENSOR_TYPE_LABELS[alert.sensorType] ?? alert.sensorType;
+	const direction = alert.value > alert.target.max ? "High" : "Low";
+	return `${label} ${direction}`;
+}
+
 export const climateConfig = $state<ClimateConfig>({ ...DEFAULT_CLIMATE_CONFIG });
 export const climateAlerts = $state<ClimateAlert[]>([]);
 
@@ -246,13 +281,14 @@ export function initClimateWebSocket(): void {
 		}
 
 		const sensorName = sensors.find((s) => s.id === alert.sensorId)?.name ?? alert.sensorType;
-		const description = `${sensorName}: ${alert.value} (target: ${alert.target.min}–${alert.target.max})`;
+		const title = formatAlertTitle(alert);
+		const description = formatAlertDescription(alert);
 
 		if (!suppressToasts) {
 			if (alert.severity === "critical") {
-				toast.error(description);
+				toast.error(title, { description });
 			} else {
-				toast.warning(description);
+				toast.warning(title, { description });
 			}
 		}
 	});

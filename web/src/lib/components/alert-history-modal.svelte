@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
-	import { climateAlerts } from "$lib/stores/climate.svelte";
+	import { climateAlerts, formatAlertTitle, formatAlertDescription } from "$lib/stores/climate.svelte";
 	import { sensors } from "$lib/stores/sensors.svelte";
 	import { formatTimeFromDate } from "$lib/stores/settings.svelte";
 	import { cn } from "$lib/utils";
@@ -41,27 +41,36 @@
 			<div class="max-h-96 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6">
 				<div class="divide-y divide-border rounded-md border">
 					{#each recentAlerts as alert (alert.id)}
-						<div class="flex items-center gap-3 px-3 py-2.5">
+						<div class="flex items-start gap-3 px-3 py-2.5">
 							<div class={cn(
-								"size-2 rounded-full shrink-0",
+								"mt-1.5 size-2 rounded-full shrink-0",
 								alert.severity === "critical" ? "bg-destructive" : "bg-yellow-500"
 							)}></div>
 
-							<span class="text-sm font-medium w-24 shrink-0 truncate">
-								{getSensorName(alert.sensorId)}
-							</span>
-
-							<span class="text-sm tabular-nums text-muted-foreground">
-								{alert.value.toFixed(1)}
-							</span>
-
-							<span class="text-xs text-muted-foreground">
-								target {alert.target.min}–{alert.target.max}
-							</span>
-
-							<span class="ml-auto text-xs text-muted-foreground tabular-nums shrink-0">
-								{formatTimeFromDate(alert.timestamp)}
-							</span>
+							<div class="flex-1 min-w-0">
+								<div class="flex items-center gap-2">
+									<span class="text-sm font-medium truncate">
+										{formatAlertTitle(alert)}
+									</span>
+									<span class={cn(
+										"shrink-0 rounded px-1 py-0.5 text-[10px] font-medium leading-none uppercase",
+										alert.severity === "critical"
+											? "bg-destructive/10 text-destructive"
+											: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-500"
+									)}>
+										{alert.severity}
+									</span>
+									<span class="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
+										{formatTimeFromDate(alert.timestamp)}
+									</span>
+								</div>
+								<p class="mt-0.5 text-xs text-muted-foreground">
+									{formatAlertDescription(alert)}
+								</p>
+								<span class="mt-0.5 text-[11px] text-muted-foreground/70">
+									{getSensorName(alert.sensorId)}
+								</span>
+							</div>
 						</div>
 					{/each}
 				</div>

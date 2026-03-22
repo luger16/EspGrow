@@ -37,5 +37,5 @@
 		{@render children()}
 	</Sidebar.Inset>
 	<BottomTabs />
-	<Toaster />
+	<Toaster position="top-center" closeButton />
 </Sidebar.Provider>
