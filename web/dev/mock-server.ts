@@ -555,10 +555,27 @@ const BROADCAST_INTERVAL = 5000;
 
 setInterval(() => {
 	const now = Math.floor(Date.now() / 1000);
+
+	// Generate temp & humidity first so derived sensors use the same values
+	const values: Record<string, number> = {};
+	for (const s of SENSORS) {
+		if (s.id === "vpd_calc" || s.id === "dewpoint_calc") continue;
+		values[s.id] = generateRealisticValue(s.id, now);
+	}
+
+	// Derive VPD from actual temp + humidity (Magnus-Tetens)
+	const temp = values["sht4x_temp"];
+	const hum = values["sht4x_hum"];
+	if (temp !== undefined && hum !== undefined) {
+		const svp = 0.6108 * Math.exp((17.27 * temp) / (temp + 237.3));
+		values["vpd_calc"] = Math.round(svp * (1 - hum / 100) * 100) / 100;
+		values["dewpoint_calc"] = Math.round((237.3 * (Math.log(hum / 100) + (17.27 * temp) / (temp + 237.3))) / (17.27 - (Math.log(hum / 100) + (17.27 * temp) / (temp + 237.3))) * 10) / 10;
+	}
+
 	const data = SENSORS.map((s) => ({
 		id: s.id,
 		type: s.type,
-		value: generateRealisticValue(s.id, now),
+		value: values[s.id] ?? 0,
 	}));
 
 	broadcast({ type: "sensors", data });

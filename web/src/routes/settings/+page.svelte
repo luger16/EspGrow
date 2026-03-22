@@ -11,9 +11,10 @@
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { Progress } from "$lib/components/ui/progress/index.js";
+
 	import { sensors, ppfdCalibration } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
-	import { settings, updateSettings, type Theme, type TemperatureUnit, type TimeFormat } from "$lib/stores/settings.svelte";
+	import { settings, updateSettings, convertTemperature, type Theme, type TemperatureUnit, type TimeFormat } from "$lib/stores/settings.svelte";
 	import { systemInfo, initSystemInfoWebSocket } from "$lib/stores/system.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { toast } from "svelte-sonner";
@@ -27,8 +28,7 @@
 	import SunIcon from "@lucide/svelte/icons/sun";
 	import MoonIcon from "@lucide/svelte/icons/moon";
 	import { climateConfig, setActivePhase, setDayNightMode, setManualSchedule, setLightThreshold, updatePhaseTargets } from "$lib/stores/climate.svelte";
-	import type { Sensor, Device, ClimatePhase, PhaseTargets } from "$lib/types";
-	import { formatTemperature } from "$lib/stores/settings.svelte";
+	import type { Sensor, Device, ClimatePhase } from "$lib/types";
 	import { onMount } from "svelte";
 
 	onMount(() => {
@@ -64,13 +64,6 @@
 		{ value: "24h", label: "24 hour" },
 		{ value: "12h", label: "12 hour" },
 	];
-
-	const phaseLabels: Record<ClimatePhase, string> = {
-		seedling: "Seedling",
-		veg: "Vegetative",
-		flower: "Flower",
-		dry: "Drying",
-	};
 
 	const phaseOptions: { value: ClimatePhase; label: string }[] = [
 		{ value: "seedling", label: "Seedling" },
@@ -389,22 +382,151 @@
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Climate</h2>
 		<div class="divide-y divide-border rounded-lg border">
-			<div class="flex items-center justify-between p-3">
-				<Label>Growth Phase</Label>
-				<Select.Root
-					type="single"
-					value={climateConfig.activePhase}
-					onValueChange={(v) => v && setActivePhase(v as ClimatePhase)}
-				>
-					<Select.Trigger class="w-44">
-						<span>{phaseOptions.find((o) => o.value === climateConfig.activePhase)?.label}</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each phaseOptions as option (option.value)}
-							<Select.Item value={option.value}>{option.label}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
+			<div class="p-3">
+				<div class="mb-3 flex items-center justify-between">
+					<p class="text-sm font-medium">Phase Targets</p>
+					<Select.Root
+						type="single"
+						value={climateConfig.activePhase}
+						onValueChange={(v) => v && setActivePhase(v as ClimatePhase)}
+					>
+						<Select.Trigger class="w-36">
+							<span>{phaseOptions.find((o) => o.value === climateConfig.activePhase)?.label}</span>
+						</Select.Trigger>
+						<Select.Content>
+							{#each phaseOptions as option (option.value)}
+								<Select.Item value={option.value}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+				</div>
+				{#if true}
+				{@const phase = climateConfig.activePhase}
+				{@const targets = climateConfig.phases[phase]}
+				{@const unit = settings.temperatureUnit}
+				{@const isFahrenheit = unit === "fahrenheit"}
+				<div class="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-1 text-sm">
+					<div></div>
+					<div class="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+						<SunIcon class="size-3" />
+						<span>Day</span>
+					</div>
+					<div class="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+						<MoonIcon class="size-3" />
+						<span>Night</span>
+					</div>
+
+					<span class="text-muted-foreground">Temp ({isFahrenheit ? "°F" : "°C"})</span>
+					<input
+						type="text"
+						inputmode="decimal"
+						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
+						value={convertTemperature(targets.temp.day, unit).toFixed(1)}
+						onfocus={(e) => (e.target as HTMLInputElement).select()}
+						onblur={(e) => {
+							const v = parseFloat((e.target as HTMLInputElement).value);
+							if (!isNaN(v)) {
+								const celsius = isFahrenheit ? (v - 32) * 5 / 9 : v;
+								updatePhaseTargets(phase, { ...targets, temp: { ...targets.temp, day: celsius } });
+							}
+						}}
+						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+					/>
+					<input
+						type="text"
+						inputmode="decimal"
+						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
+						value={convertTemperature(targets.temp.night, unit).toFixed(1)}
+						onfocus={(e) => (e.target as HTMLInputElement).select()}
+						onblur={(e) => {
+							const v = parseFloat((e.target as HTMLInputElement).value);
+							if (!isNaN(v)) {
+								const celsius = isFahrenheit ? (v - 32) * 5 / 9 : v;
+								updatePhaseTargets(phase, { ...targets, temp: { ...targets.temp, night: celsius } });
+							}
+						}}
+						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+					/>
+
+					<span class="text-muted-foreground">Humidity (%)</span>
+					<input
+						type="text"
+						inputmode="numeric"
+						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
+						value={targets.humidity.day.toFixed(0)}
+						onfocus={(e) => (e.target as HTMLInputElement).select()}
+						onblur={(e) => {
+							const v = parseInt((e.target as HTMLInputElement).value, 10);
+							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, humidity: { ...targets.humidity, day: Math.min(100, Math.max(0, v)) } });
+						}}
+						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+					/>
+					<input
+						type="text"
+						inputmode="numeric"
+						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
+						value={targets.humidity.night.toFixed(0)}
+						onfocus={(e) => (e.target as HTMLInputElement).select()}
+						onblur={(e) => {
+							const v = parseInt((e.target as HTMLInputElement).value, 10);
+							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, humidity: { ...targets.humidity, night: Math.min(100, Math.max(0, v)) } });
+						}}
+						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+					/>
+
+					<span class="text-muted-foreground">VPD (kPa)</span>
+					<input
+						type="text"
+						inputmode="decimal"
+						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
+						value={targets.vpd.day.toFixed(2)}
+						onfocus={(e) => (e.target as HTMLInputElement).select()}
+						onblur={(e) => {
+							const v = parseFloat((e.target as HTMLInputElement).value);
+							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, vpd: { ...targets.vpd, day: v } });
+						}}
+						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+					/>
+					<input
+						type="text"
+						inputmode="decimal"
+						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
+						value={targets.vpd.night.toFixed(2)}
+						onfocus={(e) => (e.target as HTMLInputElement).select()}
+						onblur={(e) => {
+							const v = parseFloat((e.target as HTMLInputElement).value);
+							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, vpd: { ...targets.vpd, night: v } });
+						}}
+						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+					/>
+
+					<span class="text-muted-foreground">CO₂ (ppm)</span>
+					<input
+						type="text"
+						inputmode="numeric"
+						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
+						value={targets.co2.day.toFixed(0)}
+						onfocus={(e) => (e.target as HTMLInputElement).select()}
+						onblur={(e) => {
+							const v = parseInt((e.target as HTMLInputElement).value, 10);
+							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, co2: { ...targets.co2, day: v } });
+						}}
+						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+					/>
+					<input
+						type="text"
+						inputmode="numeric"
+						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
+						value={targets.co2.night.toFixed(0)}
+						onfocus={(e) => (e.target as HTMLInputElement).select()}
+						onblur={(e) => {
+							const v = parseInt((e.target as HTMLInputElement).value, 10);
+							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, co2: { ...targets.co2, night: v } });
+						}}
+						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+					/>
+				</div>
+				{/if}
 			</div>
 			<div class="flex items-center justify-between p-3">
 				<Label>Day/Night Detection</Label>
@@ -466,55 +588,6 @@
 					/>
 				</div>
 			{/if}
-			<div class="p-3">
-				<div class="mb-2">
-					<p class="text-sm font-medium">Phase Targets</p>
-					<p class="text-xs text-muted-foreground">
-						Day / Night targets for {phaseLabels[climateConfig.activePhase]}
-					</p>
-				</div>
-				<div class="grid grid-cols-3 gap-x-4 gap-y-1 text-xs text-muted-foreground">
-					<div>Temp</div>
-					<div class="flex items-center gap-1">
-						<SunIcon class="size-3" />
-						<span>{formatTemperature(climateConfig.phases[climateConfig.activePhase].temp.day, settings.temperatureUnit)}</span>
-					</div>
-					<div class="flex items-center gap-1">
-						<MoonIcon class="size-3" />
-						<span>{formatTemperature(climateConfig.phases[climateConfig.activePhase].temp.night, settings.temperatureUnit)}</span>
-					</div>
-
-					<div>Humidity</div>
-					<div class="flex items-center gap-1">
-						<SunIcon class="size-3" />
-						<span>{climateConfig.phases[climateConfig.activePhase].humidity.day.toFixed(0)}%</span>
-					</div>
-					<div class="flex items-center gap-1">
-						<MoonIcon class="size-3" />
-						<span>{climateConfig.phases[climateConfig.activePhase].humidity.night.toFixed(0)}%</span>
-					</div>
-
-					<div>VPD</div>
-					<div class="flex items-center gap-1">
-						<SunIcon class="size-3" />
-						<span>{climateConfig.phases[climateConfig.activePhase].vpd.day.toFixed(2)}</span>
-					</div>
-					<div class="flex items-center gap-1">
-						<MoonIcon class="size-3" />
-						<span>{climateConfig.phases[climateConfig.activePhase].vpd.night.toFixed(2)}</span>
-					</div>
-
-					<div>CO₂</div>
-					<div class="flex items-center gap-1">
-						<SunIcon class="size-3" />
-						<span>{climateConfig.phases[climateConfig.activePhase].co2.day.toFixed(0)}</span>
-					</div>
-					<div class="flex items-center gap-1">
-						<MoonIcon class="size-3" />
-						<span>{climateConfig.phases[climateConfig.activePhase].co2.night.toFixed(0)}</span>
-					</div>
-				</div>
-			</div>
 		</div>
 	</section>
 
