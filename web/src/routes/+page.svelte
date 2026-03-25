@@ -19,7 +19,7 @@
 </script>
 
 <PageHeader title="Dashboard" />
-<div class="flex flex-1 flex-col gap-6 p-4 pt-0">
+<div class="@container flex flex-1 flex-col gap-6 p-4 pt-0">
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Overview</h2>
 		<ClimateOverviewCard onhistoryclick={() => (alertHistoryOpen = true)} />
@@ -34,7 +34,7 @@
 				<p class="mt-1 text-xs text-muted-foreground">Add sensors in <a href="/settings" class="underline">Settings</a> to start monitoring</p>
 			</div>
 		{:else}
-			<div class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+			<div class="grid grid-cols-2 gap-3 @lg:grid-cols-3 @2xl:grid-cols-4">
 				{#each sensors as sensor (sensor.id)}
 					<SensorCard
 						{sensor}

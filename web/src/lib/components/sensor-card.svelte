@@ -21,7 +21,8 @@
 		if (sensor.type === "temperature" || sensor.type === "dewpoint") {
 			return formatTemperature(reading.value, settings.temperatureUnit);
 		}
-		return `${reading.value}${formatUnit(sensor.unit)}`;
+		const value = sensor.type === "co2" || sensor.type === "light" ? Math.round(reading.value) : reading.value;
+		return `${value}${formatUnit(sensor.unit)}`;
 	});
 	const status = $derived(getSensorStatus(sensor.id));
 	const target = $derived(getSensorTarget(sensor.type));
@@ -52,9 +53,9 @@
 			<div class="min-w-0 flex-1">
 				<p class="truncate text-xs text-muted-foreground">{sensor.name}</p>
 				<div class="flex items-baseline gap-1.5">
-					<span class="text-base font-semibold tabular-nums">{displayValue}</span>
+					<span class="whitespace-nowrap text-base font-semibold tabular-nums">{displayValue}</span>
 					{#if targetDisplay !== undefined}
-						<span class="text-[10px] text-muted-foreground/70 tabular-nums">/ {targetDisplay}</span>
+						<span class="whitespace-nowrap text-[10px] text-muted-foreground/70 tabular-nums">/ {targetDisplay}</span>
 					{/if}
 				</div>
 			</div>
