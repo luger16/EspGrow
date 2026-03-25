@@ -3,7 +3,7 @@
 	import SensorCard from "$lib/components/sensor-card.svelte";
 	import DeviceCard from "$lib/components/device-card.svelte";
 	import AnalyticsChart from "$lib/components/analytics-chart.svelte";
-	import SensorHistoryModal from "$lib/components/sensor-history-modal.svelte";
+
 	import ClimateOverviewCard from "$lib/components/climate-overview-card.svelte";
 	import EventHistoryModal from "$lib/components/event-history-modal.svelte";
 	import VpdZoneChart from "$lib/components/vpd-zone-chart.svelte";
@@ -13,9 +13,6 @@
 	import { devices } from "$lib/stores/devices.svelte";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 	import PowerIcon from "@lucide/svelte/icons/power";
-
-	let selectedSensorId = $state<string | null>(null);
-	const selectedSensor = $derived(sensors.find((s) => s.id === selectedSensorId));
 
 	let alertHistoryOpen = $state(false);
 </script>
@@ -41,7 +38,6 @@
 					<SensorCard
 						{sensor}
 						reading={sensorReadings[sensor.id]}
-						onclick={() => (selectedSensorId = sensor.id)}
 					/>
 				{/each}
 			</div>
@@ -82,14 +78,6 @@
 		{/if}
 	</section>
 </div>
-
-{#if selectedSensor}
-	<SensorHistoryModal
-		sensor={selectedSensor}
-		open={!!selectedSensorId}
-		onOpenChange={(open) => !open && (selectedSensorId = null)}
-	/>
-{/if}
 
 <EventHistoryModal
 	bind:open={alertHistoryOpen}
