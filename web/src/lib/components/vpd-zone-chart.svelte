@@ -140,19 +140,32 @@
 								format={(v) => `${Math.round(v as number)}°`}
 							/>
 
-							{#each zoneRects as rect, i (i)}
-								{@const x1 = context.xScale(rect.humMin)}
-								{@const x2 = context.xScale(rect.humMax)}
-								{@const y1 = context.yScale(convertTemperature(rect.tempMax, tempUnit))}
-								{@const y2 = context.yScale(convertTemperature(rect.tempMin, tempUnit))}
-								<rect
-									x={x1}
-									y={y1}
-									width={x2 - x1 + 0.5}
-									height={y2 - y1 + 0.5}
-									fill={rect.color}
-								/>
-							{/each}
+							{#if true}
+							{@const gridX = context.xScale(HUM_MIN)}
+							{@const gridY = context.yScale(tempMax)}
+							{@const gridW = context.xScale(HUM_MAX) - gridX}
+							{@const gridH = context.yScale(tempMin) - gridY}
+							<defs>
+								<clipPath id="vpd-grid-clip">
+									<rect x={gridX} y={gridY} width={gridW} height={gridH} rx="8" ry="8" />
+								</clipPath>
+							</defs>
+							<g clip-path="url(#vpd-grid-clip)">
+								{#each zoneRects as rect, i (i)}
+									{@const x1 = context.xScale(rect.humMin)}
+									{@const x2 = context.xScale(rect.humMax)}
+									{@const y1 = context.yScale(convertTemperature(rect.tempMax, tempUnit))}
+									{@const y2 = context.yScale(convertTemperature(rect.tempMin, tempUnit))}
+									<rect
+										x={x1}
+										y={y1}
+										width={x2 - x1 + 0.5}
+										height={y2 - y1 + 0.5}
+										fill={rect.color}
+									/>
+								{/each}
+							</g>
+						{/if}
 
 							{#if currentTempDisplay !== undefined && currentHum !== undefined}
 								{@const cx = context.xScale(currentHum)}

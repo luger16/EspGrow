@@ -299,7 +299,7 @@
 													class="shrink-0 rounded-[2px] border bg-[var(--indicator-color)]"
 													style="--indicator-color: {sensorColor}; border-color: {sensorColor}; width: 4px;"
 												></div>
-												<div class="flex flex-1 items-center justify-between leading-none">
+												<div class="flex flex-1 items-center justify-between gap-2 leading-none">
 													<span class="text-muted-foreground">
 														{args.name}
 													</span>

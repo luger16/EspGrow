@@ -27,9 +27,51 @@
 	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
 	import SunIcon from "@lucide/svelte/icons/sun";
 	import MoonIcon from "@lucide/svelte/icons/moon";
+	import * as Dialog from "$lib/components/ui/dialog/index.js";
 	import { climateConfig, setActivePhase, setDayNightMode, setManualSchedule, setLightThreshold, updatePhaseTargets } from "$lib/stores/climate.svelte";
 	import type { Sensor, Device, ClimatePhase } from "$lib/types";
 	import { onMount } from "svelte";
+
+	let editingTargets = $state(false);
+	let editTemp = $state({ day: "", night: "" });
+	let editHumidity = $state({ day: "", night: "" });
+	let editVpd = $state({ day: "", night: "" });
+	let editCo2 = $state({ day: "", night: "" });
+
+	function openTargetsDialog() {
+		const targets = climateConfig.phases[climateConfig.activePhase];
+		const unit = settings.temperatureUnit;
+		const isFahrenheit = unit === "fahrenheit";
+		editTemp = { day: convertTemperature(targets.temp.day, unit).toFixed(1), night: convertTemperature(targets.temp.night, unit).toFixed(1) };
+		editHumidity = { day: targets.humidity.day.toFixed(0), night: targets.humidity.night.toFixed(0) };
+		editVpd = { day: targets.vpd.day.toFixed(2), night: targets.vpd.night.toFixed(2) };
+		editCo2 = { day: targets.co2.day.toFixed(0), night: targets.co2.night.toFixed(0) };
+		editingTargets = true;
+	}
+
+	function saveTargetsDialog() {
+		const phase = climateConfig.activePhase;
+		const isFahrenheit = settings.temperatureUnit === "fahrenheit";
+		const parseTemp = (v: string) => { const n = parseFloat(v); return isNaN(n) ? null : (isFahrenheit ? (n - 32) * 5 / 9 : n); };
+		const parseHum = (v: string) => { const n = parseInt(v, 10); return isNaN(n) ? null : Math.min(100, Math.max(0, n)); };
+		const parseVpd = (v: string) => { const n = parseFloat(v); return isNaN(n) ? null : n; };
+		const parseCo2 = (v: string) => { const n = parseInt(v, 10); return isNaN(n) ? null : n; };
+
+		const td = parseTemp(editTemp.day), tn = parseTemp(editTemp.night);
+		const hd = parseHum(editHumidity.day), hn = parseHum(editHumidity.night);
+		const vd = parseVpd(editVpd.day), vn = parseVpd(editVpd.night);
+		const cd = parseCo2(editCo2.day), cn = parseCo2(editCo2.night);
+
+		if (td !== null && tn !== null && hd !== null && hn !== null && vd !== null && vn !== null && cd !== null && cn !== null) {
+			updatePhaseTargets(phase, {
+				temp: { day: td, night: tn },
+				humidity: { day: hd, night: hn },
+				vpd: { day: vd, night: vn },
+				co2: { day: cd, night: cn },
+			});
+		}
+		editingTargets = false;
+	}
 
 	onMount(() => {
 		initSystemInfoWebSocket();
@@ -400,133 +442,91 @@
 						</Select.Content>
 					</Select.Root>
 				</div>
-				{#if true}
-				{@const phase = climateConfig.activePhase}
-				{@const targets = climateConfig.phases[phase]}
-				{@const unit = settings.temperatureUnit}
-				{@const isFahrenheit = unit === "fahrenheit"}
-				<div class="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-1 text-sm">
-					<div></div>
-					<div class="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-						<SunIcon class="size-3" />
-						<span>Day</span>
-					</div>
-					<div class="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-						<MoonIcon class="size-3" />
-						<span>Night</span>
-					</div>
-
-					<span class="text-muted-foreground">Temp ({isFahrenheit ? "°F" : "°C"})</span>
-					<input
-						type="text"
-						inputmode="decimal"
-						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
-						value={convertTemperature(targets.temp.day, unit).toFixed(1)}
-						onfocus={(e) => (e.target as HTMLInputElement).select()}
-						onblur={(e) => {
-							const v = parseFloat((e.target as HTMLInputElement).value);
-							if (!isNaN(v)) {
-								const celsius = isFahrenheit ? (v - 32) * 5 / 9 : v;
-								updatePhaseTargets(phase, { ...targets, temp: { ...targets.temp, day: celsius } });
-							}
-						}}
-						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-					/>
-					<input
-						type="text"
-						inputmode="decimal"
-						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
-						value={convertTemperature(targets.temp.night, unit).toFixed(1)}
-						onfocus={(e) => (e.target as HTMLInputElement).select()}
-						onblur={(e) => {
-							const v = parseFloat((e.target as HTMLInputElement).value);
-							if (!isNaN(v)) {
-								const celsius = isFahrenheit ? (v - 32) * 5 / 9 : v;
-								updatePhaseTargets(phase, { ...targets, temp: { ...targets.temp, night: celsius } });
-							}
-						}}
-						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-					/>
-
-					<span class="text-muted-foreground">Humidity (%)</span>
-					<input
-						type="text"
-						inputmode="numeric"
-						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
-						value={targets.humidity.day.toFixed(0)}
-						onfocus={(e) => (e.target as HTMLInputElement).select()}
-						onblur={(e) => {
-							const v = parseInt((e.target as HTMLInputElement).value, 10);
-							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, humidity: { ...targets.humidity, day: Math.min(100, Math.max(0, v)) } });
-						}}
-						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-					/>
-					<input
-						type="text"
-						inputmode="numeric"
-						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
-						value={targets.humidity.night.toFixed(0)}
-						onfocus={(e) => (e.target as HTMLInputElement).select()}
-						onblur={(e) => {
-							const v = parseInt((e.target as HTMLInputElement).value, 10);
-							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, humidity: { ...targets.humidity, night: Math.min(100, Math.max(0, v)) } });
-						}}
-						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-					/>
-
-					<span class="text-muted-foreground">VPD (kPa)</span>
-					<input
-						type="text"
-						inputmode="decimal"
-						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
-						value={targets.vpd.day.toFixed(2)}
-						onfocus={(e) => (e.target as HTMLInputElement).select()}
-						onblur={(e) => {
-							const v = parseFloat((e.target as HTMLInputElement).value);
-							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, vpd: { ...targets.vpd, day: v } });
-						}}
-						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-					/>
-					<input
-						type="text"
-						inputmode="decimal"
-						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
-						value={targets.vpd.night.toFixed(2)}
-						onfocus={(e) => (e.target as HTMLInputElement).select()}
-						onblur={(e) => {
-							const v = parseFloat((e.target as HTMLInputElement).value);
-							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, vpd: { ...targets.vpd, night: v } });
-						}}
-						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-					/>
-
-					<span class="text-muted-foreground">CO₂ (ppm)</span>
-					<input
-						type="text"
-						inputmode="numeric"
-						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
-						value={targets.co2.day.toFixed(0)}
-						onfocus={(e) => (e.target as HTMLInputElement).select()}
-						onblur={(e) => {
-							const v = parseInt((e.target as HTMLInputElement).value, 10);
-							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, co2: { ...targets.co2, day: v } });
-						}}
-						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-					/>
-					<input
-						type="text"
-						inputmode="numeric"
-						class="w-16 rounded bg-transparent px-1.5 py-0.5 text-center tabular-nums text-foreground outline-none ring-ring transition-colors hover:bg-muted focus:bg-muted focus:ring-1"
-						value={targets.co2.night.toFixed(0)}
-						onfocus={(e) => (e.target as HTMLInputElement).select()}
-						onblur={(e) => {
-							const v = parseInt((e.target as HTMLInputElement).value, 10);
-							if (!isNaN(v)) updatePhaseTargets(phase, { ...targets, co2: { ...targets.co2, night: v } });
-						}}
-						onkeydown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-					/>
+			{#if true}
+			{@const phase = climateConfig.activePhase}
+			{@const targets = climateConfig.phases[phase]}
+			{@const unit = settings.temperatureUnit}
+			{@const isFahrenheit = unit === "fahrenheit"}
+			{@const summary = [
+				{ label: "Temp", val: `${convertTemperature(targets.temp.day, unit).toFixed(1)}–${convertTemperature(targets.temp.night, unit).toFixed(1)} ${isFahrenheit ? "°F" : "°C"}` },
+				{ label: "Humidity", val: `${targets.humidity.day.toFixed(0)}–${targets.humidity.night.toFixed(0)}%` },
+				{ label: "VPD", val: `${targets.vpd.day.toFixed(2)}–${targets.vpd.night.toFixed(2)} kPa` },
+				{ label: "CO₂", val: `${targets.co2.day.toFixed(0)}–${targets.co2.night.toFixed(0)} ppm` },
+			]}
+			<div class="flex items-start justify-between gap-3">
+				<div class="grid grid-cols-2 gap-x-6 gap-y-0.5 text-sm">
+					{#each summary as item (item.label)}
+					<span class="text-muted-foreground">{item.label}</span>
+					<span class="tabular-nums">{item.val}</span>
+					{/each}
 				</div>
-				{/if}
+				<Button variant="outline" size="sm" onclick={openTargetsDialog}>
+					<PencilIcon class="size-3.5" />
+					Edit
+				</Button>
+			</div>
+
+			<Dialog.Root
+				open={editingTargets}
+				onOpenChange={(open) => { if (!open) editingTargets = false; }}
+			>
+				<Dialog.Content class="max-w-sm">
+					<Dialog.Header>
+						<Dialog.Title>Phase Targets</Dialog.Title>
+						<Dialog.Description>
+							Set day and night climate goals for the {phaseOptions.find((o) => o.value === phase)?.label} phase.
+						</Dialog.Description>
+					</Dialog.Header>
+					<div class="space-y-4">
+						{#if true}
+						{@const fields = [
+							{ label: "Temperature", unit: isFahrenheit ? "°F" : "°C", inputmode: "decimal" as const, state: editTemp, set: (p: string, v: string) => { editTemp = { ...editTemp, [p]: v }; } },
+							{ label: "Humidity", unit: "%", inputmode: "numeric" as const, state: editHumidity, set: (p: string, v: string) => { editHumidity = { ...editHumidity, [p]: v }; } },
+							{ label: "VPD", unit: "kPa", inputmode: "decimal" as const, state: editVpd, set: (p: string, v: string) => { editVpd = { ...editVpd, [p]: v }; } },
+							{ label: "CO₂", unit: "ppm", inputmode: "numeric" as const, state: editCo2, set: (p: string, v: string) => { editCo2 = { ...editCo2, [p]: v }; } },
+						]}
+						{#each fields as field (field.label)}
+						<div>
+							<p class="mb-1.5 text-sm font-medium">{field.label} <span class="text-xs font-normal text-muted-foreground">({field.unit})</span></p>
+							<div class="grid grid-cols-2 gap-3">
+								<div class="space-y-1">
+									<Label class="flex items-center gap-1 text-xs text-muted-foreground">
+										<SunIcon class="size-3" /> Day
+									</Label>
+									<Input
+										type="text"
+										inputmode={field.inputmode}
+										class="tabular-nums"
+										value={field.state.day}
+										oninput={(e) => field.set("day", (e.target as HTMLInputElement).value)}
+										onfocus={(e) => (e.target as HTMLInputElement).select()}
+									/>
+								</div>
+								<div class="space-y-1">
+									<Label class="flex items-center gap-1 text-xs text-muted-foreground">
+										<MoonIcon class="size-3" /> Night
+									</Label>
+									<Input
+										type="text"
+										inputmode={field.inputmode}
+										class="tabular-nums"
+										value={field.state.night}
+										oninput={(e) => field.set("night", (e.target as HTMLInputElement).value)}
+										onfocus={(e) => (e.target as HTMLInputElement).select()}
+									/>
+								</div>
+							</div>
+						</div>
+						{/each}
+						{/if}
+					</div>
+					<Dialog.Footer>
+						<Button variant="outline" size="sm" onclick={() => { editingTargets = false; }}>Cancel</Button>
+						<Button size="sm" onclick={saveTargetsDialog}>Save</Button>
+					</Dialog.Footer>
+				</Dialog.Content>
+			</Dialog.Root>
+			{/if}
 			</div>
 			<div class="flex items-center justify-between p-3">
 				<Label>Day/Night Detection</Label>
