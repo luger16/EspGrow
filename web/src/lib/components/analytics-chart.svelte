@@ -5,7 +5,7 @@
 	import * as Tabs from "$lib/components/ui/tabs/index.js";
 	import { scaleUtc } from "d3-scale";
 	import { LineChart } from "layerchart";
-	import { curveNatural } from "d3-shape";
+	import { curveMonotoneX } from "d3-shape";
 	import type { Sensor } from "$lib/types";
 	import { sensors, sensorReadings, requestHistory, getSensorHistory } from "$lib/stores/sensors.svelte";
 	import { settings, convertTemperature, formatTimeFromDate } from "$lib/stores/settings.svelte";
@@ -250,7 +250,7 @@
 									{series}
 									yDomain={yDomain}
 									props={{
-										spline: { curve: curveNatural, class: "stroke-1" },
+										spline: { curve: curveMonotoneX, class: "stroke-1" },
 										xAxis: {
 											ticks: xTicks,
 											format: (v: Date) => {
