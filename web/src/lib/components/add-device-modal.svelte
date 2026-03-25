@@ -4,6 +4,7 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
+	import { Checkbox } from "$lib/components/ui/checkbox/index.js";
 	import { addDevice } from "$lib/stores/devices.svelte";
 	import type { Device } from "$lib/types";
 	import PlusIcon from "@lucide/svelte/icons/plus";
@@ -14,6 +15,7 @@
 	let deviceType = $state<Device["type"]>("fan");
 	let controlMethod = $state<Device["controlMethod"]>("shelly_gen2");
 	let ipAddress = $state("");
+	let hasEnergyMonitoring = $state(false);
 
 	const deviceTypeOptions: { value: Device["type"]; label: string }[] = [
 		{ value: "fan", label: "Fan" },
@@ -40,6 +42,7 @@
 			ipAddress,
 			isOn: false,
 			controlMode: "manual",
+			hasEnergyMonitoring,
 		};
 		addDevice(device);
 		resetForm();
@@ -52,6 +55,7 @@
 		deviceType = "fan";
 		controlMethod = "shelly_gen2";
 		ipAddress = "";
+		hasEnergyMonitoring = false;
 	}
 </script>
 
@@ -109,6 +113,10 @@
 				{#if submitted && !ipAddress}
 					<p class="text-destructive text-xs">IP address is required</p>
 				{/if}
+			</div>
+			<div class="flex items-center gap-2">
+				<Checkbox id="energy" bind:checked={hasEnergyMonitoring} />
+				<Label for="energy" class="font-normal">Energy monitoring</Label>
 			</div>
 			<Dialog.Footer>
 				<Button type="submit" disabled={!name || !ipAddress}>Add Device</Button>

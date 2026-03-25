@@ -5,6 +5,7 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
+	import { Checkbox } from "$lib/components/ui/checkbox/index.js";
 	import { updateDevice, removeDevice } from "$lib/stores/devices.svelte";
 	import type { Device } from "$lib/types";
 
@@ -20,6 +21,7 @@
 	let deviceType = $state<Device["type"]>("fan");
 	let controlMethod = $state<Device["controlMethod"]>("shelly_gen2");
 	let ipAddress = $state("");
+	let hasEnergyMonitoring = $state(false);
 	let showDeleteConfirm = $state(false);
 
 	const deviceTypeOptions: { value: Device["type"]; label: string }[] = [
@@ -43,6 +45,7 @@
 			deviceType = device.type;
 			controlMethod = device.controlMethod;
 			ipAddress = device.ipAddress ?? "";
+			hasEnergyMonitoring = device.hasEnergyMonitoring ?? false;
 		}
 	});
 
@@ -54,6 +57,7 @@
 			type: deviceType,
 			controlMethod,
 			ipAddress,
+			hasEnergyMonitoring,
 		});
 		onOpenChange(false);
 	}
@@ -111,6 +115,10 @@
 				{#if submitted && !ipAddress}
 					<p class="text-destructive text-xs">IP address is required</p>
 				{/if}
+			</div>
+			<div class="flex items-center gap-2">
+				<Checkbox id="energy-edit" bind:checked={hasEnergyMonitoring} />
+				<Label for="energy-edit" class="font-normal">Energy monitoring</Label>
 			</div>
 			<Dialog.Footer class="flex-col gap-2 sm:flex-row sm:justify-between">
 				<Button type="button" variant="destructive" onclick={() => (showDeleteConfirm = true)}>Delete</Button>

@@ -38,13 +38,81 @@ interface DeviceConfig {
 	ipAddress: string;
 	isOn: boolean;
 	controlMode: string;
+	hasEnergyMonitoring?: boolean;
 }
 
 const DEVICES: DeviceConfig[] = [
-	{ id: "fan_exhaust", name: "Exhaust Fan", type: "fan", controlMethod: "shelly_gen2", ipAddress: "192.168.1.100", isOn: true, controlMode: "automatic" },
-	{ id: "light_main", name: "Grow Light", type: "light", controlMethod: "shelly_gen2", ipAddress: "192.168.1.101", isOn: true, controlMode: "manual" },
-	{ id: "humidifier", name: "Humidifier", type: "humidifier", controlMethod: "tasmota", ipAddress: "192.168.1.102", isOn: false, controlMode: "automatic" },
+	{ id: "fan_exhaust", name: "Exhaust Fan", type: "fan", controlMethod: "shelly_gen2", ipAddress: "192.168.1.100", isOn: true, controlMode: "automatic", hasEnergyMonitoring: true },
+	{ id: "light_main", name: "Grow Light", type: "light", controlMethod: "shelly_gen2", ipAddress: "192.168.1.101", isOn: true, controlMode: "manual", hasEnergyMonitoring: true },
+	{ id: "humidifier", name: "Humidifier", type: "humidifier", controlMethod: "tasmota", ipAddress: "192.168.1.102", isOn: false, controlMode: "automatic", hasEnergyMonitoring: true },
 ];
+
+interface EnergyState {
+	deviceId: string;
+	deviceName: string;
+	watts: number;
+	kWh: number;
+	resetTimestamp: string;
+}
+
+const WATT_RANGES: Record<string, { on: [number, number]; off: [number, number] }> = {
+	fan_exhaust: { on: [35, 45], off: [0, 0.5] },
+	light_main: { on: [150, 200], off: [0, 0.5] },
+	humidifier: { on: [25, 35], off: [0, 0.3] },
+};
+
+const energyState: EnergyState[] = DEVICES.filter((d) => d.hasEnergyMonitoring).map((d) => ({
+	deviceId: d.id,
+	deviceName: d.name,
+	watts: 0,
+	kWh: Math.round(Math.random() * 50 * 100) / 100,
+	resetTimestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+}));
+
+let lastEnergyTick = Date.now();
+
+function updateEnergyState(): void {
+	const now = Date.now();
+	const elapsedMs = now - lastEnergyTick;
+	lastEnergyTick = now;
+
+	for (const entry of energyState) {
+		const device = DEVICES.find((d) => d.id === entry.deviceId);
+		if (!device) continue;
+
+		const range = WATT_RANGES[device.id] ?? { on: [10, 20], off: [0, 0.5] };
+		const [min, max] = device.isOn ? range.on : range.off;
+		entry.watts = Math.round((min + Math.random() * (max - min)) * 10) / 10;
+
+		const kWhIncrement = (entry.watts * elapsedMs) / 3_600_000_000;
+		entry.kWh = Math.round((entry.kWh + kWhIncrement) * 100) / 100;
+	}
+}
+
+function syncEnergyDevices(): void {
+	const energyDeviceIds = new Set(energyState.map((e) => e.deviceId));
+	for (const device of DEVICES) {
+		if (device.hasEnergyMonitoring && !energyDeviceIds.has(device.id)) {
+			energyState.push({
+				deviceId: device.id,
+				deviceName: device.name,
+				watts: 0,
+				kWh: 0,
+				resetTimestamp: new Date().toISOString(),
+			});
+		}
+	}
+	const activeDeviceIds = new Set(DEVICES.filter((d) => d.hasEnergyMonitoring).map((d) => d.id));
+	for (let i = energyState.length - 1; i >= 0; i--) {
+		if (!activeDeviceIds.has(energyState[i].deviceId)) {
+			energyState.splice(i, 1);
+		}
+	}
+	for (const entry of energyState) {
+		const device = DEVICES.find((d) => d.id === entry.deviceId);
+		if (device) entry.deviceName = device.name;
+	}
+}
 
 // --- Automation rules ---
 
@@ -510,8 +578,11 @@ function handleMessage(ws: WebSocket, raw: string): void {
 				ipAddress: payload.ipAddress as string,
 				isOn: false,
 				controlMode: "manual",
+				hasEnergyMonitoring: (payload.hasEnergyMonitoring as boolean) ?? false,
 			});
+			syncEnergyDevices();
 			broadcast({ type: "devices", data: DEVICES });
+			broadcast({ type: "energy", data: energyState });
 			break;
 		}
 
@@ -522,15 +593,20 @@ function handleMessage(ws: WebSocket, raw: string): void {
 				if (payload.deviceType) device.type = payload.deviceType as string;
 				if (payload.controlMethod) device.controlMethod = payload.controlMethod as string;
 				if (payload.ipAddress) device.ipAddress = payload.ipAddress as string;
+				if (typeof payload.hasEnergyMonitoring === "boolean") device.hasEnergyMonitoring = payload.hasEnergyMonitoring;
 			}
+			syncEnergyDevices();
 			broadcast({ type: "devices", data: DEVICES });
+			broadcast({ type: "energy", data: energyState });
 			break;
 		}
 
 		case "remove_device": {
 			const idx = DEVICES.findIndex((d) => d.id === (payload.id as string));
 			if (idx !== -1) DEVICES.splice(idx, 1);
+			syncEnergyDevices();
 			broadcast({ type: "devices", data: DEVICES });
+			broadcast({ type: "energy", data: energyState });
 			break;
 		}
 
@@ -610,6 +686,26 @@ function handleMessage(ws: WebSocket, raw: string): void {
 			sendTo(ws, { type: "ppfd_calibration", data: { factor: 1.0, success: true } });
 			break;
 
+		case "get_energy":
+			updateEnergyState();
+			sendTo(ws, { type: "energy", data: energyState });
+			break;
+
+		case "reset_energy": {
+			const resetDeviceId = payload.deviceId as string | undefined;
+			const now = new Date().toISOString();
+			for (const entry of energyState) {
+				if (!resetDeviceId || entry.deviceId === resetDeviceId) {
+					entry.kWh = 0;
+					entry.resetTimestamp = now;
+				}
+			}
+			updateEnergyState();
+			broadcast({ type: "energy", data: energyState });
+			console.log(`[Mock] Energy reset${resetDeviceId ? ` for ${resetDeviceId}` : " (all)"}`);
+			break;
+		}
+
 		default:
 			console.log(`[Mock] Unknown message type: ${type}`);
 	}
@@ -645,6 +741,9 @@ setInterval(() => {
 	}));
 
 	broadcast({ type: "sensors", data });
+
+	updateEnergyState();
+	broadcast({ type: "energy", data: energyState });
 }, BROADCAST_INTERVAL);
 
 // --- Connection handling ---

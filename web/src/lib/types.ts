@@ -34,6 +34,7 @@ export interface Device {
 	ipAddress?: string;
 	isOn: boolean;
 	controlMode: DeviceControlMode;
+	hasEnergyMonitoring?: boolean;
 }
 
 export type ComparisonOperator = ">" | ">=" | "<" | "<=" | "=";
@@ -114,4 +115,14 @@ export interface SystemEvent {
 	description: string;
 	severity?: "info" | "warning" | "critical";
 	timestamp: Date;
+}
+
+// Energy tracking
+
+export interface DeviceEnergy {
+	deviceId: string;
+	deviceName: string;
+	watts: number;
+	kWh: number;
+	resetTimestamp: Date;
 }

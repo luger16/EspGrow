@@ -43,6 +43,7 @@ export function addDevice(device: Device): void {
 		deviceType: device.type,
 		controlMethod: device.controlMethod,
 		ipAddress: device.ipAddress,
+		hasEnergyMonitoring: device.hasEnergyMonitoring ?? false,
 	});
 }
 
@@ -57,6 +58,7 @@ export function updateDevice(deviceId: string, updates: Partial<Omit<Device, "id
 		deviceType: updates.type,
 		controlMethod: updates.controlMethod,
 		ipAddress: updates.ipAddress,
+		hasEnergyMonitoring: updates.hasEnergyMonitoring,
 	});
 }
 
@@ -76,6 +78,7 @@ export function initDeviceWebSocket(): void {
 			devices.push({
 				...d,
 				isOn: d.isOn ?? false,
+				hasEnergyMonitoring: d.hasEnergyMonitoring ?? false,
 			});
 		});
 	});
