@@ -92,7 +92,7 @@
 		<Button variant="outline" size="icon" class="relative size-8" onclick={onhistoryclick}>
 			<History class="size-4" />
 			{#if eventCount > 0}
-				<span class="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary/70 text-[10px] font-medium text-primary-foreground tabular-nums">
+				<span class="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground tabular-nums">
 					{eventCount > 99 ? "99" : eventCount}
 				</span>
 			{/if}
