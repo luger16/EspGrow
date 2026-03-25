@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Chart, Svg, Axis } from "layerchart";
 	import * as ChartUI from "$lib/components/ui/chart/index.js";
-	import * as Card from "$lib/components/ui/card/index.js";
+	import * as Dialog from "$lib/components/ui/dialog/index.js";
 	import { scaleLinear } from "d3-scale";
 	import { sensors, sensorReadings } from "$lib/stores/sensors.svelte";
 	import { settings, convertTemperature } from "$lib/stores/settings.svelte";
@@ -101,98 +101,94 @@
 	};
 </script>
 
-<Card.Root>
-	<Card.Header>
-		<Card.Title>VPD Zone Map</Card.Title>
-		<Card.Description>
-			{#if currentVpd !== undefined}
-				Current: <span class="text-foreground font-medium">{currentVpd.toFixed(2)} kPa</span>
-				· Target: {targetVpd.toFixed(1)} kPa
-			{:else}
-				Target: {targetVpd.toFixed(1)} kPa
-			{/if}
-		</Card.Description>
-	</Card.Header>
-	<Card.Content>
-		{#if !hasRequiredSensors}
-			<div class="text-muted-foreground flex h-64 w-full items-center justify-center rounded-lg border border-dashed text-sm">
-				Add temperature and humidity sensors to view VPD chart
-			</div>
+<Dialog.Header class="px-6 pt-6 text-left">
+	<Dialog.Title>VPD Zone Map</Dialog.Title>
+	<Dialog.Description>
+		{#if currentVpd !== undefined}
+			Current: <span class="text-foreground font-medium">{currentVpd.toFixed(2)} kPa</span>
+			· Target: {targetVpd.toFixed(1)} kPa
 		{:else}
-			<ChartUI.ChartContainer config={chartConfig} class="h-64 w-full sm:h-72 [&_.lc-axis-tick-label]:text-[10px] sm:[&_.lc-axis-tick-label]:text-xs">
-				<Chart
-					xDomain={[HUM_MIN, HUM_MAX]}
-					yDomain={[tempMin, tempMax]}
-					xScale={scaleLinear()}
-					yScale={scaleLinear()}
-					padding={{ top: 8, bottom: 36, left: 44, right: 8 }}
-				>
-					{#snippet children({ context })}
-						<Svg>
-							<Axis
-								placement="bottom"
-								ticks={humTicks}
-								format={(v) => `${v}%`}
-							/>
-							<Axis
-								placement="left"
-								ticks={tempTicks}
-								format={(v) => `${Math.round(v as number)}°`}
-							/>
-
-							{#if true}
-							{@const gridX = context.xScale(HUM_MIN)}
-							{@const gridY = context.yScale(tempMax)}
-							{@const gridW = context.xScale(HUM_MAX) - gridX}
-							{@const gridH = context.yScale(tempMin) - gridY}
-							<defs>
-								<clipPath id="vpd-grid-clip">
-									<rect x={gridX} y={gridY} width={gridW} height={gridH} rx="8" ry="8" />
-								</clipPath>
-							</defs>
-							<g clip-path="url(#vpd-grid-clip)">
-								{#each zoneRects as rect, i (i)}
-									{@const x1 = context.xScale(rect.humMin)}
-									{@const x2 = context.xScale(rect.humMax)}
-									{@const y1 = context.yScale(convertTemperature(rect.tempMax, tempUnit))}
-									{@const y2 = context.yScale(convertTemperature(rect.tempMin, tempUnit))}
-									<rect
-										x={x1}
-										y={y1}
-										width={x2 - x1 + 0.5}
-										height={y2 - y1 + 0.5}
-										fill={rect.color}
-									/>
-								{/each}
-							</g>
-						{/if}
-
-							{#if currentTempDisplay !== undefined && currentHum !== undefined}
-								{@const cx = context.xScale(currentHum)}
-								{@const cy = context.yScale(currentTempDisplay)}
-								<circle
-									{cx}
-									{cy}
-									r="5"
-									fill="rgba(255,255,255,0.3)"
-									stroke="white"
-									stroke-width="2"
-								/>
-							{/if}
-						</Svg>
-					{/snippet}
-				</Chart>
-			</ChartUI.ChartContainer>
+			Target: {targetVpd.toFixed(1)} kPa
 		{/if}
-	</Card.Content>
-	<Card.Footer>
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-			{#each Object.entries(chartConfig) as [key, cfg] (key)}
-				<div class="flex items-center gap-1.5">
-					<div class="size-2.5 rounded-[2px]" style="background-color: {cfg.color}"></div>
-					<span class="text-xs text-muted-foreground">{cfg.label}</span>
-				</div>
-			{/each}
+	</Dialog.Description>
+</Dialog.Header>
+
+{#if !hasRequiredSensors}
+	<div class="text-muted-foreground mx-6 flex h-64 w-auto items-center justify-center rounded-lg border border-dashed text-sm">
+		Add temperature and humidity sensors to view VPD chart
+	</div>
+{:else}
+	<ChartUI.ChartContainer config={chartConfig} class="aspect-auto h-64 w-full px-6 sm:h-72 [&_.lc-axis-tick-label]:text-[10px] sm:[&_.lc-axis-tick-label]:text-xs">
+		<Chart
+			xDomain={[HUM_MIN, HUM_MAX]}
+			yDomain={[tempMin, tempMax]}
+			xScale={scaleLinear()}
+			yScale={scaleLinear()}
+			padding={{ top: 8, bottom: 36, left: 44, right: 8 }}
+		>
+			{#snippet children({ context })}
+				<Svg>
+					<Axis
+						placement="bottom"
+						ticks={humTicks}
+						format={(v) => `${v}%`}
+					/>
+					<Axis
+						placement="left"
+						ticks={tempTicks}
+						format={(v) => `${Math.round(v as number)}°`}
+					/>
+
+					{#if true}
+					{@const gridX = context.xScale(HUM_MIN)}
+					{@const gridY = context.yScale(tempMax)}
+					{@const gridW = context.xScale(HUM_MAX) - gridX}
+					{@const gridH = context.yScale(tempMin) - gridY}
+					<defs>
+						<clipPath id="vpd-grid-clip">
+							<rect x={gridX} y={gridY} width={gridW} height={gridH} rx="8" ry="8" />
+						</clipPath>
+					</defs>
+					<g clip-path="url(#vpd-grid-clip)">
+						{#each zoneRects as rect, i (i)}
+							{@const x1 = context.xScale(rect.humMin)}
+							{@const x2 = context.xScale(rect.humMax)}
+							{@const y1 = context.yScale(convertTemperature(rect.tempMax, tempUnit))}
+							{@const y2 = context.yScale(convertTemperature(rect.tempMin, tempUnit))}
+							<rect
+								x={x1}
+								y={y1}
+								width={x2 - x1 + 0.5}
+								height={y2 - y1 + 0.5}
+								fill={rect.color}
+							/>
+						{/each}
+					</g>
+				{/if}
+
+					{#if currentTempDisplay !== undefined && currentHum !== undefined}
+						{@const cx = context.xScale(currentHum)}
+						{@const cy = context.yScale(currentTempDisplay)}
+						<circle
+							{cx}
+							{cy}
+							r="5"
+							fill="rgba(255,255,255,0.3)"
+							stroke="white"
+							stroke-width="2"
+						/>
+					{/if}
+				</Svg>
+			{/snippet}
+		</Chart>
+	</ChartUI.ChartContainer>
+{/if}
+
+<div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 pb-6">
+	{#each Object.entries(chartConfig) as [key, cfg] (key)}
+		<div class="flex items-center gap-1.5">
+			<div class="size-2.5 rounded-[2px]" style="background-color: {cfg.color}"></div>
+			<span class="text-xs text-muted-foreground">{cfg.label}</span>
 		</div>
-	</Card.Footer>
-</Card.Root>
+	{/each}
+</div>

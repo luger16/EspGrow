@@ -1,5 +1,7 @@
 <script lang="ts">
 	import * as Card from "$lib/components/ui/card/index.js";
+	import { Button } from "$lib/components/ui/button/index.js";
+	import ChartNoAxesCombined from "@lucide/svelte/icons/chart-no-axes-combined";
 	import type { Sensor, SensorReading } from "$lib/types";
 	import { settings, formatTemperature } from "$lib/stores/settings.svelte";
 	import { sensorIcons } from "$lib/icons";
@@ -10,7 +12,8 @@
 		sensor,
 		reading,
 		onclick,
-	}: { sensor: Sensor; reading?: SensorReading; onclick?: () => void } = $props();
+		onvpdclick,
+	}: { sensor: Sensor; reading?: SensorReading; onclick?: () => void; onvpdclick?: () => void } = $props();
 
 	const Icon = $derived(sensorIcons[sensor.type]);
 	const displayValue = $derived.by(() => {
@@ -55,6 +58,16 @@
 					{/if}
 				</div>
 			</div>
+			{#if sensor.type === "vpd" && onvpdclick}
+				<Button
+					variant="outline"
+					size="icon"
+					class="size-7 shrink-0"
+					onclick={(e: MouseEvent) => { e.stopPropagation(); onvpdclick(); }}
+				>
+					<ChartNoAxesCombined class="size-3.5" />
+				</Button>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 </button>

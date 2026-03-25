@@ -7,7 +7,7 @@
 	import ClimateOverviewCard from "$lib/components/climate-overview-card.svelte";
 	import EventHistoryModal from "$lib/components/event-history-modal.svelte";
 	import VpdZoneChart from "$lib/components/vpd-zone-chart.svelte";
-	import * as Tabs from "$lib/components/ui/tabs/index.js";
+	import * as Dialog from "$lib/components/ui/dialog/index.js";
 
 	import { sensors, sensorReadings } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
@@ -15,6 +15,7 @@
 	import PowerIcon from "@lucide/svelte/icons/power";
 
 	let alertHistoryOpen = $state(false);
+	let vpdChartOpen = $state(false);
 </script>
 
 <PageHeader title="Dashboard" />
@@ -38,6 +39,7 @@
 					<SensorCard
 						{sensor}
 						reading={sensorReadings[sensor.id]}
+						onvpdclick={sensor.type === "vpd" ? () => (vpdChartOpen = true) : undefined}
 					/>
 				{/each}
 			</div>
@@ -46,18 +48,7 @@
 
 	{#if sensors.length > 0}
 		<section>
-			<Tabs.Root value="trends">
-				<Tabs.List>
-					<Tabs.Trigger value="trends">Trends</Tabs.Trigger>
-					<Tabs.Trigger value="vpd">VPD Zone</Tabs.Trigger>
-				</Tabs.List>
-				<Tabs.Content value="trends">
-					<AnalyticsChart />
-				</Tabs.Content>
-				<Tabs.Content value="vpd">
-					<VpdZoneChart />
-				</Tabs.Content>
-			</Tabs.Root>
+			<AnalyticsChart />
 		</section>
 	{/if}
 
@@ -83,3 +74,9 @@
 	bind:open={alertHistoryOpen}
 	onOpenChange={(open: boolean) => (alertHistoryOpen = open)}
 />
+
+<Dialog.Root bind:open={vpdChartOpen}>
+	<Dialog.Content class="max-w-lg gap-3 p-0 sm:max-w-2xl">
+		<VpdZoneChart />
+	</Dialog.Content>
+</Dialog.Root>
