@@ -10,10 +10,10 @@
 		climateConfig,
 		getIsDay,
 		climateAlerts,
+		systemEvents,
 	} from "$lib/stores/climate.svelte";
-	import { cn } from "$lib/utils";
 
-	let { onalertclick }: { onalertclick?: () => void } = $props();
+	let { onhistoryclick }: { onhistoryclick?: () => void } = $props();
 
 	const PHASE_LABELS: Record<string, string> = {
 		seedling: "Seedling",
@@ -27,6 +27,7 @@
 	const DayNightIcon = $derived(dayNight ? Sun : Moon);
 	const dayNightText = $derived(dayNight ? "Day" : "Night");
 	const activeAlerts = $derived(climateAlerts.length);
+	const eventCount = $derived(systemEvents.length);
 </script>
 
 <Card.Root class="py-3">
@@ -49,11 +50,11 @@
 				</div>
 			{/if}
 		</div>
-		<Button variant="outline" size="icon" class="relative size-8" onclick={onalertclick}>
+		<Button variant="outline" size="icon" class="relative size-8" onclick={onhistoryclick}>
 			<History class="size-4" />
-			{#if activeAlerts > 0}
-				<span class="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-amber-500/70 text-[10px] font-medium text-white tabular-nums">
-					{activeAlerts}
+			{#if eventCount > 0}
+				<span class="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary/70 text-[10px] font-medium text-primary-foreground tabular-nums">
+					{eventCount > 99 ? "99" : eventCount}
 				</span>
 			{/if}
 		</Button>

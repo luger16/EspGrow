@@ -102,3 +102,16 @@ export interface ClimateStatus {
 	currentTargets: PhaseTargets;
 	latestAlert?: ClimateAlert;
 }
+
+// System events (unified event history)
+
+export type SystemEventType = "alert" | "automation" | "device" | "system";
+
+export interface SystemEvent {
+	id: string;
+	type: SystemEventType;
+	title: string;
+	description: string;
+	severity?: "info" | "warning" | "critical";
+	timestamp: Date;
+}

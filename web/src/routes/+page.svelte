@@ -5,7 +5,7 @@
 	import AnalyticsChart from "$lib/components/analytics-chart.svelte";
 	import SensorHistoryModal from "$lib/components/sensor-history-modal.svelte";
 	import ClimateOverviewCard from "$lib/components/climate-overview-card.svelte";
-	import AlertHistoryModal from "$lib/components/alert-history-modal.svelte";
+	import EventHistoryModal from "$lib/components/event-history-modal.svelte";
 	import VpdZoneChart from "$lib/components/vpd-zone-chart.svelte";
 	import * as Tabs from "$lib/components/ui/tabs/index.js";
 
@@ -24,7 +24,7 @@
 <div class="flex flex-1 flex-col gap-6 p-4 pt-0">
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Overview</h2>
-		<ClimateOverviewCard onalertclick={() => (alertHistoryOpen = true)} />
+		<ClimateOverviewCard onhistoryclick={() => (alertHistoryOpen = true)} />
 	</section>
 
 	<section>
@@ -91,7 +91,7 @@
 	/>
 {/if}
 
-<AlertHistoryModal
+<EventHistoryModal
 	bind:open={alertHistoryOpen}
-	onOpenChange={(open) => (alertHistoryOpen = open)}
+	onOpenChange={(open: boolean) => (alertHistoryOpen = open)}
 />

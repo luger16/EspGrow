@@ -6,11 +6,11 @@ import type {
 	PhaseTargets,
 	SensorStatus,
 	SensorType,
+	SystemEvent,
 } from "$lib/types";
 import { DEFAULT_CLIMATE_CONFIG } from "$lib/climate-presets";
 import { websocket } from "./websocket.svelte";
 import { sensors, sensorReadings } from "./sensors.svelte";
-import { toast } from "svelte-sonner";
 
 const SENSOR_TYPE_LABELS: Record<SensorType, string> = {
 	temperature: "Temperature",
@@ -49,11 +49,20 @@ export function formatAlertTitle(alert: ClimateAlert): string {
 
 export const climateConfig = $state<ClimateConfig>({ ...DEFAULT_CLIMATE_CONFIG });
 export const climateAlerts = $state<ClimateAlert[]>([]);
+export const systemEvents = $state<SystemEvent[]>([]);
+
+const MAX_EVENTS = 100;
+
+function pushEvent(event: SystemEvent): void {
+	systemEvents.unshift(event);
+	if (systemEvents.length > MAX_EVENTS) {
+		systemEvents.length = MAX_EVENTS;
+	}
+}
 
 let serverStatus = $state<ClimateStatus | null>(null);
 
 let lastDayState: boolean | null = null;
-let suppressToasts = true;
 
 const HYSTERESIS_OFFSET = 5;
 
@@ -280,22 +289,46 @@ export function initClimateWebSocket(): void {
 			climateAlerts.length = 100;
 		}
 
-		const sensorName = sensors.find((s) => s.id === alert.sensorId)?.name ?? alert.sensorType;
-		const title = formatAlertTitle(alert);
-		const description = formatAlertDescription(alert);
+		pushEvent({
+			id: alert.id,
+			type: "alert",
+			title: formatAlertTitle(alert),
+			description: formatAlertDescription(alert),
+			severity: alert.severity,
+			timestamp: alert.timestamp,
+		});
+	});
 
-		if (!suppressToasts) {
-			if (alert.severity === "critical") {
-				toast.error(title, { description });
-			} else {
-				toast.warning(title, { description });
-			}
-		}
+	websocket.on("automation_trigger", (data: unknown) => {
+		if (!data || typeof data !== "object") return;
+		const msg = data as Record<string, unknown>;
+
+		pushEvent({
+			id: String(msg.id ?? crypto.randomUUID()),
+			type: "automation",
+			title: String(msg.title ?? "Rule Triggered"),
+			description: String(msg.description ?? ""),
+			severity: "info",
+			timestamp: new Date(String(msg.timestamp ?? Date.now())),
+		});
+	});
+
+	websocket.on("device_event", (data: unknown) => {
+		if (!data || typeof data !== "object") return;
+		const msg = data as Record<string, unknown>;
+
+		pushEvent({
+			id: String(msg.id ?? crypto.randomUUID()),
+			type: "device",
+			title: String(msg.title ?? "Device Changed"),
+			description: String(msg.description ?? ""),
+			severity: "info",
+			timestamp: new Date(String(msg.timestamp ?? Date.now())),
+		});
 	});
 
 	websocket.send("get_climate_config");
 	websocket.send("get_climate_status");
-	setTimeout(() => { suppressToasts = false; }, 2000);
 }
 
 function parseTimeToMinutes(time: string): number {

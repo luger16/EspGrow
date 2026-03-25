@@ -301,6 +301,72 @@ function scheduleRandomAlert(): void {
 }
 scheduleRandomAlert();
 
+let eventIdCounter = 0;
+
+function generateMockAutomationEvent(): Record<string, unknown> {
+	const scenarios = [
+		{ rule: "Cool when hot", device: "Exhaust Fan", action: "turned on", sensor: "Temperature", value: "29.1°C", threshold: "28°C" },
+		{ rule: "Cool when hot", device: "Exhaust Fan", action: "turned off", sensor: "Temperature", value: "25.8°C", threshold: "26°C" },
+		{ rule: "Humidify when dry", device: "Humidifier", action: "turned on", sensor: "Humidity", value: "48%", threshold: "50%" },
+		{ rule: "Humidify when dry", device: "Humidifier", action: "turned off", sensor: "Humidity", value: "62%", threshold: "60%" },
+	];
+	const s = scenarios[Math.floor(Math.random() * scenarios.length)];
+	eventIdCounter++;
+	return {
+		id: `auto_${eventIdCounter}`,
+		title: `${s.rule}`,
+		description: `${s.device} ${s.action} — ${s.sensor} at ${s.value} (threshold ${s.threshold})`,
+		timestamp: new Date().toISOString(),
+	};
+}
+
+function generateMockDeviceEvent(): Record<string, unknown> {
+	const scenarios = [
+		{ device: "Exhaust Fan", action: "turned on manually" },
+		{ device: "Exhaust Fan", action: "turned off manually" },
+		{ device: "Grow Light", action: "turned on manually" },
+		{ device: "Humidifier", action: "went offline" },
+		{ device: "Humidifier", action: "came back online" },
+	];
+	const s = scenarios[Math.floor(Math.random() * scenarios.length)];
+	eventIdCounter++;
+	return {
+		id: `dev_${eventIdCounter}`,
+		title: s.device,
+		description: s.action.charAt(0).toUpperCase() + s.action.slice(1),
+		timestamp: new Date().toISOString(),
+	};
+}
+
+function sendInitialEvents(ws: WebSocket): void {
+	const now = Date.now();
+	const events = [
+		{ type: "automation_trigger", data: { id: "auto_init_1", title: "Cool when hot", description: "Exhaust Fan turned on — Temperature at 29.3°C (threshold 28°C)", timestamp: new Date(now - 15 * 60 * 1000).toISOString() } },
+		{ type: "device_event", data: { id: "dev_init_1", title: "Grow Light", description: "Turned on manually", timestamp: new Date(now - 8 * 60 * 1000).toISOString() } },
+		{ type: "automation_trigger", data: { id: "auto_init_2", title: "Humidify when dry", description: "Humidifier turned on — Humidity at 47% (threshold 50%)", timestamp: new Date(now - 3 * 60 * 1000).toISOString() } },
+	];
+	for (const event of events) {
+		sendTo(ws, event);
+	}
+}
+
+function scheduleRandomEvents(): void {
+	setTimeout(() => {
+		const roll = Math.random();
+		if (roll < 0.5) {
+			const event = generateMockAutomationEvent();
+			broadcast({ type: "automation_trigger", data: event });
+			console.log(`[Mock] Automation event: ${event.title}`);
+		} else {
+			const event = generateMockDeviceEvent();
+			broadcast({ type: "device_event", data: event });
+			console.log(`[Mock] Device event: ${event.title}`);
+		}
+		scheduleRandomEvents();
+	}, 20_000 + Math.random() * 40_000);
+}
+scheduleRandomEvents();
+
 // --- WebSocket server ---
 
 const wss = new WebSocketServer({ port: PORT });
@@ -590,6 +656,7 @@ wss.on("connection", (ws) => {
 	sendTo(ws, { type: "devices", data: DEVICES });
 	sendTo(ws, { type: "rules", data: RULES });
 	sendInitialAlerts(ws);
+	sendInitialEvents(ws);
 
 	ws.on("message", (raw) => handleMessage(ws, raw.toString()));
 	ws.on("close", () => console.log("[Mock] Client disconnected"));
