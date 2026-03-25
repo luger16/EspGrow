@@ -1,9 +1,10 @@
-import type { Sensor, SensorReading, HistoricalReading } from "$lib/types";
+import type { Sensor, SensorReading, HistoricalReading, SpectralData } from "$lib/types";
 import { websocket } from "./websocket.svelte";
 
 export const sensors = $state<Sensor[]>([]);
 export const sensorReadings = $state<Record<string, SensorReading>>({});
 export const sensorHistory = $state<Record<string, Record<string, HistoricalReading[]>>>({});
+export const spectralData = $state<{ current: SpectralData | null }>({ current: null });
 
 interface PpfdCalibration {
 	factor: number;
@@ -79,6 +80,13 @@ export function initSensorWebSocket(): void {
 				typeof reading.value === "number"
 			) {
 				updateSensorReading(reading.id, reading.value);
+
+				if (Array.isArray(reading.channels)) {
+					spectralData.current = {
+						channels: reading.channels as number[],
+						timestamp: new Date(),
+					};
+				}
 			}
 		}
 	});

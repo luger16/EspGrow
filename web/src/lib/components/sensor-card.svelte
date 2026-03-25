@@ -13,7 +13,8 @@
 		reading,
 		onclick,
 		onvpdclick,
-	}: { sensor: Sensor; reading?: SensorReading; onclick?: () => void; onvpdclick?: () => void } = $props();
+		onspectrumclick,
+	}: { sensor: Sensor; reading?: SensorReading; onclick?: () => void; onvpdclick?: () => void; onspectrumclick?: () => void } = $props();
 
 	const Icon = $derived(sensorIcons[sensor.type]);
 	const displayValue = $derived.by(() => {
@@ -65,6 +66,16 @@
 					size="icon"
 					class="size-7 shrink-0"
 					onclick={(e: MouseEvent) => { e.stopPropagation(); onvpdclick(); }}
+				>
+					<ChartNoAxesCombined class="size-3.5" />
+				</Button>
+			{/if}
+			{#if sensor.type === "light" && onspectrumclick}
+				<Button
+					variant="outline"
+					size="icon"
+					class="size-7 shrink-0"
+					onclick={(e: MouseEvent) => { e.stopPropagation(); onspectrumclick(); }}
 				>
 					<ChartNoAxesCombined class="size-3.5" />
 				</Button>

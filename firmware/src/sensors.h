@@ -13,5 +13,6 @@ bool hasAnySensor();
 float getPpfdCalibrationFactor();
 void setPpfdCalibrationFactor(float factor);
 float getRawPpfd();
+bool getSpectralChannels(uint16_t* out, size_t len);
 
 }  // namespace Sensors

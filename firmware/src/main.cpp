@@ -417,6 +417,16 @@ namespace {
                 SensorConfig::Sensor* cfg = SensorConfig::getSensor(sensorIds[i]);
                 if (cfg) entry["type"] = cfg->type;
                 entry["value"] = value;
+
+                if (cfg && strcmp(cfg->hardwareType, "as7341") == 0) {
+                    uint16_t channels[8];
+                    if (Sensors::getSpectralChannels(channels, 8)) {
+                        JsonArray ch = entry["channels"].to<JsonArray>();
+                        for (int j = 0; j < 8; j++) {
+                            ch.add(channels[j]);
+                        }
+                    }
+                }
                 
                 History::record(sensorIds[i], value);
                 cachedSensorReadings[String(sensorIds[i])] = value;

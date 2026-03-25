@@ -7,6 +7,7 @@
 	import ClimateOverviewCard from "$lib/components/climate-overview-card.svelte";
 	import EventHistoryModal from "$lib/components/event-history-modal.svelte";
 	import VpdZoneChart from "$lib/components/vpd-zone-chart.svelte";
+	import SpectrumChart from "$lib/components/spectrum-chart.svelte";
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
 
 	import { sensors, sensorReadings } from "$lib/stores/sensors.svelte";
@@ -16,6 +17,7 @@
 
 	let alertHistoryOpen = $state(false);
 	let vpdChartOpen = $state(false);
+	let spectrumChartOpen = $state(false);
 </script>
 
 <PageHeader title="Dashboard" />
@@ -36,11 +38,12 @@
 		{:else}
 			<div class="grid grid-cols-2 gap-3 @lg:grid-cols-3 @2xl:grid-cols-4">
 				{#each sensors as sensor (sensor.id)}
-					<SensorCard
-						{sensor}
-						reading={sensorReadings[sensor.id]}
-						onvpdclick={sensor.type === "vpd" ? () => (vpdChartOpen = true) : undefined}
-					/>
+				<SensorCard
+					{sensor}
+					reading={sensorReadings[sensor.id]}
+					onvpdclick={sensor.type === "vpd" ? () => (vpdChartOpen = true) : undefined}
+					onspectrumclick={sensor.type === "light" ? () => (spectrumChartOpen = true) : undefined}
+				/>
 				{/each}
 			</div>
 		{/if}
@@ -78,5 +81,11 @@
 <Dialog.Root bind:open={vpdChartOpen}>
 	<Dialog.Content class="max-w-lg gap-3 p-0 sm:max-w-2xl">
 		<VpdZoneChart />
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={spectrumChartOpen}>
+	<Dialog.Content class="max-w-lg gap-3 p-0 sm:max-w-2xl">
+		<SpectrumChart />
 	</Dialog.Content>
 </Dialog.Root>

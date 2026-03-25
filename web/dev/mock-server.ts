@@ -734,11 +734,19 @@ setInterval(() => {
 		values["dewpoint_calc"] = Math.round((237.3 * (Math.log(hum / 100) + (17.27 * temp) / (temp + 237.3))) / (17.27 - (Math.log(hum / 100) + (17.27 * temp) / (temp + 237.3))) * 10) / 10;
 	}
 
-	const data = SENSORS.map((s) => ({
-		id: s.id,
-		type: s.type,
-		value: values[s.id] ?? 0,
-	}));
+	const data = SENSORS.map((s) => {
+		const entry: Record<string, unknown> = {
+			id: s.id,
+			type: s.type,
+			value: values[s.id] ?? 0,
+		};
+
+		if (s.id === "as7341_ppfd") {
+			entry.channels = [180, 420, 310, 280, 260, 220, 580, 510];
+		}
+
+		return entry;
+	});
 
 	broadcast({ type: "sensors", data });
 

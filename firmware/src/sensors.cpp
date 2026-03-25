@@ -25,6 +25,7 @@ namespace {
 
     struct LightReading {
         float ppfd = NAN;
+        uint16_t channels[8] = {0};
         bool valid = false;
     };
 
@@ -223,6 +224,15 @@ void read() {
             uint16_t f7 = as7341.getChannel(AS7341_CHANNEL_630nm_F7);
             uint16_t f8 = as7341.getChannel(AS7341_CHANNEL_680nm_F8);
             
+            as7341Data.channels[0] = f1;
+            as7341Data.channels[1] = f2;
+            as7341Data.channels[2] = f3;
+            as7341Data.channels[3] = f4;
+            as7341Data.channels[4] = f5;
+            as7341Data.channels[5] = f6;
+            as7341Data.channels[6] = f7;
+            as7341Data.channels[7] = f8;
+
             // Spectral weighting factors from literature (corrects sensor sensitivity bias)
             // F8 (680nm) is baseline; blue channels are 3-6x more sensitive than red
             float weighted = (f1 * 5.88f) + (f2 * 3.33f) + (f3 * 2.63f) + (f4 * 2.04f) +
@@ -292,6 +302,14 @@ void setPpfdCalibrationFactor(float factor) {
 float getRawPpfd() {
     if (!as7341Found || !as7341Data.valid) return NAN;
     return as7341Data.ppfd / ppfdCalFactor;
+}
+
+bool getSpectralChannels(uint16_t* out, size_t len) {
+    if (!as7341Found || !as7341Data.valid || len < 8) return false;
+    for (size_t i = 0; i < 8; i++) {
+        out[i] = as7341Data.channels[i];
+    }
+    return true;
 }
 
 }

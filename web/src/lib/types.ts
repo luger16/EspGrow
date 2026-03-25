@@ -126,3 +126,8 @@ export interface DeviceEnergy {
 	kWh: number;
 	resetTimestamp: Date;
 }
+
+export interface SpectralData {
+	channels: number[];
+	timestamp: Date;
+}
