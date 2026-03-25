@@ -51,6 +51,25 @@ export const climateConfig = $state<ClimateConfig>({ ...DEFAULT_CLIMATE_CONFIG }
 export const climateAlerts = $state<ClimateAlert[]>([]);
 export const systemEvents = $state<SystemEvent[]>([]);
 
+let lastSeenEventTimestamp = $state(Date.now());
+let lastSeenAlertTimestamp = $state(Date.now());
+
+export function markEventsSeen(): void {
+	lastSeenEventTimestamp = Date.now();
+}
+
+export function markAlertsSeen(): void {
+	lastSeenAlertTimestamp = Date.now();
+}
+
+export function getUnseenEventCount(): number {
+	return systemEvents.filter((e) => e.timestamp.getTime() > lastSeenEventTimestamp).length;
+}
+
+export function getUnseenAlertCount(): number {
+	return climateAlerts.filter((a) => a.timestamp.getTime() > lastSeenAlertTimestamp).length;
+}
+
 const MAX_EVENTS = 100;
 
 function pushEvent(event: SystemEvent): void {

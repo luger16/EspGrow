@@ -1,6 +1,6 @@
 <script lang="ts">
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
-	import { systemEvents } from "$lib/stores/climate.svelte";
+	import { systemEvents, markEventsSeen, markAlertsSeen } from "$lib/stores/climate.svelte";
 	import { formatTimeFromDate } from "$lib/stores/settings.svelte";
 	import { cn } from "$lib/utils";
 	import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
@@ -16,6 +16,13 @@
 		open?: boolean;
 		onOpenChange?: (open: boolean) => void;
 	} = $props();
+
+	$effect(() => {
+		if (open) {
+			markEventsSeen();
+			markAlertsSeen();
+		}
+	});
 
 	const recentEvents = $derived(systemEvents.slice(0, 50));
 

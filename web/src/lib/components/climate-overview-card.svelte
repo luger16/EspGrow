@@ -12,8 +12,9 @@
 	import {
 		climateConfig,
 		getIsDay,
-		climateAlerts,
-		systemEvents,
+		getUnseenEventCount,
+		getUnseenAlertCount,
+		markAlertsSeen,
 	} from "$lib/stores/climate.svelte";
 	import {
 		deviceEnergies,
@@ -38,8 +39,8 @@
 	const dayNight = $derived(getIsDay());
 	const DayNightIcon = $derived(dayNight ? Sun : Moon);
 	const dayNightText = $derived(dayNight ? "Day" : "Night");
-	const activeAlerts = $derived(climateAlerts.length);
-	const eventCount = $derived(systemEvents.length);
+	const activeAlerts = $derived(getUnseenAlertCount());
+	const eventCount = $derived(getUnseenEventCount());
 	const totalWatts = $derived(getTotalWatts());
 	const totalKWh = $derived(getTotalKWh());
 	const hasEnergy = $derived(deviceEnergies.length > 0);
