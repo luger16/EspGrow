@@ -59,45 +59,52 @@
 </script>
 
 <Card.Root class="py-3">
-	<Card.Content class="flex items-center justify-between px-4">
-		<div class="flex items-center gap-3">
-			<div class="flex items-center gap-1.5">
-				<Leaf class="size-4 text-muted-foreground" />
-				<span class="text-sm font-medium">{activePhaseLabel}</span>
-			</div>
-			<span class="text-muted-foreground/40">·</span>
-			<div class="flex items-center gap-1 text-sm text-muted-foreground">
-				<DayNightIcon class="size-3.5" />
-				<span>{dayNightText}</span>
-			</div>
-			{#if activeAlerts > 0}
-				<span class="text-muted-foreground/40">·</span>
-				<div class="flex items-center gap-1 text-sm text-amber-500">
-					<TriangleAlert class="size-3.5" />
-					<span>{activeAlerts}</span>
+	<Card.Content class="flex flex-col gap-2 px-4">
+		<div class="flex items-center justify-between">
+			<div class="flex items-center gap-3">
+				<div class="flex items-center gap-1.5">
+					<Leaf class="size-4 text-muted-foreground" />
+					<span class="text-sm font-medium">{activePhaseLabel}</span>
 				</div>
-			{/if}
-			{#if hasEnergy}
 				<span class="text-muted-foreground/40">·</span>
-				<button
-					class="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-					onclick={() => (energyDialogOpen = true)}
-				>
-					<Zap class="size-3.5" />
-					<span class="tabular-nums">{Math.round(totalWatts)}W</span>
-					<span class="text-muted-foreground/60">·</span>
-					<span class="tabular-nums">{totalKWh} kWh</span>
-				</button>
-			{/if}
+				<div class="flex items-center gap-1 text-sm text-muted-foreground">
+					<DayNightIcon class="size-3.5" />
+					<span>{dayNightText}</span>
+				</div>
+			</div>
+			<Button variant="outline" size="icon" class="relative size-8" onclick={onhistoryclick}>
+				<History class="size-4" />
+				{#if eventCount > 0}
+					<span class="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground tabular-nums">
+						{eventCount > 99 ? "99" : eventCount}
+					</span>
+				{/if}
+			</Button>
 		</div>
-		<Button variant="outline" size="icon" class="relative size-8" onclick={onhistoryclick}>
-			<History class="size-4" />
-			{#if eventCount > 0}
-				<span class="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground tabular-nums">
-					{eventCount > 99 ? "99" : eventCount}
-				</span>
-			{/if}
-		</Button>
+		{#if activeAlerts > 0 || hasEnergy}
+			<div class="flex items-center gap-3 border-t border-border/50 pt-2">
+				{#if activeAlerts > 0}
+					<div class="flex items-center gap-1 text-sm text-amber-500">
+						<TriangleAlert class="size-3.5" />
+						<span>{activeAlerts} {activeAlerts === 1 ? "alert" : "alerts"}</span>
+					</div>
+				{/if}
+				{#if activeAlerts > 0 && hasEnergy}
+					<span class="text-muted-foreground/40">·</span>
+				{/if}
+				{#if hasEnergy}
+					<button
+						class="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+						onclick={() => (energyDialogOpen = true)}
+					>
+						<Zap class="size-3.5" />
+						<span class="tabular-nums">{Math.round(totalWatts)}W</span>
+						<span class="text-muted-foreground/60">·</span>
+						<span class="tabular-nums">{totalKWh} kWh</span>
+					</button>
+				{/if}
+			</div>
+		{/if}
 	</Card.Content>
 </Card.Root>
 
