@@ -4,7 +4,7 @@
 #include "websocket_server.h"
 #include "device_controller.h"
 #include "sensors.h"
-#include "automation.h"
+#include "device_modes.h"
 #include "devices.h"
 #include "sensor_config.h"
 #include "history.h"
@@ -20,16 +20,32 @@ namespace {
     std::map<String, float> cachedSensorReadings;
     bool sensorReadingsDirty = false;
 
-    void broadcastRules() {
+    void broadcastDeviceModes() {
         JsonDocument doc;
-        doc["type"] = "rules";
+        doc["type"] = "device_modes";
         
-        String rulesJson;
-        Automation::getRulesJson(rulesJson);
+        String modesJson;
+        DeviceModes::getModesJson(modesJson);
         
         JsonDocument dataDoc;
-        deserializeJson(dataDoc, rulesJson);
+        deserializeJson(dataDoc, modesJson);
         doc["data"] = dataDoc.as<JsonArray>();
+        
+        String out;
+        serializeJson(doc, out);
+        WebSocketServer::broadcast(out);
+    }
+
+    void broadcastDayNightConfig() {
+        JsonDocument doc;
+        doc["type"] = "daynight_config";
+        
+        String configJson;
+        DeviceModes::getDayNightConfigJson(configJson);
+        
+        JsonDocument dataDoc;
+        deserializeJson(dataDoc, configJson);
+        doc["data"] = dataDoc;
         
         String out;
         serializeJson(doc, out);
@@ -149,15 +165,8 @@ namespace {
             Devices::Device* device = Devices::findDeviceByTarget(
                 method ? method : "", target ? target : "");
             
-            bool overrideActive = false;
-            unsigned long overrideRemaining = 0;
             if (success && device) {
                 Devices::setDeviceState(device->id, on);
-                if (Automation::isDeviceUsedByEnabledRule(device->id)) {
-                    Automation::setManualOverride(device->id);
-                    overrideActive = true;
-                    overrideRemaining = Automation::getOverrideRemaining(device->id);
-                }
             }
             
             JsonDocument response;
@@ -169,74 +178,44 @@ namespace {
             if (device) {
                 respData["deviceId"] = device->id;
             }
-            if (overrideActive) {
-                respData["overrideActive"] = true;
-                respData["overrideRemainingMs"] = overrideRemaining;
-            }
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
-        else if (strcmp(type, "get_rules") == 0) {
-            broadcastRules();
+        else if (strcmp(type, "get_device_modes") == 0) {
+            broadcastDeviceModes();
+            broadcastDayNightConfig();
         }
-        else if (strcmp(type, "add_rule") == 0) {
-            JsonDocument ruleDoc;
-            ruleDoc["id"] = payload["id"];
-            ruleDoc["name"] = payload["name"];
-            ruleDoc["enabled"] = payload["enabled"];
-            ruleDoc["ruleType"] = payload["ruleType"];
-            ruleDoc["sensorId"] = payload["sensorId"];
-            ruleDoc["operator"] = payload["operator"];
-            ruleDoc["threshold"] = payload["threshold"];
-            ruleDoc["thresholdOff"] = payload["thresholdOff"];
-            ruleDoc["useHysteresis"] = payload["useHysteresis"];
-            ruleDoc["minRunTimeMs"] = payload["minRunTimeMs"];
-            ruleDoc["onTime"] = payload["onTime"];
-            ruleDoc["offTime"] = payload["offTime"];
-            ruleDoc["deviceId"] = payload["deviceId"];
-            ruleDoc["deviceMethod"] = payload["deviceMethod"];
-            ruleDoc["deviceTarget"] = payload["deviceTarget"];
-            ruleDoc["action"] = payload["action"];
+        else if (strcmp(type, "set_device_mode") == 0) {
+            JsonDocument modeDoc;
+            modeDoc["deviceId"] = payload["deviceId"];
+            modeDoc["mode"] = payload["mode"];
+            if (payload["triggers"].is<JsonArray>()) modeDoc["triggers"] = payload["triggers"];
+            if (payload["cycle"].is<JsonObject>()) modeDoc["cycle"] = payload["cycle"];
+            if (payload["schedule"].is<JsonObject>()) modeDoc["schedule"] = payload["schedule"];
             
-            Automation::addRule(ruleDoc);
-            broadcastRules();
+            DeviceModes::setMode(modeDoc);
+            broadcastDeviceModes();
             broadcastDevices();
         }
-        else if (strcmp(type, "update_rule") == 0) {
-            const char* ruleId = payload["id"];
-            JsonDocument updates;
-            if (payload["name"].is<const char*>()) updates["name"] = payload["name"];
-            if (payload["enabled"].is<bool>()) updates["enabled"] = payload["enabled"];
-            if (payload["ruleType"].is<const char*>()) updates["ruleType"] = payload["ruleType"];
-            if (payload["sensorId"].is<const char*>()) updates["sensorId"] = payload["sensorId"];
-            if (payload["operator"].is<const char*>()) updates["operator"] = payload["operator"];
-            if (payload["threshold"].is<float>()) updates["threshold"] = payload["threshold"];
-            if (payload["thresholdOff"].is<float>()) updates["thresholdOff"] = payload["thresholdOff"];
-            if (payload["useHysteresis"].is<bool>()) updates["useHysteresis"] = payload["useHysteresis"];
-            if (payload["minRunTimeMs"].is<unsigned long>()) updates["minRunTimeMs"] = payload["minRunTimeMs"];
-            if (payload["onTime"].is<const char*>()) updates["onTime"] = payload["onTime"];
-            if (payload["offTime"].is<const char*>()) updates["offTime"] = payload["offTime"];
-            if (payload["deviceId"].is<const char*>()) updates["deviceId"] = payload["deviceId"];
-            if (payload["deviceMethod"].is<const char*>()) updates["deviceMethod"] = payload["deviceMethod"];
-            if (payload["deviceTarget"].is<const char*>()) updates["deviceTarget"] = payload["deviceTarget"];
-            if (payload["action"].is<const char*>()) updates["action"] = payload["action"];
+        else if (strcmp(type, "delete_device_mode") == 0) {
+            const char* deviceId = payload["deviceId"];
+            if (deviceId) {
+                DeviceModes::removeMode(deviceId);
+                broadcastDeviceModes();
+                broadcastDevices();
+            }
+        }
+        else if (strcmp(type, "set_daynight_config") == 0) {
+            JsonDocument configDoc;
+            if (payload["useSchedule"].is<bool>()) configDoc["useSchedule"] = payload["useSchedule"];
+            if (payload["dayStartTime"].is<const char*>()) configDoc["dayStartTime"] = payload["dayStartTime"];
+            if (payload["nightStartTime"].is<const char*>()) configDoc["nightStartTime"] = payload["nightStartTime"];
+            if (payload["lightThreshold"].is<float>()) configDoc["lightThreshold"] = payload["lightThreshold"];
+            if (payload["lightHysteresis"].is<float>()) configDoc["lightHysteresis"] = payload["lightHysteresis"];
             
-            Automation::updateRule(ruleId, updates);
-            broadcastRules();
-            broadcastDevices();
-        }
-        else if (strcmp(type, "remove_rule") == 0) {
-            const char* ruleId = payload["id"];
-            Automation::removeRule(ruleId);
-            broadcastRules();
-            broadcastDevices();
-        }
-        else if (strcmp(type, "toggle_rule") == 0) {
-            const char* ruleId = payload["id"];
-            Automation::toggleRule(ruleId);
-            broadcastRules();
-            broadcastDevices();
+            DeviceModes::setDayNightConfig(configDoc);
+            broadcastDayNightConfig();
         }
         else if (strcmp(type, "get_devices") == 0) {
             broadcastDevices();
@@ -266,10 +245,10 @@ namespace {
         }
         else if (strcmp(type, "remove_device") == 0) {
             const char* deviceId = payload["id"];
-            Automation::removeRulesForDevice(deviceId);
+            DeviceModes::removeModeForDevice(deviceId);
             Devices::removeDevice(deviceId);
             broadcastDevices();
-            broadcastRules();
+            broadcastDeviceModes();
         }
         else if (strcmp(type, "get_sensors") == 0) {
             broadcastSensors();
@@ -361,20 +340,6 @@ namespace {
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
-        }
-        else if (strcmp(type, "clear_override") == 0) {
-            const char* deviceId = payload["deviceId"];
-            if (deviceId) {
-                Automation::clearOverride(deviceId);
-                Automation::forceEvaluation(cachedSensorReadings);
-                
-                JsonDocument response;
-                response["type"] = "override_cleared";
-                response["data"]["deviceId"] = deviceId;
-                String out;
-                serializeJson(response, out);
-                WebSocketServer::broadcast(out);
-            }
         }
         else if (strcmp(type, "get_system_info") == 0) {
             JsonDocument response;
@@ -468,13 +433,12 @@ void setup() {
     Devices::init();
     SensorConfig::init();
     History::init();
-    Automation::init();
-    Automation::setDeviceStateCallback([](const char* deviceId, const char* method, const char* target, bool on) {
+    DeviceModes::init();
+    DeviceModes::setDeviceStateCallback([](const char* deviceId, bool on) {
         JsonDocument response;
         response["type"] = "device_status";
         JsonObject respData = response["data"].to<JsonObject>();
         respData["deviceId"] = deviceId;
-        respData["target"] = target;
         respData["on"] = on;
         respData["success"] = true;
         String out;
@@ -513,8 +477,7 @@ void loop() {
         
         if (sensorReadingsDirty) {
             sensorReadingsDirty = false;
-            Automation::clearExpiredOverrides();
-            Automation::loop(cachedSensorReadings);
+            DeviceModes::loop(cachedSensorReadings);
         }
     }
 }

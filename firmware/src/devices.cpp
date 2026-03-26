@@ -1,6 +1,6 @@
 #include "devices.h"
 #include "storage.h"
-#include "automation.h"
+#include "device_modes.h"
 #include <vector>
 
 namespace Devices {
@@ -152,8 +152,7 @@ Device* findDeviceByTarget(const char* method, const char* target) {
 
 void computeControlModes() {
     for (auto& device : devices) {
-        const char* mode = Automation::isDeviceUsedByEnabledRule(device.id) ? "automatic" : "manual";
-        strlcpy(device.controlMode, mode, sizeof(device.controlMode));
+        strlcpy(device.controlMode, "manual", sizeof(device.controlMode));
     }
 }
 
