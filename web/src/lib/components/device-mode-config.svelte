@@ -6,6 +6,7 @@
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { Switch } from "$lib/components/ui/switch/index.js";
+	import CircularTimePicker from "$lib/components/circular-time-picker.svelte";
 	import { setDeviceMode, deleteDeviceMode, getDeviceMode } from "$lib/stores/device-modes.svelte";
 	import { sensors } from "$lib/stores/sensors.svelte";
 	import type { Device, DeviceMode, AutoTrigger, DeviceModeConfig } from "$lib/types";
@@ -26,6 +27,39 @@
 	let cycleDayOnly = $state(false);
 	let scheduleStart = $state("06:00");
 	let scheduleEnd = $state("22:00");
+
+	function timeToMinutes(time: string): number {
+		const [h, m] = time.split(":").map(Number);
+		return h * 60 + m;
+	}
+
+	let scheduleDuration = $derived.by(() => {
+		const startMin = timeToMinutes(scheduleStart);
+		const endMin = timeToMinutes(scheduleEnd);
+		const totalMin = endMin >= startMin ? endMin - startMin : 1440 - startMin + endMin;
+		const hours = Math.floor(totalMin / 60);
+		const mins = totalMin % 60;
+		if (hours === 0) return `${mins}m`;
+		if (mins === 0) return `${hours}h`;
+		return `${hours}h ${mins}m`;
+	});
+
+	let scheduleBarStyle = $derived.by(() => {
+		const startMin = timeToMinutes(scheduleStart);
+		const endMin = timeToMinutes(scheduleEnd);
+		const startPct = (startMin / 1440) * 100;
+		const endPct = (endMin / 1440) * 100;
+		if (endMin >= startMin) {
+			return { segments: [{ left: startPct, width: endPct - startPct }] };
+		}
+		// Overnight: two segments (start→midnight, midnight→end)
+		return {
+			segments: [
+				{ left: startPct, width: 100 - startPct },
+				{ left: 0, width: endPct },
+			],
+		};
+	});
 
 	const modeOptions: { value: DeviceMode; label: string }[] = [
 		{ value: "off", label: "Off" },
@@ -217,18 +251,9 @@
 				</div>
 			{/if}
 
-			{#if mode === "schedule"}
-				<div class="grid grid-cols-2 gap-2">
-					<div class="grid gap-1.5">
-						<Label class="text-xs">Start time</Label>
-						<Input type="time" class="h-8 text-xs" bind:value={scheduleStart} />
-					</div>
-					<div class="grid gap-1.5">
-						<Label class="text-xs">End time</Label>
-						<Input type="time" class="h-8 text-xs" bind:value={scheduleEnd} />
-					</div>
-				</div>
-			{/if}
+		{#if mode === "schedule"}
+			<CircularTimePicker bind:startTime={scheduleStart} bind:endTime={scheduleEnd} />
+		{/if}
 		</div>
 		<Dialog.Footer class="flex-col gap-2 sm:flex-row sm:justify-between">
 			{#if getDeviceMode(device.id)}
