@@ -7,26 +7,32 @@
 	import { spectralData } from "$lib/stores/sensors.svelte";
 
 	const CHANNELS = [
-		{ label: "415nm", color: "hsl(270 70% 60%)", colorAlpha: "hsl(270 70% 60% / 0.4)" },
-		{ label: "445nm", color: "hsl(240 70% 60%)", colorAlpha: "hsl(240 70% 60% / 0.4)" },
-		{ label: "480nm", color: "hsl(200 80% 55%)", colorAlpha: "hsl(200 80% 55% / 0.4)" },
-		{ label: "515nm", color: "hsl(140 65% 45%)", colorAlpha: "hsl(140 65% 45% / 0.4)" },
-		{ label: "555nm", color: "hsl(80 70% 45%)", colorAlpha: "hsl(80 70% 45% / 0.4)" },
-		{ label: "590nm", color: "hsl(40 90% 50%)", colorAlpha: "hsl(40 90% 50% / 0.4)" },
-		{ label: "630nm", color: "hsl(10 80% 50%)", colorAlpha: "hsl(10 80% 50% / 0.4)" },
-		{ label: "680nm", color: "hsl(0 70% 45%)", colorAlpha: "hsl(0 70% 45% / 0.4)" },
+		{ label: "415nm", color: "hsl(270 70% 60%)" },
+		{ label: "445nm", color: "hsl(240 70% 60%)" },
+		{ label: "480nm", color: "hsl(200 80% 55%)" },
+		{ label: "515nm", color: "hsl(140 65% 45%)" },
+		{ label: "555nm", color: "hsl(80 70% 45%)" },
+		{ label: "590nm", color: "hsl(40 90% 50%)" },
+		{ label: "630nm", color: "hsl(0 80% 50%)" },
+		{ label: "680nm", color: "hsl(350 70% 38%)" },
 	];
+
+	const peakValue = $derived(
+		spectralData.current ? Math.max(...spectralData.current.channels, 1) : 1
+	);
 
 	const chartData = $derived(
 		spectralData.current
-			? CHANNELS.map((ch, i) => ({
-					label: ch.label,
-					value: spectralData.current!.channels[i] ?? 0,
-				}))
+			? [
+					{ label: "380nm", value: 0 },
+					...CHANNELS.map((ch, i) => ({
+						label: ch.label,
+						value: Math.round(((spectralData.current!.channels[i] ?? 0) / peakValue) * 100),
+					})),
+					{ label: "730nm", value: 0 },
+				]
 			: []
 	);
-
-	const maxValue = $derived(Math.max(...chartData.map((d) => d.value), 1));
 
 	const chartConfig: ChartUI.ChartConfig = {
 		spectrum: { label: "Intensity", color: "hsl(0 0% 50%)" },
@@ -55,20 +61,12 @@
 			xScale={scalePoint().padding(0.1)}
 			y="value"
 			yScale={scaleLinear()}
-			yDomain={[0, maxValue]}
+			yDomain={[0, 100]}
 			padding={{ top: 8, bottom: 36, left: 50, right: 8 }}
 		>
 			<Svg>
 				<defs>
-					<linearGradient id="spectrum-fill" x1="0" x2="1" y1="0" y2="0">
-						{#each CHANNELS as ch, i (ch.label)}
-							<stop
-								offset="{(i / (CHANNELS.length - 1)) * 100}%"
-								stop-color={ch.colorAlpha}
-							/>
-						{/each}
-					</linearGradient>
-					<linearGradient id="spectrum-stroke" x1="0" x2="1" y1="0" y2="0">
+					<linearGradient id="spectrum-h" x1="0" x2="1" y1="0" y2="0">
 						{#each CHANNELS as ch, i (ch.label)}
 							<stop
 								offset="{(i / (CHANNELS.length - 1)) * 100}%"
@@ -78,10 +76,10 @@
 					</linearGradient>
 				</defs>
 				<Axis placement="bottom" />
-				<Axis placement="left" format={(v) => `${v}`} />
+				<Axis placement="left" ticks={[0, 50, 100]} format={(v) => `${v}%`} />
 				<Area
-					fill="url(#spectrum-fill)"
-					line={{ stroke: "url(#spectrum-stroke)", strokeWidth: 2 }}
+					fill="url(#spectrum-h)"
+					line={{ stroke: "none" }}
 					curve={curveMonotoneX}
 				/>
 			</Svg>
