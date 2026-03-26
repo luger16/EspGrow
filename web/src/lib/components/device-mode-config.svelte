@@ -21,8 +21,8 @@
 
 	let mode = $state<DeviceMode>("off");
 	let triggers = $state<AutoTrigger[]>([]);
-	let cycleOnSec = $state(60);
-	let cycleOffSec = $state(60);
+	let cycleOnMin = $state(1);
+	let cycleOffMin = $state(1);
 	let cycleDayOnly = $state(false);
 	let scheduleStart = $state("06:00");
 	let scheduleEnd = $state("22:00");
@@ -48,16 +48,16 @@
 			if (existing) {
 				mode = existing.mode;
 				triggers = existing.triggers.map((t) => ({ ...t }));
-				cycleOnSec = existing.cycle.onDurationSec;
-				cycleOffSec = existing.cycle.offDurationSec;
+				cycleOnMin = Math.round(existing.cycle.onDurationSec / 60) || 1;
+				cycleOffMin = Math.round(existing.cycle.offDurationSec / 60) || 1;
 				cycleDayOnly = existing.cycle.dayOnly;
 				scheduleStart = existing.schedule.startTime;
 				scheduleEnd = existing.schedule.endTime;
 			} else {
 				mode = "off";
 				triggers = [];
-				cycleOnSec = 60;
-				cycleOffSec = 60;
+				cycleOnMin = 1;
+				cycleOffMin = 1;
 				cycleDayOnly = false;
 				scheduleStart = "06:00";
 				scheduleEnd = "22:00";
@@ -86,8 +86,8 @@
 			mode,
 			triggers: mode === "auto" ? triggers : [],
 			cycle: {
-				onDurationSec: Math.max(5, cycleOnSec),
-				offDurationSec: Math.max(5, cycleOffSec),
+				onDurationSec: Math.max(60, cycleOnMin * 60),
+				offDurationSec: Math.max(60, cycleOffMin * 60),
 				dayOnly: cycleDayOnly,
 			},
 			schedule: {
@@ -202,12 +202,12 @@
 				<div class="grid gap-3">
 					<div class="grid grid-cols-2 gap-2">
 						<div class="grid gap-1.5">
-							<Label class="text-xs">On duration (sec)</Label>
-							<Input type="number" min="5" class="h-8 text-xs" bind:value={cycleOnSec} />
+							<Label class="text-xs">On duration (min)</Label>
+							<Input type="number" min="1" class="h-8 text-xs" bind:value={cycleOnMin} />
 						</div>
 						<div class="grid gap-1.5">
-							<Label class="text-xs">Off duration (sec)</Label>
-							<Input type="number" min="5" class="h-8 text-xs" bind:value={cycleOffSec} />
+							<Label class="text-xs">Off duration (min)</Label>
+							<Input type="number" min="1" class="h-8 text-xs" bind:value={cycleOffMin} />
 						</div>
 					</div>
 					<div class="flex items-center gap-2">

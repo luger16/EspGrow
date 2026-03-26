@@ -48,8 +48,10 @@
 				return descriptions.join(" or ");
 			}
 			case "cycle": {
+				const onMin = Math.round(config.cycle.onDurationSec / 60);
+				const offMin = Math.round(config.cycle.offDurationSec / 60);
 				const dayLabel = config.cycle.dayOnly ? " (day only)" : "";
-				return `${config.cycle.onDurationSec}s on / ${config.cycle.offDurationSec}s off${dayLabel}`;
+				return `${onMin}m on / ${offMin}m off${dayLabel}`;
 			}
 			case "schedule":
 				return `${config.schedule.startTime} – ${config.schedule.endTime}`;
