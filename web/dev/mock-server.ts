@@ -156,7 +156,6 @@ interface DayNightConfig {
 	dayStartTime: string;
 	nightStartTime: string;
 	lightThreshold: number;
-	lightHysteresis: number;
 	isDaytime: boolean;
 }
 
@@ -165,7 +164,6 @@ const DAY_NIGHT_CONFIG: DayNightConfig = {
 	dayStartTime: "06:00",
 	nightStartTime: "22:00",
 	lightThreshold: 50,
-	lightHysteresis: 10,
 	isDaytime: true,
 };
 
@@ -564,7 +562,6 @@ function handleMessage(ws: WebSocket, raw: string): void {
 			if (typeof payload.dayStartTime === "string") DAY_NIGHT_CONFIG.dayStartTime = payload.dayStartTime as string;
 			if (typeof payload.nightStartTime === "string") DAY_NIGHT_CONFIG.nightStartTime = payload.nightStartTime as string;
 			if (typeof payload.lightThreshold === "number") DAY_NIGHT_CONFIG.lightThreshold = payload.lightThreshold as number;
-			if (typeof payload.lightHysteresis === "number") DAY_NIGHT_CONFIG.lightHysteresis = payload.lightHysteresis as number;
 			DAY_NIGHT_CONFIG.isDaytime = new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 20;
 			broadcast({ type: "daynight_config", data: DAY_NIGHT_CONFIG });
 			break;

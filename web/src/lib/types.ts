@@ -70,7 +70,6 @@ export interface DayNightConfig {
 	dayStartTime: string;
 	nightStartTime: string;
 	lightThreshold: number;
-	lightHysteresis: number;
 	useSchedule: boolean;
 	isDaytime?: boolean;
 }

@@ -6,7 +6,6 @@ export const dayNightConfig = $state<DayNightConfig>({
 	dayStartTime: "06:00",
 	nightStartTime: "22:00",
 	lightThreshold: 50,
-	lightHysteresis: 10,
 	useSchedule: false,
 });
 
@@ -30,7 +29,6 @@ export function setDayNightConfig(config: Omit<DayNightConfig, "isDaytime">): vo
 		dayStartTime: config.dayStartTime,
 		nightStartTime: config.nightStartTime,
 		lightThreshold: config.lightThreshold,
-		lightHysteresis: config.lightHysteresis,
 	});
 }
 
@@ -58,7 +56,6 @@ export function initDeviceModesWebSocket(): void {
 		if (typeof cfg.dayStartTime === "string") dayNightConfig.dayStartTime = cfg.dayStartTime;
 		if (typeof cfg.nightStartTime === "string") dayNightConfig.nightStartTime = cfg.nightStartTime;
 		if (typeof cfg.lightThreshold === "number") dayNightConfig.lightThreshold = cfg.lightThreshold;
-		if (typeof cfg.lightHysteresis === "number") dayNightConfig.lightHysteresis = cfg.lightHysteresis;
 		if (typeof cfg.useSchedule === "boolean") dayNightConfig.useSchedule = cfg.useSchedule;
 		if (typeof cfg.isDaytime === "boolean") dayNightConfig.isDaytime = cfg.isDaytime;
 	});

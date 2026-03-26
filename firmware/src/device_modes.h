@@ -49,7 +49,6 @@ struct DayNightConfig {
     char dayStartTime[6];   // HH:MM
     char nightStartTime[6]; // HH:MM
     float lightThreshold;
-    float lightHysteresis;
     bool useSchedule;
 };
 

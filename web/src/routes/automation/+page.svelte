@@ -2,16 +2,11 @@
 	import PageHeader from "$lib/components/page-header.svelte";
 	import DeviceModeConfigModal from "$lib/components/device-mode-config.svelte";
 	import { Badge } from "$lib/components/ui/badge/index.js";
-	import { deviceModes, dayNightConfig, setDayNightConfig } from "$lib/stores/device-modes.svelte";
+	import { deviceModes } from "$lib/stores/device-modes.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
-	import { sensors } from "$lib/stores/sensors.svelte";
-	import { Switch } from "$lib/components/ui/switch/index.js";
-	import { Input } from "$lib/components/ui/input/index.js";
-	import { Label } from "$lib/components/ui/label/index.js";
 	import { deviceIcons } from "$lib/icons";
 	import type { Device, DeviceMode } from "$lib/types";
 	import ZapIcon from "@lucide/svelte/icons/zap";
-	import SunMoonIcon from "@lucide/svelte/icons/sun-moon";
 
 	let editingDevice = $state<Device | null>(null);
 
@@ -64,104 +59,10 @@
 		}
 	}
 
-	function handleDayNightToggle(useSchedule: boolean): void {
-		setDayNightConfig({ ...dayNightConfig, useSchedule });
-	}
-
-	function saveDayNightTimes(): void {
-		setDayNightConfig({
-			useSchedule: dayNightConfig.useSchedule,
-			dayStartTime: dayNightConfig.dayStartTime,
-			nightStartTime: dayNightConfig.nightStartTime,
-			lightThreshold: dayNightConfig.lightThreshold,
-			lightHysteresis: dayNightConfig.lightHysteresis,
-		});
-	}
 </script>
 
 <PageHeader title="Automation" />
 <div class="flex flex-1 flex-col gap-6 p-4 pt-0">
-	<section>
-		<div class="mb-3 flex items-center gap-2">
-			<SunMoonIcon class="size-4 text-muted-foreground" />
-			<h2 class="text-sm font-medium text-muted-foreground">Day / Night Detection</h2>
-		</div>
-		<div class="divide-y divide-border rounded-lg border">
-			<div class="flex items-center justify-between p-3">
-				<div>
-					<p class="text-sm font-medium">
-						{dayNightConfig.isDaytime ? "☀️ Daytime" : "🌙 Nighttime"}
-					</p>
-					<p class="text-xs text-muted-foreground">
-						{dayNightConfig.useSchedule ? "Based on schedule" : "Based on light sensor"}
-					</p>
-				</div>
-				<div class="flex items-center gap-2">
-					<Label class="text-xs text-muted-foreground">Use schedule</Label>
-					<Switch
-						checked={dayNightConfig.useSchedule}
-						onCheckedChange={handleDayNightToggle}
-					/>
-				</div>
-			</div>
-			{#if dayNightConfig.useSchedule}
-				<div class="flex items-center gap-4 p-3">
-					<div class="grid gap-1">
-						<Label class="text-xs">Day starts</Label>
-						<Input
-							type="time"
-							class="h-8 w-28 text-xs"
-							value={dayNightConfig.dayStartTime}
-							onchange={(e) => {
-								dayNightConfig.dayStartTime = e.currentTarget.value;
-								saveDayNightTimes();
-							}}
-						/>
-					</div>
-					<div class="grid gap-1">
-						<Label class="text-xs">Night starts</Label>
-						<Input
-							type="time"
-							class="h-8 w-28 text-xs"
-							value={dayNightConfig.nightStartTime}
-							onchange={(e) => {
-								dayNightConfig.nightStartTime = e.currentTarget.value;
-								saveDayNightTimes();
-							}}
-						/>
-					</div>
-				</div>
-			{:else}
-				<div class="flex items-center gap-4 p-3">
-					<div class="grid gap-1">
-						<Label class="text-xs">Light threshold (PPFD)</Label>
-						<Input
-							type="number"
-							class="h-8 w-28 text-xs"
-							value={dayNightConfig.lightThreshold}
-							onchange={(e) => {
-								dayNightConfig.lightThreshold = Number(e.currentTarget.value);
-								saveDayNightTimes();
-							}}
-						/>
-					</div>
-					<div class="grid gap-1">
-						<Label class="text-xs">Hysteresis</Label>
-						<Input
-							type="number"
-							class="h-8 w-28 text-xs"
-							value={dayNightConfig.lightHysteresis}
-							onchange={(e) => {
-								dayNightConfig.lightHysteresis = Number(e.currentTarget.value);
-								saveDayNightTimes();
-							}}
-						/>
-					</div>
-				</div>
-			{/if}
-		</div>
-	</section>
-
 	<section>
 		<div class="mb-3 flex items-center gap-2">
 			<ZapIcon class="size-4 text-muted-foreground" />
