@@ -81,30 +81,24 @@
 				{/if}
 			</Button>
 		</div>
-		{#if activeAlerts > 0 || hasEnergy}
-			<div class="flex items-center gap-3 border-t border-border/50 pt-2">
-				{#if activeAlerts > 0}
-					<div class="flex items-center gap-1 text-sm text-amber-500">
-						<TriangleAlert class="size-3.5" />
-						<span>{activeAlerts} {activeAlerts === 1 ? "alert" : "alerts"}</span>
-					</div>
-				{/if}
-				{#if activeAlerts > 0 && hasEnergy}
-					<span class="text-muted-foreground/40">·</span>
-				{/if}
-				{#if hasEnergy}
-					<button
-						class="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-						onclick={() => (energyDialogOpen = true)}
-					>
-						<Zap class="size-3.5" />
-						<span class="tabular-nums">{Math.round(totalWatts)}W</span>
-						<span class="text-muted-foreground/60">·</span>
-						<span class="tabular-nums">{totalKWh} kWh</span>
-					</button>
-				{/if}
+		<div class="flex items-center gap-3 border-t border-border/50 pt-2">
+			<div class="flex items-center gap-1 text-sm {activeAlerts > 0 ? 'text-amber-500' : 'text-muted-foreground'}">
+				<TriangleAlert class="size-3.5" />
+				<span>{activeAlerts} {activeAlerts === 1 ? "alert" : "alerts"}</span>
 			</div>
-		{/if}
+			{#if hasEnergy}
+				<span class="text-muted-foreground/40">·</span>
+				<button
+					class="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+					onclick={() => (energyDialogOpen = true)}
+				>
+					<Zap class="size-3.5" />
+					<span class="tabular-nums">{Math.round(totalWatts)}W</span>
+					<span class="text-muted-foreground/60">·</span>
+					<span class="tabular-nums">{totalKWh} kWh</span>
+				</button>
+			{/if}
+		</div>
 	</Card.Content>
 </Card.Root>
 
