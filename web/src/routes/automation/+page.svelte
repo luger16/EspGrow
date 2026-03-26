@@ -6,7 +6,6 @@
 	import { devices } from "$lib/stores/devices.svelte";
 	import { deviceIcons } from "$lib/icons";
 	import type { Device, DeviceMode } from "$lib/types";
-	import ZapIcon from "@lucide/svelte/icons/zap";
 
 	let editingDevice = $state<Device | null>(null);
 
@@ -65,13 +64,11 @@
 <div class="flex flex-1 flex-col gap-6 p-4 pt-0">
 	<section>
 		<div class="mb-3 flex items-center gap-2">
-			<ZapIcon class="size-4 text-muted-foreground" />
-			<h2 class="text-sm font-medium text-muted-foreground">Device Modes</h2>
+			<h2 class="text-sm font-medium text-muted-foreground">Device Controls</h2>
 		</div>
 		{#if devices.length === 0}
 			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-				<ZapIcon class="size-8 text-muted-foreground/50" />
-				<p class="mt-3 text-sm font-medium">No devices</p>
+				<p class="text-sm font-medium">No devices</p>
 				<p class="mt-1 text-xs text-muted-foreground">
 					Add devices in <a href="/settings" class="underline">Settings</a> first
 				</p>
