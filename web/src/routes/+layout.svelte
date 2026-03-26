@@ -9,7 +9,7 @@
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { initSensorWebSocket } from "$lib/stores/sensors.svelte";
 	import { initDeviceWebSocket } from "$lib/stores/devices.svelte";
-	import { initRulesWebSocket } from "$lib/stores/rules.svelte";
+	import { initDeviceModesWebSocket } from "$lib/stores/device-modes.svelte";
 	import { initClimateWebSocket } from "$lib/stores/climate.svelte";
 	import { initEnergyWebSocket } from "$lib/stores/energy.svelte";
 	import { onMount } from "svelte";
@@ -21,7 +21,7 @@
 		websocket.connect();
 		initSensorWebSocket();
 		initDeviceWebSocket();
-		initRulesWebSocket();
+		initDeviceModesWebSocket();
 		initClimateWebSocket();
 		initEnergyWebSocket();
 		return () => websocket.disconnect();

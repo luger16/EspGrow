@@ -212,12 +212,12 @@
 			const text = await file.text();
 			const config = JSON.parse(text);
 
-			if (!config.devices || !config.rules || !config.sensors) {
-				throw new Error("Invalid backup file: missing required keys (devices, rules, sensors)");
+			if (!config.devices || !config.device_modes || !config.sensors) {
+				throw new Error("Invalid backup file: missing required keys (devices, device_modes, sensors)");
 			}
 
-			if (!Array.isArray(config.devices) || !Array.isArray(config.rules) || !Array.isArray(config.sensors)) {
-				throw new Error("Invalid backup file: devices, rules, and sensors must be arrays");
+			if (!Array.isArray(config.devices) || !Array.isArray(config.device_modes) || !Array.isArray(config.sensors)) {
+				throw new Error("Invalid backup file: devices, device_modes, and sensors must be arrays");
 			}
 
 			const response = await fetch("/api/config/restore", {
@@ -686,7 +686,7 @@
 			<div class="flex items-center justify-between p-3">
 				<div>
 					<p class="text-sm font-medium">Backup Configuration</p>
-					<p class="text-xs text-muted-foreground">Download sensors, devices, and rules as JSON</p>
+					<p class="text-xs text-muted-foreground">Download sensors, devices, and device modes as JSON</p>
 				</div>
 				<Button variant="outline" size="sm" disabled={backingUp} onclick={handleBackupConfig}>
 					<DownloadIcon class="size-4" />

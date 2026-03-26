@@ -37,23 +37,42 @@ export interface Device {
 	hasEnergyMonitoring?: boolean;
 }
 
-export type ComparisonOperator = ">" | ">=" | "<" | "<=" | "=";
+export type DeviceMode = "off" | "on" | "auto" | "cycle" | "schedule";
 
-export interface AutomationRule {
-	id: string;
-	name: string;
-	enabled: boolean;
-	type: "sensor" | "schedule";
-	sensorId?: string;
-	operator?: ComparisonOperator;
-	threshold?: number;
-	thresholdOff?: number;
-	useHysteresis?: boolean;
-	minRunTimeMs?: number;
-	onTime?: string;
-	offTime?: string;
+export interface AutoTrigger {
+	sensorType: string;
+	dayThreshold: number;
+	nightThreshold: number;
+	hysteresis: number;
+	triggerAbove: boolean;
+}
+
+export interface CycleConfig {
+	onDurationSec: number;
+	offDurationSec: number;
+	dayOnly: boolean;
+}
+
+export interface ScheduleConfig {
+	startTime: string;
+	endTime: string;
+}
+
+export interface DeviceModeConfig {
 	deviceId: string;
-	action: "turn_on" | "turn_off";
+	mode: DeviceMode;
+	triggers: AutoTrigger[];
+	cycle: CycleConfig;
+	schedule: ScheduleConfig;
+}
+
+export interface DayNightConfig {
+	dayStartTime: string;
+	nightStartTime: string;
+	lightThreshold: number;
+	lightHysteresis: number;
+	useSchedule: boolean;
+	isDaytime?: boolean;
 }
 
 export interface SystemInfo {
