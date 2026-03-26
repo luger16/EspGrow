@@ -251,7 +251,7 @@
 									{series}
 									yDomain={yDomain}
 									props={{
-										spline: { curve: curveMonotoneX, class: "stroke-1" },
+										spline: { curve: curveMonotoneX, class: "stroke-2" },
 										xAxis: {
 											ticks: xTicks,
 											format: (v: Date) => {
