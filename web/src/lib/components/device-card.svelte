@@ -3,8 +3,9 @@
 	import { Switch } from "$lib/components/ui/switch/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
-	import type { Device } from "$lib/types";
+	import type { Device, DeviceMode } from "$lib/types";
 	import { toggleDevice, pendingDevices, overriddenDevices, clearOverride } from "$lib/stores/devices.svelte";
+	import { getDeviceMode } from "$lib/stores/device-modes.svelte";
 	import { deviceIcons } from "$lib/icons";
 	import LoaderIcon from "@lucide/svelte/icons/loader-circle";
 	import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
@@ -13,11 +14,20 @@
 
 	const Icon = $derived(deviceIcons[device.type]);
 	const isPending = $derived(pendingDevices.has(device.id));
+	const modeConfig = $derived(getDeviceMode(device.id));
 	const isOverridden = $derived(
 		device.controlMode === "automatic" &&
 		overriddenDevices[device.id] !== undefined &&
 		overriddenDevices[device.id] > Date.now()
 	);
+
+	const modeBadgeLabel: Record<DeviceMode, string> = {
+		off: "Off",
+		on: "On",
+		auto: "Auto",
+		cycle: "Cycle",
+		schedule: "Sched",
+	};
 
 	let now = $state(Date.now());
 
@@ -65,10 +75,12 @@
 						<TriangleAlertIcon class="size-2.5" />
 						Override
 					</Badge>
-				{:else}
-					<Badge variant={device.controlMode === "automatic" ? "secondary" : "outline"} class="text-[10px] px-1 py-0">
-						{device.controlMode === "automatic" ? "Auto" : "Manual"}
+				{:else if modeConfig}
+					<Badge variant="secondary" class="text-[10px] px-1 py-0">
+						{modeBadgeLabel[modeConfig.mode]}
 					</Badge>
+				{:else}
+					<Badge variant="outline" class="text-[10px] px-1 py-0">Manual</Badge>
 				{/if}
 			</div>
 		</div>

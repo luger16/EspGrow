@@ -114,55 +114,60 @@ function syncEnergyDevices(): void {
 	}
 }
 
-// --- Automation rules ---
+// --- Device Modes ---
 
-interface RuleConfig {
-	id: string;
-	name: string;
-	enabled: boolean;
-	type?: string;
-	sensorId?: string;
-	operator?: string;
-	threshold?: number;
-	thresholdOff?: number;
-	useHysteresis?: boolean;
-	minRunTimeMs?: number;
-	onTime?: string;
-	offTime?: string;
+interface DeviceModeConfig {
 	deviceId: string;
-	action: string;
+	mode: "off" | "on" | "auto" | "cycle" | "schedule";
+	triggers: Array<{
+		sensorType: string;
+		dayThreshold: number;
+		nightThreshold: number;
+		hysteresis: number;
+		triggerAbove: boolean;
+	}>;
+	cycle: { onDurationSec: number; offDurationSec: number; dayOnly: boolean };
+	schedule: { startTime: string; endTime: string };
 }
 
-const RULES: RuleConfig[] = [
+const DEVICE_MODES: DeviceModeConfig[] = [
 	{
-		id: "rule_temp_fan",
-		name: "Cool when hot",
-		enabled: true,
-		type: "sensor",
-		sensorId: "sht4x_temp",
-		operator: ">",
-		threshold: 28,
-		thresholdOff: 26,
-		useHysteresis: true,
-		minRunTimeMs: 60000,
 		deviceId: "fan_exhaust",
-		action: "turn_on",
+		mode: "auto",
+		triggers: [
+			{ sensorType: "temperature", dayThreshold: 28, nightThreshold: 25, hysteresis: 1, triggerAbove: true },
+		],
+		cycle: { onDurationSec: 60, offDurationSec: 60, dayOnly: false },
+		schedule: { startTime: "06:00", endTime: "22:00" },
 	},
 	{
-		id: "rule_hum_humid",
-		name: "Humidify when dry",
-		enabled: true,
-		type: "sensor",
-		sensorId: "sht4x_hum",
-		operator: "<",
-		threshold: 50,
-		thresholdOff: 60,
-		useHysteresis: true,
-		minRunTimeMs: 30000,
 		deviceId: "humidifier",
-		action: "turn_on",
+		mode: "auto",
+		triggers: [
+			{ sensorType: "humidity", dayThreshold: 50, nightThreshold: 55, hysteresis: 5, triggerAbove: false },
+		],
+		cycle: { onDurationSec: 60, offDurationSec: 60, dayOnly: false },
+		schedule: { startTime: "06:00", endTime: "22:00" },
 	},
 ];
+
+interface DayNightConfig {
+	useSchedule: boolean;
+	dayStartTime: string;
+	nightStartTime: string;
+	lightThreshold: number;
+	lightHysteresis: number;
+	isDaytime: boolean;
+}
+
+const DAY_NIGHT_CONFIG: DayNightConfig = {
+	useSchedule: false,
+	dayStartTime: "06:00",
+	nightStartTime: "22:00",
+	lightThreshold: 50,
+	lightHysteresis: 10,
+	isDaytime: true,
+};
 
 // --- Realistic sensor value simulation ---
 
@@ -373,17 +378,17 @@ let eventIdCounter = 0;
 
 function generateMockAutomationEvent(): Record<string, unknown> {
 	const scenarios = [
-		{ rule: "Cool when hot", device: "Exhaust Fan", action: "turned on", sensor: "Temperature", value: "29.1°C", threshold: "28°C" },
-		{ rule: "Cool when hot", device: "Exhaust Fan", action: "turned off", sensor: "Temperature", value: "25.8°C", threshold: "26°C" },
-		{ rule: "Humidify when dry", device: "Humidifier", action: "turned on", sensor: "Humidity", value: "48%", threshold: "50%" },
-		{ rule: "Humidify when dry", device: "Humidifier", action: "turned off", sensor: "Humidity", value: "62%", threshold: "60%" },
+		{ device: "Exhaust Fan", action: "turned on", mode: "auto", sensor: "Temperature", value: "29.1°C", threshold: "28°C" },
+		{ device: "Exhaust Fan", action: "turned off", mode: "auto", sensor: "Temperature", value: "25.8°C", threshold: "26°C" },
+		{ device: "Humidifier", action: "turned on", mode: "auto", sensor: "Humidity", value: "48%", threshold: "50%" },
+		{ device: "Humidifier", action: "turned off", mode: "auto", sensor: "Humidity", value: "62%", threshold: "55%" },
 	];
 	const s = scenarios[Math.floor(Math.random() * scenarios.length)];
 	eventIdCounter++;
 	return {
 		id: `auto_${eventIdCounter}`,
-		title: `${s.rule}`,
-		description: `${s.device} ${s.action} — ${s.sensor} at ${s.value} (threshold ${s.threshold})`,
+		title: `${s.device} (${s.mode})`,
+		description: `${s.action} — ${s.sensor} at ${s.value} (threshold ${s.threshold})`,
 		timestamp: new Date().toISOString(),
 	};
 }
@@ -409,9 +414,9 @@ function generateMockDeviceEvent(): Record<string, unknown> {
 function sendInitialEvents(ws: WebSocket): void {
 	const now = Date.now();
 	const events = [
-		{ type: "automation_trigger", data: { id: "auto_init_1", title: "Cool when hot", description: "Exhaust Fan turned on — Temperature at 29.3°C (threshold 28°C)", timestamp: new Date(now - 15 * 60 * 1000).toISOString() } },
+		{ type: "automation_trigger", data: { id: "auto_init_1", title: "Exhaust Fan (auto)", description: "Turned on — Temperature at 29.3°C (threshold 28°C)", timestamp: new Date(now - 15 * 60 * 1000).toISOString() } },
 		{ type: "device_event", data: { id: "dev_init_1", title: "Grow Light", description: "Turned on manually", timestamp: new Date(now - 8 * 60 * 1000).toISOString() } },
-		{ type: "automation_trigger", data: { id: "auto_init_2", title: "Humidify when dry", description: "Humidifier turned on — Humidity at 47% (threshold 50%)", timestamp: new Date(now - 3 * 60 * 1000).toISOString() } },
+		{ type: "automation_trigger", data: { id: "auto_init_2", title: "Humidifier (auto)", description: "Turned on — Humidity at 47% (threshold 50%)", timestamp: new Date(now - 3 * 60 * 1000).toISOString() } },
 	];
 	for (const event of events) {
 		sendTo(ws, event);
@@ -479,8 +484,13 @@ function handleMessage(ws: WebSocket, raw: string): void {
 			sendTo(ws, { type: "devices", data: DEVICES });
 			break;
 
-		case "get_rules":
-			sendTo(ws, { type: "rules", data: RULES });
+		case "get_device_modes":
+			sendTo(ws, { type: "device_modes", data: DEVICE_MODES });
+			break;
+
+		case "get_daynight_config":
+			DAY_NIGHT_CONFIG.isDaytime = new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 20;
+			sendTo(ws, { type: "daynight_config", data: DAY_NIGHT_CONFIG });
 			break;
 
 		case "get_history": {
@@ -522,50 +532,41 @@ function handleMessage(ws: WebSocket, raw: string): void {
 			break;
 		}
 
-		case "add_rule": {
-			const rule: RuleConfig = {
-				id: payload.id as string,
-				name: payload.name as string,
-				enabled: payload.enabled as boolean,
-				type: payload.ruleType as string | undefined,
-				sensorId: payload.sensorId as string | undefined,
-				operator: payload.operator as string | undefined,
-				threshold: payload.threshold as number | undefined,
-				thresholdOff: payload.thresholdOff as number | undefined,
-				useHysteresis: payload.useHysteresis as boolean | undefined,
-				minRunTimeMs: payload.minRunTimeMs as number | undefined,
-				onTime: payload.onTime as string | undefined,
-				offTime: payload.offTime as string | undefined,
-				deviceId: payload.deviceId as string,
-				action: payload.action as string,
+		case "set_device_mode": {
+			const deviceId = payload.deviceId as string;
+			const idx = DEVICE_MODES.findIndex((m) => m.deviceId === deviceId);
+			const config: DeviceModeConfig = {
+				deviceId,
+				mode: payload.mode as DeviceModeConfig["mode"],
+				triggers: (payload.triggers as DeviceModeConfig["triggers"]) ?? [],
+				cycle: (payload.cycle as DeviceModeConfig["cycle"]) ?? { onDurationSec: 60, offDurationSec: 60, dayOnly: false },
+				schedule: (payload.schedule as DeviceModeConfig["schedule"]) ?? { startTime: "06:00", endTime: "22:00" },
 			};
-			RULES.push(rule);
-			broadcast({ type: "rules", data: RULES });
-			console.log("[Mock] Added rule:", rule);
-			break;
-		}
-
-		case "update_rule": {
-			const ruleId = payload.id as string;
-			const rule = RULES.find((r) => r.id === ruleId);
-			if (rule) {
-				Object.assign(rule, payload);
+			if (idx !== -1) {
+				DEVICE_MODES[idx] = config;
+			} else {
+				DEVICE_MODES.push(config);
 			}
-			broadcast({ type: "rules", data: RULES });
+			broadcast({ type: "device_modes", data: DEVICE_MODES });
+			console.log("[Mock] Set device mode:", config.deviceId, config.mode);
 			break;
 		}
 
-		case "remove_rule": {
-			const idx = RULES.findIndex((r) => r.id === (payload.id as string));
-			if (idx !== -1) RULES.splice(idx, 1);
-			broadcast({ type: "rules", data: RULES });
+		case "delete_device_mode": {
+			const idx = DEVICE_MODES.findIndex((m) => m.deviceId === (payload.deviceId as string));
+			if (idx !== -1) DEVICE_MODES.splice(idx, 1);
+			broadcast({ type: "device_modes", data: DEVICE_MODES });
 			break;
 		}
 
-		case "toggle_rule": {
-			const rule = RULES.find((r) => r.id === (payload.id as string));
-			if (rule) rule.enabled = !rule.enabled;
-			broadcast({ type: "rules", data: RULES });
+		case "set_daynight_config": {
+			if (typeof payload.useSchedule === "boolean") DAY_NIGHT_CONFIG.useSchedule = payload.useSchedule;
+			if (typeof payload.dayStartTime === "string") DAY_NIGHT_CONFIG.dayStartTime = payload.dayStartTime as string;
+			if (typeof payload.nightStartTime === "string") DAY_NIGHT_CONFIG.nightStartTime = payload.nightStartTime as string;
+			if (typeof payload.lightThreshold === "number") DAY_NIGHT_CONFIG.lightThreshold = payload.lightThreshold as number;
+			if (typeof payload.lightHysteresis === "number") DAY_NIGHT_CONFIG.lightHysteresis = payload.lightHysteresis as number;
+			DAY_NIGHT_CONFIG.isDaytime = new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 20;
+			broadcast({ type: "daynight_config", data: DAY_NIGHT_CONFIG });
 			break;
 		}
 
@@ -761,7 +762,8 @@ wss.on("connection", (ws) => {
 
 	sendTo(ws, { type: "sensor_config", data: SENSORS });
 	sendTo(ws, { type: "devices", data: DEVICES });
-	sendTo(ws, { type: "rules", data: RULES });
+	sendTo(ws, { type: "device_modes", data: DEVICE_MODES });
+	sendTo(ws, { type: "daynight_config", data: { ...DAY_NIGHT_CONFIG, isDaytime: new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 20 } });
 	sendInitialAlerts(ws);
 	sendInitialEvents(ws);
 
