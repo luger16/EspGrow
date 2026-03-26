@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
 	import * as Select from "$lib/components/ui/select/index.js";
+	import * as Tabs from "$lib/components/ui/tabs/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
@@ -28,9 +29,9 @@
 
 	const modeOptions: { value: DeviceMode; label: string }[] = [
 		{ value: "off", label: "Off" },
-		{ value: "on", label: "Always On" },
-		{ value: "auto", label: "Auto (Sensor)" },
-		{ value: "cycle", label: "Cycle (Timer)" },
+		{ value: "on", label: "On" },
+		{ value: "auto", label: "Auto" },
+		{ value: "cycle", label: "Cycle" },
 		{ value: "schedule", label: "Schedule" },
 	];
 
@@ -113,16 +114,13 @@
 		<div class="grid gap-4 py-4">
 			<div class="grid gap-2">
 				<Label>Mode</Label>
-				<Select.Root type="single" value={mode} onValueChange={(v) => v && (mode = v as DeviceMode)}>
-					<Select.Trigger>
-						<span>{modeOptions.find((o) => o.value === mode)?.label}</span>
-					</Select.Trigger>
-					<Select.Content>
+				<Tabs.Root value={mode} onValueChange={(v) => v && (mode = v as DeviceMode)}>
+					<Tabs.List class="w-full">
 						{#each modeOptions as option (option.value)}
-							<Select.Item value={option.value}>{option.label}</Select.Item>
+							<Tabs.Trigger value={option.value}>{option.label}</Tabs.Trigger>
 						{/each}
-					</Select.Content>
-				</Select.Root>
+					</Tabs.List>
+				</Tabs.Root>
 			</div>
 
 			{#if mode === "auto"}
