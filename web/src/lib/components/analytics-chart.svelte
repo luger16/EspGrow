@@ -11,16 +11,18 @@
 	import { settings, convertTemperature, formatTimeFromDate } from "$lib/stores/settings.svelte";
 	import { formatUnit, cn } from "$lib/utils";
 
-	const SENSOR_COLORS = [
-		"hsl(142, 76%, 36%)",  // green - temperature
-		"hsl(199, 89%, 48%)",  // blue - humidity
-		"hsl(38, 92%, 50%)",   // orange - co2
-		"hsl(45, 93%, 47%)",   // amber - light
-		"hsl(280, 65%, 60%)",  // purple - vpd
-		"hsl(190, 90%, 55%)",  // cyan - dewpoint
-		"hsl(0, 72%, 51%)",    // red
-		"hsl(280, 65%, 60%)",  // violet
-	];
+	const SENSOR_TYPE_COLORS: Record<string, string> = {
+		temperature: "hsl(0, 72%, 51%)",      // red — heat
+		humidity: "hsl(199, 89%, 48%)",        // blue — water
+		co2: "hsl(220, 15%, 55%)",             // slate — gas
+		light: "hsl(45, 93%, 47%)",            // amber — sun
+		vpd: "hsl(280, 65%, 60%)",             // purple — derived
+		dewpoint: "hsl(175, 70%, 45%)",        // teal — condensation
+	};
+
+	function getSensorColor(sensor: Sensor): string {
+		return SENSOR_TYPE_COLORS[sensor.type] ?? "hsl(0, 0%, 50%)";
+	}
 
 	type TimeRange = "24h" | "7d";
 
@@ -153,7 +155,7 @@
 		visibleSensors.map((sensor) => ({
 			key: sensor.id,
 			label: sensor.name,
-			color: SENSOR_COLORS[sensors.indexOf(sensor) % SENSOR_COLORS.length],
+			color: getSensorColor(sensor),
 		}))
 	);
 
@@ -193,10 +195,9 @@
 	const chartConfig = $derived.by(() => {
 		const config: Chart.ChartConfig = {};
 		for (const sensor of visibleSensors) {
-			const stableIndex = sensors.indexOf(sensor);
 			config[sensor.id] = {
 				label: sensor.name,
-				color: SENSOR_COLORS[stableIndex % SENSOR_COLORS.length],
+				color: getSensorColor(sensor),
 			};
 		}
 		return config;
@@ -291,8 +292,7 @@
 										>
 											{#snippet formatter(args: { value: unknown; name: string; item: { payload: Record<string, unknown>; key: string; color?: string }; index: number })}
 												{@const sensor = visibleSensors.find(s => s.name === args.name)}
-												{@const stableIndex = sensor ? sensors.indexOf(sensor) : -1}
-												{@const sensorColor = stableIndex >= 0 ? SENSOR_COLORS[stableIndex % SENSOR_COLORS.length] : (args.item.color ?? 'currentColor')}
+												{@const sensorColor = sensor ? getSensorColor(sensor) : (args.item.color ?? 'currentColor')}
 												{@const timestamp = args.item.payload?.date instanceof Date ? args.item.payload.date.getTime() : 0}
 												{@const rawValue = sensor ? getRawValueAtTimestamp(sensor.id, timestamp) : null}
 												<div
@@ -337,7 +337,7 @@
 							)}
 						>
 							<div class="flex items-center gap-2">
-								<div class="h-4 w-1 shrink-0 rounded-[2px]" style="background-color: {SENSOR_COLORS[i % SENSOR_COLORS.length]}"></div>
+								<div class="h-4 w-1 shrink-0 rounded-[2px]" style="background-color: {getSensorColor(sensor)}"></div>
 								<span class="truncate">{sensor.name}</span>
 								<Checkbox.Root
 									class="pointer-events-none ml-auto"
