@@ -2,7 +2,7 @@
 #include "ota_manager.h"
 #include "storage.h"
 #include "devices.h"
-#include "automation.h"
+#include "device_modes.h"
 #include "sensor_config.h"
 #include "web_assets.h"
 #include <WiFi.h>
@@ -90,15 +90,24 @@ void init() {
         JsonDocument doc;
         JsonDocument sub;
 
-        const char* files[] = {"/devices.json", "/rules.json", "/sensors.json"};
-        const char* keys[] = {"devices", "rules", "sensors"};
+        const char* files[] = {"/devices.json", "/device_modes.json", "/daynight.json", "/sensors.json"};
+        const char* keys[] = {"devices", "device_modes", "daynight", "sensors"};
         
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             sub.clear();
             if (Storage::readJson(files[i], sub)) {
-                doc[keys[i]] = sub.as<JsonArray>();
+                // daynight.json is an object, others are arrays
+                if (i == 2) {
+                    doc[keys[i]] = sub.as<JsonObject>();
+                } else {
+                    doc[keys[i]] = sub.as<JsonArray>();
+                }
             } else {
-                doc[keys[i]] = JsonArray();
+                if (i == 2) {
+                    doc[keys[i]] = JsonObject();
+                } else {
+                    doc[keys[i]] = JsonArray();
+                }
             }
         }
 
@@ -118,7 +127,7 @@ void init() {
     restoreHandler->onRequest([](AsyncWebServerRequest *request, JsonVariant &json) {
         JsonObject obj = json.as<JsonObject>();
         
-        if (!obj["devices"].is<JsonArray>() || !obj["rules"].is<JsonArray>() || !obj["sensors"].is<JsonArray>()) {
+        if (!obj["devices"].is<JsonArray>() || !obj["device_modes"].is<JsonArray>() || !obj["sensors"].is<JsonArray>()) {
             Serial.println("[API] Restore: missing or invalid required keys");
             request->send(400, "application/json", "{\"error\":\"Missing or invalid required keys\"}");
             return;
@@ -132,8 +141,14 @@ void init() {
         success &= Storage::writeJson("/devices.json", sub);
 
         sub.clear();
-        sub.set(obj["rules"]);
-        success &= Storage::writeJson("/rules.json", sub);
+        sub.set(obj["device_modes"]);
+        success &= Storage::writeJson("/device_modes.json", sub);
+
+        if (obj["daynight"].is<JsonObject>()) {
+            sub.clear();
+            sub.set(obj["daynight"]);
+            success &= Storage::writeJson("/daynight.json", sub);
+        }
 
         sub.clear();
         sub.set(obj["sensors"]);
@@ -143,7 +158,7 @@ void init() {
             Serial.println("[API] Restore: success, reloading modules");
             
             Devices::init();
-            Automation::init();
+            DeviceModes::init();
             SensorConfig::init();
             Devices::computeControlModes();
             
@@ -164,10 +179,22 @@ void init() {
             jsonStr.clear();
             output.clear();
             
-            broadcastDoc["type"] = "rules";
-            Automation::getRulesJson(jsonStr);
+            broadcastDoc["type"] = "device_modes";
+            DeviceModes::getModesJson(jsonStr);
             deserializeJson(dataDoc, jsonStr);
             broadcastDoc["data"] = dataDoc.as<JsonArray>();
+            serializeJson(broadcastDoc, output);
+            broadcast(output);
+            
+            broadcastDoc.clear();
+            dataDoc.clear();
+            jsonStr.clear();
+            output.clear();
+            
+            broadcastDoc["type"] = "daynight_config";
+            DeviceModes::getDayNightConfigJson(jsonStr);
+            deserializeJson(dataDoc, jsonStr);
+            broadcastDoc["data"] = dataDoc.as<JsonObject>();
             serializeJson(broadcastDoc, output);
             broadcast(output);
             
