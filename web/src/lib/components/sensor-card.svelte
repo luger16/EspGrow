@@ -11,10 +11,9 @@
 	let {
 		sensor,
 		reading,
-		onclick,
 		onvpdclick,
 		onspectrumclick,
-	}: { sensor: Sensor; reading?: SensorReading; onclick?: () => void; onvpdclick?: () => void; onspectrumclick?: () => void } = $props();
+	}: { sensor: Sensor; reading?: SensorReading; onvpdclick?: () => void; onspectrumclick?: () => void } = $props();
 
 	const Icon = $derived(sensorIcons[sensor.type]);
 	const displayValue = $derived.by(() => {
@@ -45,8 +44,7 @@
 	});
 </script>
 
-<button type="button" class="w-full text-left" {onclick}>
-	<Card.Root class={cn("py-2.5 transition-colors hover:bg-muted/50", borderClass)}>
+	<Card.Root class={cn("py-2.5", borderClass)}>
 		<Card.Content class="flex items-center gap-3 px-3">
 			<div class="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
 				<Icon class="size-3.5 text-muted-foreground" />
@@ -82,4 +80,3 @@
 			{/if}
 		</Card.Content>
 	</Card.Root>
-</button>
