@@ -4,6 +4,7 @@
 #include "devices.h"
 #include "device_modes.h"
 #include "sensor_config.h"
+#include "energy_tracker.h"
 #include "web_assets.h"
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
@@ -90,10 +91,10 @@ void init() {
         JsonDocument doc;
         JsonDocument sub;
 
-        const char* files[] = {"/devices.json", "/device_modes.json", "/daynight.json", "/sensors.json"};
-        const char* keys[] = {"devices", "device_modes", "daynight", "sensors"};
+        const char* files[] = {"/devices.json", "/device_modes.json", "/daynight.json", "/sensors.json", "/energy.json"};
+        const char* keys[] = {"devices", "device_modes", "daynight", "sensors", "energy"};
         
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             sub.clear();
             if (Storage::readJson(files[i], sub)) {
                 // daynight.json is an object, others are arrays
@@ -154,12 +155,19 @@ void init() {
         sub.set(obj["sensors"]);
         success &= Storage::writeJson("/sensors.json", sub);
 
+        if (obj["energy"].is<JsonArray>()) {
+            sub.clear();
+            sub.set(obj["energy"]);
+            success &= Storage::writeJson("/energy.json", sub);
+        }
+
         if (success) {
             Serial.println("[API] Restore: success, reloading modules");
             
             Devices::init();
             DeviceModes::init();
             SensorConfig::init();
+            EnergyTracker::init();
             Devices::computeControlModes();
             
             JsonDocument broadcastDoc;
@@ -205,6 +213,18 @@ void init() {
             
             broadcastDoc["type"] = "sensor_config";
             SensorConfig::getSensorsJson(jsonStr);
+            deserializeJson(dataDoc, jsonStr);
+            broadcastDoc["data"] = dataDoc.as<JsonArray>();
+            serializeJson(broadcastDoc, output);
+            broadcast(output);
+            
+            broadcastDoc.clear();
+            dataDoc.clear();
+            jsonStr.clear();
+            output.clear();
+            
+            broadcastDoc["type"] = "energy";
+            EnergyTracker::getEnergiesJson(jsonStr);
             deserializeJson(dataDoc, jsonStr);
             broadcastDoc["data"] = dataDoc.as<JsonArray>();
             serializeJson(broadcastDoc, output);

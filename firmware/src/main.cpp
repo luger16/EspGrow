@@ -6,6 +6,7 @@
 #include "sensors.h"
 #include "device_modes.h"
 #include "devices.h"
+#include "energy_tracker.h"
 #include "sensor_config.h"
 #include "history.h"
 #include "ota_manager.h"
@@ -63,6 +64,22 @@ namespace {
         
         JsonDocument dataDoc;
         deserializeJson(dataDoc, devicesJson);
+        doc["data"] = dataDoc.as<JsonArray>();
+        
+        String out;
+        serializeJson(doc, out);
+        WebSocketServer::broadcast(out);
+    }
+
+    void broadcastEnergy() {
+        JsonDocument doc;
+        doc["type"] = "energy";
+        
+        String energyJson;
+        EnergyTracker::getEnergiesJson(energyJson);
+        
+        JsonDocument dataDoc;
+        deserializeJson(dataDoc, energyJson);
         doc["data"] = dataDoc.as<JsonArray>();
         
         String out;
@@ -228,6 +245,7 @@ namespace {
             deviceDoc["controlMethod"] = payload["controlMethod"];
             deviceDoc["ipAddress"] = payload["ipAddress"];
             deviceDoc["controlMode"] = payload["controlMode"];
+            deviceDoc["hasEnergyMonitoring"] = payload["hasEnergyMonitoring"] | false;
             
             Devices::addDevice(deviceDoc);
             broadcastDevices();
@@ -239,6 +257,7 @@ namespace {
             if (payload["deviceType"].is<const char*>()) updates["type"] = payload["deviceType"];
             if (payload["controlMethod"].is<const char*>()) updates["controlMethod"] = payload["controlMethod"];
             if (payload["ipAddress"].is<const char*>()) updates["ipAddress"] = payload["ipAddress"];
+            if (payload["hasEnergyMonitoring"].is<bool>()) updates["hasEnergyMonitoring"] = payload["hasEnergyMonitoring"];
             
             Devices::updateDevice(deviceId, updates);
             broadcastDevices();
@@ -328,6 +347,18 @@ namespace {
                 serializeJson(response, out);
                 WebSocketServer::broadcast(out);
             }
+        }
+        else if (strcmp(type, "get_energy") == 0) {
+            broadcastEnergy();
+        }
+        else if (strcmp(type, "reset_energy") == 0) {
+            const char* deviceId = payload["deviceId"];
+            if (deviceId) {
+                EnergyTracker::resetEnergy(deviceId);
+            } else {
+                EnergyTracker::resetAllEnergy();
+            }
+            broadcastEnergy();
         }
         else if (strcmp(type, "reset_ppfd_calibration") == 0) {
             Sensors::setPpfdCalibrationFactor(1.0f);
@@ -434,6 +465,7 @@ void setup() {
     SensorConfig::init();
     History::init();
     DeviceModes::init();
+    EnergyTracker::init();
     DeviceModes::setDeviceStateCallback([](const char* deviceId, bool on) {
         JsonDocument response;
         response["type"] = "device_status";
@@ -469,10 +501,12 @@ void loop() {
         
         WebSocketServer::loop();
         History::loop();
+        EnergyTracker::loop();
         
         if (millis() - lastBroadcast >= BROADCAST_INTERVAL) {
             lastBroadcast = millis();
             broadcastSensorData();
+            broadcastEnergy();
         }
         
         if (sensorReadingsDirty) {
