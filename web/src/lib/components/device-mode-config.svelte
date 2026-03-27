@@ -28,39 +28,6 @@
 	let scheduleStart = $state("06:00");
 	let scheduleEnd = $state("22:00");
 
-	function timeToMinutes(time: string): number {
-		const [h, m] = time.split(":").map(Number);
-		return h * 60 + m;
-	}
-
-	let scheduleDuration = $derived.by(() => {
-		const startMin = timeToMinutes(scheduleStart);
-		const endMin = timeToMinutes(scheduleEnd);
-		const totalMin = endMin >= startMin ? endMin - startMin : 1440 - startMin + endMin;
-		const hours = Math.floor(totalMin / 60);
-		const mins = totalMin % 60;
-		if (hours === 0) return `${mins}m`;
-		if (mins === 0) return `${hours}h`;
-		return `${hours}h ${mins}m`;
-	});
-
-	let scheduleBarStyle = $derived.by(() => {
-		const startMin = timeToMinutes(scheduleStart);
-		const endMin = timeToMinutes(scheduleEnd);
-		const startPct = (startMin / 1440) * 100;
-		const endPct = (endMin / 1440) * 100;
-		if (endMin >= startMin) {
-			return { segments: [{ left: startPct, width: endPct - startPct }] };
-		}
-		// Overnight: two segments (start→midnight, midnight→end)
-		return {
-			segments: [
-				{ left: startPct, width: 100 - startPct },
-				{ left: 0, width: endPct },
-			],
-		};
-	});
-
 	const modeOptions: { value: DeviceMode; label: string }[] = [
 		{ value: "off", label: "Off" },
 		{ value: "on", label: "On" },
