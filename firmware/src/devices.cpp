@@ -20,6 +20,7 @@ namespace {
             obj["type"] = device.type;
             obj["controlMethod"] = device.controlMethod;
             obj["ipAddress"] = device.ipAddress;
+            obj["hasEnergyMonitoring"] = device.hasEnergyMonitoring;
         }
         
         Storage::writeJson(DEVICES_PATH, doc);
@@ -43,6 +44,7 @@ namespace {
             strlcpy(device.controlMethod, obj["controlMethod"] | "", sizeof(device.controlMethod));
             strlcpy(device.ipAddress, obj["ipAddress"] | "", sizeof(device.ipAddress));
             strlcpy(device.controlMode, "manual", sizeof(device.controlMode));
+            device.hasEnergyMonitoring = obj["hasEnergyMonitoring"] | false;
             
             devices.push_back(device);
         }
@@ -64,6 +66,7 @@ bool addDevice(JsonDocument& doc) {
     strlcpy(device.controlMethod, doc["controlMethod"] | "", sizeof(device.controlMethod));
     strlcpy(device.ipAddress, doc["ipAddress"] | "", sizeof(device.ipAddress));
     strlcpy(device.controlMode, "manual", sizeof(device.controlMode));
+    device.hasEnergyMonitoring = doc["hasEnergyMonitoring"] | false;
     
     devices.push_back(device);
     saveDevices();
@@ -79,6 +82,7 @@ bool updateDevice(const char* deviceId, JsonDocument& doc) {
             if (doc["type"].is<const char*>()) strlcpy(device.type, doc["type"], sizeof(device.type));
             if (doc["controlMethod"].is<const char*>()) strlcpy(device.controlMethod, doc["controlMethod"], sizeof(device.controlMethod));
             if (doc["ipAddress"].is<const char*>()) strlcpy(device.ipAddress, doc["ipAddress"], sizeof(device.ipAddress));
+            if (doc["hasEnergyMonitoring"].is<bool>()) device.hasEnergyMonitoring = doc["hasEnergyMonitoring"];
             
             saveDevices();
             Serial.printf("[Devices] Updated device: %s\n", device.name);
@@ -113,6 +117,7 @@ void getDevicesJson(String& out) {
         obj["ipAddress"] = device.ipAddress;
         obj["controlMode"] = device.controlMode;
         obj["isOn"] = device.isOn;
+        obj["hasEnergyMonitoring"] = device.hasEnergyMonitoring;
     }
     
     serializeJson(doc, out);
