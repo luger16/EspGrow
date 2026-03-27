@@ -4,7 +4,7 @@
 	import * as Checkbox from "$lib/components/ui/checkbox/index.js";
 	import * as Tabs from "$lib/components/ui/tabs/index.js";
 	import { scaleUtc } from "d3-scale";
-	import { LineChart } from "layerchart";
+	import { LineChart, Area, Spline } from "layerchart";
 	import { curveMonotoneX } from "d3-shape";
 	import type { Sensor } from "$lib/types";
 	import { sensors, sensorReadings, requestHistory, getSensorHistory } from "$lib/stores/sensors.svelte";
@@ -151,6 +151,8 @@
 		return sensorData?.raw ?? null;
 	}
 
+	const lightSensorIds = $derived(new Set(visibleSensors.filter((s) => s.type === "light").map((s) => s.id)));
+
 	const series = $derived(
 		visibleSensors.map((sensor) => ({
 			key: sensor.id,
@@ -271,6 +273,21 @@
 									},
 									}}
 								>
+									{#snippet marks({ visibleSeries, getSplineProps })}
+										{#each visibleSeries as s, i (s.key)}
+											{#if lightSensorIds.has(s.key)}
+												<Area
+													y1={s.value ?? s.key}
+													fill={s.color}
+													fillOpacity={0.15}
+													line={{ stroke: s.color, class: "stroke-2", curve: curveMonotoneX }}
+													curve={curveMonotoneX}
+												/>
+											{:else}
+												<Spline {...getSplineProps(s, i)} />
+											{/if}
+										{/each}
+									{/snippet}
 									{#snippet tooltip()}
 										<Chart.Tooltip
 											indicator="line"
