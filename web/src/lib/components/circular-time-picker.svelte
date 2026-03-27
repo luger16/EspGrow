@@ -238,7 +238,7 @@
 	<svg
 		bind:this={svgEl}
 		viewBox="0 0 {size} {size}"
-		class="w-full max-w-[220px] touch-none select-none"
+		class="w-full max-w-[280px] touch-none select-none"
 		role="group"
 		aria-label="Schedule time range: {formatDisplayTime(startTime)} to {formatDisplayTime(endTime)}, active for {durationText}"
 		onpointermove={handlePointerMove}
