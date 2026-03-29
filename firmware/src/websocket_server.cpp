@@ -22,6 +22,12 @@ namespace {
 
     static constexpr size_t MSG_QUEUE_SIZE = 8;
     static constexpr size_t MSG_MAX_LEN = 512;
+    static constexpr size_t MAX_WS_CLIENTS = 4;
+    static constexpr unsigned long CLEANUP_INTERVAL_MS = 2000;
+    static constexpr unsigned long PING_INTERVAL_MS = 30000;
+    
+    unsigned long lastCleanup = 0;
+    unsigned long lastPing = 0;
     
     struct MessageSlot {
         char data[MSG_MAX_LEN];
@@ -316,8 +322,18 @@ void init() {
 }
 
 void loop() {
+    unsigned long now = millis();
+    
     if (ws) {
-        ws->cleanupClients();
+        if (now - lastCleanup >= CLEANUP_INTERVAL_MS) {
+            lastCleanup = now;
+            ws->cleanupClients(MAX_WS_CLIENTS);
+        }
+        
+        if (now - lastPing >= PING_INTERVAL_MS && ws->count() > 0) {
+            lastPing = now;
+            ws->pingAll();
+        }
     }
     
     while (queueTail != queueHead) {

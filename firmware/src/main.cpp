@@ -485,18 +485,25 @@ void setup() {
 
 void loop() {
     static bool wsInitialized = false;
+    static bool wasConnected = false;
     
     WiFiManager::loop();
     
-    if (WiFiManager::isConnected()) {
+    bool connected = WiFiManager::isConnected();
+    
+    if (connected) {
         if (!wsInitialized) {
+            WebSocketServer::init();
+            wsInitialized = true;
+        }
+        
+        // Register/re-register mDNS on every WiFi (re)connect
+        if (!wasConnected) {
+            MDNS.end();
             if (MDNS.begin("espgrow")) {
                 Serial.println("[mDNS] Started: espgrow.local");
                 MDNS.addService("http", "tcp", 80);
             }
-            
-            WebSocketServer::init();
-            wsInitialized = true;
         }
         
         WebSocketServer::loop();
@@ -514,4 +521,6 @@ void loop() {
             DeviceModes::loop(cachedSensorReadings);
         }
     }
+    
+    wasConnected = connected;
 }
