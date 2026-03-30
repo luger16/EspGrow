@@ -33,6 +33,7 @@ export interface Device {
 	controlMethod: DeviceControlMethod;
 	ipAddress?: string;
 	isOn: boolean;
+	isOnline?: boolean;
 	controlMode: DeviceControlMode;
 	hasEnergyMonitoring?: boolean;
 }

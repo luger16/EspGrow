@@ -78,6 +78,7 @@ export function initDeviceWebSocket(): void {
 			devices.push({
 				...d,
 				isOn: d.isOn ?? false,
+				isOnline: d.isOnline ?? true,
 				hasEnergyMonitoring: d.hasEnergyMonitoring ?? false,
 			});
 		});

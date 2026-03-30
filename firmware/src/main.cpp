@@ -17,7 +17,10 @@
 
 namespace {
     unsigned long lastBroadcast = 0;
+    unsigned long lastDevicePoll = 0;
     const unsigned long BROADCAST_INTERVAL = 5000;
+    const unsigned long DEVICE_POLL_INTERVAL = 30000;
+    size_t nextPollIndex = 0;
     std::map<String, float> cachedSensorReadings;
     bool sensorReadingsDirty = false;
 
@@ -146,6 +149,47 @@ namespace {
         }
     }
 
+    void pollNextDevice() {
+        size_t count = Devices::getDeviceCount();
+        if (count == 0) return;
+        
+        if (nextPollIndex >= count) nextPollIndex = 0;
+        
+        Devices::Device* device = Devices::getDeviceByIndex(nextPollIndex);
+        if (!device || strlen(device->ipAddress) == 0) {
+            nextPollIndex++;
+            return;
+        }
+        
+        auto result = DeviceController::queryState(device->controlMethod, device->ipAddress);
+        
+        bool changed = false;
+        if (result.reachable) {
+            if (!device->isOnline) {
+                Devices::setDeviceOnline(device->id, true);
+                changed = true;
+                Serial.printf("[Poll] %s came online\n", device->name);
+            }
+            if (device->isOn != result.isOn) {
+                Devices::setDeviceState(device->id, result.isOn);
+                changed = true;
+                Serial.printf("[Poll] %s state: %s\n", device->name, result.isOn ? "ON" : "OFF");
+            }
+        } else {
+            if (device->isOnline) {
+                Devices::setDeviceOnline(device->id, false);
+                changed = true;
+                Serial.printf("[Poll] %s went offline\n", device->name);
+            }
+        }
+        
+        if (changed) {
+            broadcastDevices();
+        }
+        
+        nextPollIndex++;
+    }
+
     void handleMessage(const String& message) {
         JsonDocument doc;
         DeserializationError err = deserializeJson(doc, message);
@@ -173,7 +217,7 @@ namespace {
             const char* target = payload["target"];
             bool on = payload["on"];
             
-            bool success = DeviceController::control(
+            auto result = DeviceController::control(
                 method ? method : "",
                 target ? target : "",
                 on
@@ -182,16 +226,21 @@ namespace {
             Devices::Device* device = Devices::findDeviceByTarget(
                 method ? method : "", target ? target : "");
             
-            if (success && device) {
-                Devices::setDeviceState(device->id, on);
+            if (device) {
+                if (result.reachable) {
+                    Devices::setDeviceState(device->id, result.isOn);
+                    Devices::setDeviceOnline(device->id, true);
+                } else {
+                    Devices::setDeviceOnline(device->id, false);
+                }
             }
             
             JsonDocument response;
             response["type"] = "device_status";
             JsonObject respData = response["data"].to<JsonObject>();
             respData["target"] = target;
-            respData["on"] = on;
-            respData["success"] = success;
+            respData["on"] = result.reachable ? result.isOn : on;
+            respData["success"] = result.reachable;
             if (device) {
                 respData["deviceId"] = device->id;
             }
@@ -514,6 +563,11 @@ void loop() {
             lastBroadcast = millis();
             broadcastSensorData();
             broadcastEnergy();
+        }
+        
+        if (millis() - lastDevicePoll >= DEVICE_POLL_INTERVAL) {
+            lastDevicePoll = millis();
+            pollNextDevice();
         }
         
         if (sensorReadingsDirty) {

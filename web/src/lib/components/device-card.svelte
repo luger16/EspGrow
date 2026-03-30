@@ -9,11 +9,13 @@
 	import { deviceIcons } from "$lib/icons";
 	import LoaderIcon from "@lucide/svelte/icons/loader-circle";
 	import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
+	import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
 
 	let { device }: { device: Device } = $props();
 
 	const Icon = $derived(deviceIcons[device.type]);
 	const isPending = $derived(pendingDevices.has(device.id));
+	const isOnline = $derived(device.isOnline !== false);
 	const modeConfig = $derived(getDeviceMode(device.id));
 	const isOverridden = $derived(
 		device.controlMode === "automatic" &&
@@ -57,10 +59,10 @@
 	}
 </script>
 
-<Card.Root class="flex flex-col py-2.5">
+<Card.Root class="flex flex-col py-2.5 {!isOnline ? 'opacity-60' : ''}">
 	<Card.Content class="flex items-center gap-3 px-3">
 		<div
-			class="flex size-7 shrink-0 items-center justify-center rounded-md {device.isOn
+			class="flex size-7 shrink-0 items-center justify-center rounded-md {device.isOn && isOnline
 				? 'bg-primary/10 text-primary'
 				: 'bg-muted text-muted-foreground'}"
 		>
@@ -69,22 +71,32 @@
 		<div class="min-w-0 flex-1">
 			<p class="truncate text-xs text-muted-foreground">{device.name}</p>
 			<div class="flex items-center gap-1.5">
-				<span class="text-base font-semibold">{device.isOn ? "On" : "Off"}</span>
-				{#if isOverridden}
+				{#if !isOnline}
+					<span class="text-base font-semibold text-muted-foreground">Offline</span>
 					<Badge variant="destructive" class="text-[10px] px-1 py-0 gap-0.5">
-						<TriangleAlertIcon class="size-2.5" />
-						Override
-					</Badge>
-				{:else if modeConfig}
-					<Badge variant="secondary" class="text-[10px] px-1 py-0">
-						{modeBadgeLabel[modeConfig.mode]}
+						<WifiOffIcon class="size-2.5" />
+						Offline
 					</Badge>
 				{:else}
-					<Badge variant="outline" class="text-[10px] px-1 py-0">Manual</Badge>
+					<span class="text-base font-semibold">{device.isOn ? "On" : "Off"}</span>
+					{#if isOverridden}
+						<Badge variant="destructive" class="text-[10px] px-1 py-0 gap-0.5">
+							<TriangleAlertIcon class="size-2.5" />
+							Override
+						</Badge>
+					{:else if modeConfig}
+						<Badge variant="secondary" class="text-[10px] px-1 py-0">
+							{modeBadgeLabel[modeConfig.mode]}
+						</Badge>
+					{:else}
+						<Badge variant="outline" class="text-[10px] px-1 py-0">Manual</Badge>
+					{/if}
 				{/if}
 			</div>
 		</div>
-		{#if isPending}
+		{#if !isOnline}
+			<WifiOffIcon class="size-4 text-destructive" />
+		{:else if isPending}
 			<LoaderIcon class="size-4 animate-spin text-muted-foreground" />
 		{:else}
 			<Switch checked={device.isOn} onCheckedChange={handleToggle} />

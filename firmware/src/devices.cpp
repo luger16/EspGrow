@@ -117,6 +117,7 @@ void getDevicesJson(String& out) {
         obj["ipAddress"] = device.ipAddress;
         obj["controlMode"] = device.controlMode;
         obj["isOn"] = device.isOn;
+        obj["isOnline"] = device.isOnline;
         obj["hasEnergyMonitoring"] = device.hasEnergyMonitoring;
     }
     
@@ -132,6 +133,11 @@ Device* getDevice(const char* deviceId) {
     return nullptr;
 }
 
+Device* getDeviceByIndex(size_t index) {
+    if (index >= devices.size()) return nullptr;
+    return &devices[index];
+}
+
 size_t getDeviceCount() {
     return devices.size();
 }
@@ -140,6 +146,16 @@ bool setDeviceState(const char* deviceId, bool on) {
     for (auto& device : devices) {
         if (strcmp(device.id, deviceId) == 0) {
             device.isOn = on;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool setDeviceOnline(const char* deviceId, bool online) {
+    for (auto& device : devices) {
+        if (strcmp(device.id, deviceId) == 0) {
+            device.isOnline = online;
             return true;
         }
     }

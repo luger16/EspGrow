@@ -37,14 +37,15 @@ interface DeviceConfig {
 	controlMethod: string;
 	ipAddress: string;
 	isOn: boolean;
+	isOnline: boolean;
 	controlMode: string;
 	hasEnergyMonitoring?: boolean;
 }
 
 const DEVICES: DeviceConfig[] = [
-	{ id: "fan_exhaust", name: "Exhaust Fan", type: "fan", controlMethod: "shelly_gen2", ipAddress: "192.168.1.100", isOn: true, controlMode: "automatic", hasEnergyMonitoring: true },
-	{ id: "light_main", name: "Grow Light", type: "light", controlMethod: "shelly_gen2", ipAddress: "192.168.1.101", isOn: true, controlMode: "manual", hasEnergyMonitoring: true },
-	{ id: "humidifier", name: "Humidifier", type: "humidifier", controlMethod: "tasmota", ipAddress: "192.168.1.102", isOn: false, controlMode: "automatic", hasEnergyMonitoring: true },
+	{ id: "fan_exhaust", name: "Exhaust Fan", type: "fan", controlMethod: "shelly_gen2", ipAddress: "192.168.1.100", isOn: true, isOnline: true, controlMode: "automatic", hasEnergyMonitoring: true },
+	{ id: "light_main", name: "Grow Light", type: "light", controlMethod: "shelly_gen2", ipAddress: "192.168.1.101", isOn: true, isOnline: true, controlMode: "manual", hasEnergyMonitoring: true },
+	{ id: "humidifier", name: "Humidifier", type: "humidifier", controlMethod: "tasmota", ipAddress: "192.168.1.102", isOn: false, isOnline: true, controlMode: "automatic", hasEnergyMonitoring: true },
 ];
 
 interface EnergyState {
@@ -433,7 +434,20 @@ function scheduleRandomEvents(): void {
 			broadcast({ type: "device_event", data: event });
 			console.log(`[Mock] Device event: ${event.title}`);
 		}
-		scheduleRandomEvents();
+scheduleRandomEvents();
+
+function scheduleOfflineSimulation(): void {
+	setTimeout(() => {
+		const humidifier = DEVICES.find((d) => d.id === "humidifier");
+		if (humidifier) {
+			humidifier.isOnline = !humidifier.isOnline;
+			broadcast({ type: "devices", data: DEVICES });
+			console.log(`[Mock] Humidifier ${humidifier.isOnline ? "came online" : "went offline"}`);
+		}
+		scheduleOfflineSimulation();
+	}, 45_000 + Math.random() * 45_000);
+}
+scheduleOfflineSimulation();
 	}, 20_000 + Math.random() * 40_000);
 }
 scheduleRandomEvents();
@@ -575,6 +589,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
 				controlMethod: payload.controlMethod as string,
 				ipAddress: payload.ipAddress as string,
 				isOn: false,
+				isOnline: true,
 				controlMode: "manual",
 				hasEnergyMonitoring: (payload.hasEnergyMonitoring as boolean) ?? false,
 			});

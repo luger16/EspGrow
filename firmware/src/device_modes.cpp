@@ -36,15 +36,17 @@ namespace {
         Devices::Device* device = Devices::getDevice(cfg.deviceId);
         if (!device) return;
 
-        if (device->isOn == on) return;
+        if (device->isOn == on && device->isOnline) return;
 
-        bool success = DeviceController::control(
+        auto result = DeviceController::control(
             device->controlMethod, device->ipAddress, on);
 
-        if (success) {
-            Devices::setDeviceState(cfg.deviceId, on);
+        Devices::setDeviceOnline(cfg.deviceId, result.reachable);
+
+        if (result.reachable) {
+            Devices::setDeviceState(cfg.deviceId, result.isOn);
             if (onDeviceStateChange) {
-                onDeviceStateChange(cfg.deviceId, on);
+                onDeviceStateChange(cfg.deviceId, result.isOn);
             }
         }
     }

@@ -13,6 +13,7 @@ struct Device {
     char ipAddress[40];
     char controlMode[12];
     bool isOn = false;
+    bool isOnline = true;
     bool hasEnergyMonitoring = false;
 };
 
@@ -24,9 +25,11 @@ bool removeDevice(const char* deviceId);
 
 void getDevicesJson(String& out);
 Device* getDevice(const char* deviceId);
+Device* getDeviceByIndex(size_t index);
 size_t getDeviceCount();
 
 bool setDeviceState(const char* deviceId, bool on);
+bool setDeviceOnline(const char* deviceId, bool online);
 Device* findDeviceByTarget(const char* method, const char* target);
 void computeControlModes();
 
