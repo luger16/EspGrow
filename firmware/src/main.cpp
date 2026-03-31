@@ -125,26 +125,28 @@ namespace {
             histData["pointSize"] = sizeof(History::HistoryPoint);
             histData["count"] = size / sizeof(History::HistoryPoint);
             
-            String base64Data;
             size_t encodedLen = (size + 2) / 3 * 4;
-            base64Data.reserve(encodedLen + 1);
+            char* b64buf = new char[encodedLen + 1];
             
             const char* b64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+            size_t pos = 0;
             for (size_t i = 0; i < size; i += 3) {
                 uint32_t n = ((uint32_t)buffer[i]) << 16;
                 if (i + 1 < size) n |= ((uint32_t)buffer[i + 1]) << 8;
                 if (i + 2 < size) n |= buffer[i + 2];
                 
-                base64Data += b64chars[(n >> 18) & 0x3F];
-                base64Data += b64chars[(n >> 12) & 0x3F];
-                base64Data += (i + 1 < size) ? b64chars[(n >> 6) & 0x3F] : '=';
-                base64Data += (i + 2 < size) ? b64chars[n & 0x3F] : '=';
+                b64buf[pos++] = b64chars[(n >> 18) & 0x3F];
+                b64buf[pos++] = b64chars[(n >> 12) & 0x3F];
+                b64buf[pos++] = (i + 1 < size) ? b64chars[(n >> 6) & 0x3F] : '=';
+                b64buf[pos++] = (i + 2 < size) ? b64chars[n & 0x3F] : '=';
             }
+            b64buf[pos] = '\0';
             
-            histData["payload"] = base64Data;
+            histData["payload"] = (const char*)b64buf;
             
             String out;
             serializeJson(doc, out);
+            delete[] b64buf;
             WebSocketServer::broadcast(out);
         }
     }

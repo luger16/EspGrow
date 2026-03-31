@@ -31,17 +31,4 @@ bool isTimeInRange(const char* startHHMM, const char* endHHMM) {
     }
 }
 
-String getCurrentTimeHHMM() {
-    if (!WiFiManager::isTimeSynced()) return "--:--";
-    
-    time_t now = time(nullptr);
-    struct tm* tm_info = gmtime(&now);
-    int hours = tm_info->tm_hour;
-    int minutes = tm_info->tm_min;
-    
-    char buf[6];
-    snprintf(buf, sizeof(buf), "%02d:%02d", hours, minutes);
-    return String(buf);
-}
-
 }

@@ -277,19 +277,6 @@ float getSensorValue(const char* sensorId) {
     return getValueFromHardware(cfg->hardwareType, cfg->type);
 }
 
-bool isHardwareConnected(const char* hardwareType) {
-    if (strcmp(hardwareType, "sht3x") == 0) return sht3xFound;
-    if (strcmp(hardwareType, "sht4x") == 0) return sht4xFound;
-    if (strcmp(hardwareType, "scd4x") == 0) return scd4xFound;
-    if (strcmp(hardwareType, "as7341") == 0) return as7341Found;
-    if (strcmp(hardwareType, "calculated") == 0) return true;
-    return false;
-}
-
-bool hasAnySensor() {
-    return sht3xFound || sht4xFound || scd4xFound || as7341Found;
-}
-
 float getPpfdCalibrationFactor() {
     return ppfdCalFactor;
 }

@@ -96,7 +96,12 @@ export function initSensorWebSocket(): void {
 		const msg = data as Record<string, unknown>;
 		if (typeof msg.sensorId !== "string" || typeof msg.range !== "string" || typeof msg.payload !== "string") return;
 		
-		const bytes = decodeBase64(msg.payload);
+		let bytes: Uint8Array;
+		try {
+			bytes = decodeBase64(msg.payload);
+		} catch {
+			return;
+		}
 		const points = decodeHistoryPoints(bytes);
 		
 		if (!sensorHistory[msg.sensorId]) {
@@ -121,10 +126,6 @@ export function initSensorWebSocket(): void {
 
 	websocket.send("get_sensors");
 	websocket.send("get_ppfd_calibration");
-}
-
-export function getSensorReading(sensorId: string): SensorReading | undefined {
-	return sensorReadings[sensorId];
 }
 
 export function requestHistory(sensorId: string, range: HistoryRange, force = false): void {

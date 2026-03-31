@@ -13,6 +13,9 @@ const state = $state<WebSocketState>({
 let ws: WebSocket | null = null;
 let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let shouldReconnect = true;
+let reconnectDelay = 3000;
+const RECONNECT_BASE = 3000;
+const RECONNECT_MAX = 30000;
 const handlers = new Map<string, MessageHandler[]>();
 let pendingMessages: Array<{ type: string; payload?: Record<string, unknown> }> = [];
 
@@ -41,6 +44,7 @@ export function connect(url?: string): void {
 	ws.onopen = () => {
 		state.connected = true;
 		state.error = null;
+		reconnectDelay = RECONNECT_BASE;
 		for (const msg of pendingMessages) {
 			const frame: Record<string, unknown> = { type: msg.type };
 			if (msg.payload && Object.keys(msg.payload).length > 0) {
@@ -55,7 +59,8 @@ export function connect(url?: string): void {
 		state.connected = false;
 		ws = null;
 		if (shouldReconnect) {
-			reconnectTimeout = setTimeout(() => connect(url), 3000);
+			reconnectTimeout = setTimeout(() => connect(url), reconnectDelay);
+			reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX);
 		}
 	};
 

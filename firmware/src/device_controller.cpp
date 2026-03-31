@@ -8,36 +8,50 @@ namespace DeviceController {
 static constexpr int CONTROL_TIMEOUT_MS = 2000;
 static constexpr int QUERY_TIMEOUT_MS = 500;
 
+namespace {
+    struct HttpResult {
+        bool ok = false;
+        JsonDocument doc;
+    };
+
+    HttpResult httpGet(const String& url, int timeoutMs) {
+        HttpResult result;
+        HTTPClient http;
+        http.begin(url);
+        http.setTimeout(timeoutMs);
+        
+        int httpCode = http.GET();
+        if (httpCode == 200) {
+            String payload = http.getString();
+            http.end();
+            if (!deserializeJson(result.doc, payload)) {
+                result.ok = true;
+            }
+        } else {
+            http.end();
+        }
+        return result;
+    }
+}
+
 void init() {
     Serial.println("[DeviceCtrl] Initialized");
 }
 
 QueryResult setTasmota(const String& ip, bool on) {
     QueryResult result;
-    HTTPClient http;
     String url = "http://" + ip + "/cm?cmnd=Power%20" + (on ? "On" : "Off");
+    auto resp = httpGet(url, CONTROL_TIMEOUT_MS);
     
-    http.begin(url);
-    http.setTimeout(CONTROL_TIMEOUT_MS);
-    
-    int httpCode = http.GET();
-    if (httpCode == 200) {
-        String payload = http.getString();
-        http.end();
-        
-        JsonDocument doc;
-        if (!deserializeJson(doc, payload)) {
-            result.reachable = true;
-            // Tasmota returns {"POWER":"ON"} or {"POWER":"OFF"}
-            const char* power = doc["POWER"];
-            if (power) {
-                result.isOn = (strcmp(power, "ON") == 0);
-            }
+    if (resp.ok) {
+        result.reachable = true;
+        const char* power = resp.doc["POWER"];
+        if (power) {
+            result.isOn = (strcmp(power, "ON") == 0);
         }
         Serial.printf("[DeviceCtrl] Tasmota %s -> %s\n", ip.c_str(), result.isOn ? "ON" : "OFF");
     } else {
-        http.end();
-        Serial.printf("[DeviceCtrl] Tasmota %s failed: %d\n", ip.c_str(), httpCode);
+        Serial.printf("[DeviceCtrl] Tasmota %s failed\n", ip.c_str());
     }
     
     return result;
@@ -45,27 +59,15 @@ QueryResult setTasmota(const String& ip, bool on) {
 
 QueryResult setShellyGen1(const String& ip, bool on) {
     QueryResult result;
-    HTTPClient http;
     String url = "http://" + ip + "/relay/0?turn=" + (on ? "on" : "off");
+    auto resp = httpGet(url, CONTROL_TIMEOUT_MS);
     
-    http.begin(url);
-    http.setTimeout(CONTROL_TIMEOUT_MS);
-    
-    int httpCode = http.GET();
-    if (httpCode == 200) {
-        String payload = http.getString();
-        http.end();
-        
-        JsonDocument doc;
-        if (!deserializeJson(doc, payload)) {
-            result.reachable = true;
-            // Shelly Gen1 returns {"ison":true/false, ...}
-            result.isOn = doc["ison"] | false;
-        }
+    if (resp.ok) {
+        result.reachable = true;
+        result.isOn = resp.doc["ison"] | false;
         Serial.printf("[DeviceCtrl] Shelly Gen1 %s -> %s\n", ip.c_str(), result.isOn ? "ON" : "OFF");
     } else {
-        http.end();
-        Serial.printf("[DeviceCtrl] Shelly Gen1 %s failed: %d\n", ip.c_str(), httpCode);
+        Serial.printf("[DeviceCtrl] Shelly Gen1 %s failed\n", ip.c_str());
     }
     
     return result;
@@ -73,27 +75,15 @@ QueryResult setShellyGen1(const String& ip, bool on) {
 
 QueryResult setShellyGen2(const String& ip, bool on) {
     QueryResult result;
-    HTTPClient http;
     String url = "http://" + ip + "/rpc/Switch.Set?id=0&on=" + (on ? "true" : "false");
+    auto resp = httpGet(url, CONTROL_TIMEOUT_MS);
     
-    http.begin(url);
-    http.setTimeout(CONTROL_TIMEOUT_MS);
-    
-    int httpCode = http.GET();
-    if (httpCode == 200) {
-        String payload = http.getString();
-        http.end();
-        
-        JsonDocument doc;
-        if (!deserializeJson(doc, payload)) {
-            result.reachable = true;
-            // Shelly Gen2 returns {"was_on":true/false} for Set commands
-            result.isOn = on;
-        }
+    if (resp.ok) {
+        result.reachable = true;
+        result.isOn = on;
         Serial.printf("[DeviceCtrl] Shelly Gen2 %s -> %s\n", ip.c_str(), result.isOn ? "ON" : "OFF");
     } else {
-        http.end();
-        Serial.printf("[DeviceCtrl] Shelly Gen2 %s failed: %d\n", ip.c_str(), httpCode);
+        Serial.printf("[DeviceCtrl] Shelly Gen2 %s failed\n", ip.c_str());
     }
     
     return result;
@@ -114,29 +104,16 @@ QueryResult control(const String& method, const String& target, bool on) {
 
 QueryResult queryTasmota(const String& ip) {
     QueryResult result;
-    HTTPClient http;
-    String url = "http://" + ip + "/cm?cmnd=Power";
+    auto resp = httpGet("http://" + ip + "/cm?cmnd=Power", QUERY_TIMEOUT_MS);
     
-    http.begin(url);
-    http.setTimeout(QUERY_TIMEOUT_MS);
-    
-    int httpCode = http.GET();
-    if (httpCode == 200) {
-        String payload = http.getString();
-        http.end();
-        
-        JsonDocument doc;
-        if (!deserializeJson(doc, payload)) {
-            result.reachable = true;
-            // Tasmota returns {"POWER":"ON"} or {"POWER":"OFF"}
-            const char* power = doc["POWER"];
-            if (power) {
-                result.isOn = (strcmp(power, "ON") == 0);
-            }
+    if (resp.ok) {
+        result.reachable = true;
+        const char* power = resp.doc["POWER"];
+        if (power) {
+            result.isOn = (strcmp(power, "ON") == 0);
         }
     } else {
-        http.end();
-        Serial.printf("[DeviceCtrl] Tasmota query %s failed: %d\n", ip.c_str(), httpCode);
+        Serial.printf("[DeviceCtrl] Tasmota query %s failed\n", ip.c_str());
     }
     
     return result;
@@ -144,26 +121,13 @@ QueryResult queryTasmota(const String& ip) {
 
 QueryResult queryShellyGen1(const String& ip) {
     QueryResult result;
-    HTTPClient http;
-    String url = "http://" + ip + "/relay/0";
+    auto resp = httpGet("http://" + ip + "/relay/0", QUERY_TIMEOUT_MS);
     
-    http.begin(url);
-    http.setTimeout(QUERY_TIMEOUT_MS);
-    
-    int httpCode = http.GET();
-    if (httpCode == 200) {
-        String payload = http.getString();
-        http.end();
-        
-        JsonDocument doc;
-        if (!deserializeJson(doc, payload)) {
-            result.reachable = true;
-            // Shelly Gen1 returns {"ison":true/false, ...}
-            result.isOn = doc["ison"] | false;
-        }
+    if (resp.ok) {
+        result.reachable = true;
+        result.isOn = resp.doc["ison"] | false;
     } else {
-        http.end();
-        Serial.printf("[DeviceCtrl] Shelly Gen1 query %s failed: %d\n", ip.c_str(), httpCode);
+        Serial.printf("[DeviceCtrl] Shelly Gen1 query %s failed\n", ip.c_str());
     }
     
     return result;
@@ -171,26 +135,13 @@ QueryResult queryShellyGen1(const String& ip) {
 
 QueryResult queryShellyGen2(const String& ip) {
     QueryResult result;
-    HTTPClient http;
-    String url = "http://" + ip + "/rpc/Switch.GetStatus?id=0";
+    auto resp = httpGet("http://" + ip + "/rpc/Switch.GetStatus?id=0", QUERY_TIMEOUT_MS);
     
-    http.begin(url);
-    http.setTimeout(QUERY_TIMEOUT_MS);
-    
-    int httpCode = http.GET();
-    if (httpCode == 200) {
-        String payload = http.getString();
-        http.end();
-        
-        JsonDocument doc;
-        if (!deserializeJson(doc, payload)) {
-            result.reachable = true;
-            // Shelly Gen2 returns {"id":0, "source":"...", "output":true/false, ...}
-            result.isOn = doc["output"] | false;
-        }
+    if (resp.ok) {
+        result.reachable = true;
+        result.isOn = resp.doc["output"] | false;
     } else {
-        http.end();
-        Serial.printf("[DeviceCtrl] Shelly Gen2 query %s failed: %d\n", ip.c_str(), httpCode);
+        Serial.printf("[DeviceCtrl] Shelly Gen2 query %s failed\n", ip.c_str());
     }
     
     return result;

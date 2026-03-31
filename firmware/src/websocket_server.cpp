@@ -38,6 +38,7 @@ namespace {
     volatile size_t queueHead = 0;
     volatile size_t queueTail = 0;
     MessageSlot messageQueue[MSG_QUEUE_SIZE];
+    portMUX_TYPE queueMux = portMUX_INITIALIZER_UNLOCKED;
 
     void onWsEvent(AsyncWebSocket* wsServer, AsyncWebSocketClient* client, 
                    AwsEventType type, void* arg, uint8_t* data, size_t len) {
@@ -52,8 +53,10 @@ namespace {
             case WS_EVT_DATA: {
                 AwsFrameInfo* info = (AwsFrameInfo*)arg;
                 if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+                    portENTER_CRITICAL(&queueMux);
                     size_t next = (queueHead + 1) % MSG_QUEUE_SIZE;
                     if (next == queueTail) {
+                        portEXIT_CRITICAL(&queueMux);
                         Serial.println("[WS] Message queue full, dropping");
                         break;
                     }
@@ -62,6 +65,7 @@ namespace {
                     messageQueue[queueHead].data[copyLen] = '\0';
                     messageQueue[queueHead].len = copyLen;
                     queueHead = next;
+                    portEXIT_CRITICAL(&queueMux);
                 }
                 break;
             }
@@ -337,8 +341,10 @@ void loop() {
     }
     
     while (queueTail != queueHead) {
+        portENTER_CRITICAL(&queueMux);
         String message(messageQueue[queueTail].data);
         queueTail = (queueTail + 1) % MSG_QUEUE_SIZE;
+        portEXIT_CRITICAL(&queueMux);
         
         if (messageCallback) {
             messageCallback(message);

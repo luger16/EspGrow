@@ -30,7 +30,7 @@ const SENSOR_TYPE_UNITS: Record<SensorType, string> = {
 	dewpoint: "°C",
 };
 
-export function formatAlertDescription(alert: ClimateAlert): string {
+function formatAlert(alert: ClimateAlert): { title: string; description: string } {
 	const label = SENSOR_TYPE_LABELS[alert.sensorType] ?? alert.sensorType;
 	const unit = SENSOR_TYPE_UNITS[alert.sensorType] ?? "";
 	const direction = alert.value > alert.target.max ? "high" : "low";
@@ -38,13 +38,10 @@ export function formatAlertDescription(alert: ClimateAlert): string {
 		: alert.sensorType === "temperature" ? 1 : 0;
 	const valueStr = `${alert.value.toFixed(precision)}${unit}`;
 	const rangeStr = `${alert.target.min}–${alert.target.max}${unit}`;
-	return `${label} too ${direction} at ${valueStr} (target ${rangeStr})`;
-}
-
-export function formatAlertTitle(alert: ClimateAlert): string {
-	const label = SENSOR_TYPE_LABELS[alert.sensorType] ?? alert.sensorType;
-	const direction = alert.value > alert.target.max ? "High" : "Low";
-	return `${label} ${direction}`;
+	return {
+		title: `${label} ${direction.charAt(0).toUpperCase() + direction.slice(1)}`,
+		description: `${label} too ${direction} at ${valueStr} (target ${rangeStr})`,
+	};
 }
 
 export const climateConfig = $state<ClimateConfig>({ ...DEFAULT_CLIMATE_CONFIG });
@@ -293,11 +290,14 @@ export function initClimateWebSocket(): void {
 		if (!data || typeof data !== "object") return;
 		const msg = data as Record<string, unknown>;
 
+		const value = Number(msg.value ?? 0);
+		if (!Number.isFinite(value)) return;
+
 		const alert: ClimateAlert = {
 			id: String(msg.id ?? crypto.randomUUID()),
 			sensorId: String(msg.sensorId ?? ""),
 			sensorType: String(msg.sensorType ?? "temperature") as SensorType,
-			value: Number(msg.value ?? 0),
+			value,
 			target: (msg.target as { min: number; max: number }) ?? { min: 0, max: 0 },
 			severity: (msg.severity as "warning" | "critical") ?? "warning",
 			timestamp: new Date(String(msg.timestamp ?? Date.now())),
@@ -308,11 +308,13 @@ export function initClimateWebSocket(): void {
 			climateAlerts.length = 100;
 		}
 
+		const { title, description } = formatAlert(alert);
+
 		pushEvent({
 			id: alert.id,
 			type: "alert",
-			title: formatAlertTitle(alert),
-			description: formatAlertDescription(alert),
+			title,
+			description,
 			severity: alert.severity,
 			timestamp: alert.timestamp,
 		});
@@ -351,6 +353,7 @@ export function initClimateWebSocket(): void {
 }
 
 function parseTimeToMinutes(time: string): number {
-	const [hours, minutes] = time.split(":").map(Number);
-	return (hours ?? 0) * 60 + (minutes ?? 0);
+	const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+	if (!match) return 0;
+	return Number(match[1]) * 60 + Number(match[2]);
 }
