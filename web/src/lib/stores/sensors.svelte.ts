@@ -147,6 +147,7 @@ export function addSensor(sensor: Sensor): void {
 		address: sensor.address ?? "",
 		tempSourceId: sensor.tempSourceId ?? "",
 		humSourceId: sensor.humSourceId ?? "",
+		leafTempOffset: sensor.leafTempOffset ?? 0,
 	});
 }
 
@@ -164,6 +165,7 @@ export function updateSensor(sensorId: string, updates: Partial<Omit<Sensor, "id
 		address: updates.address ?? "",
 		tempSourceId: updates.tempSourceId ?? "",
 		humSourceId: updates.humSourceId ?? "",
+		leafTempOffset: updates.leafTempOffset,
 	});
 }
 

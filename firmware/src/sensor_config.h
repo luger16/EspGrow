@@ -14,6 +14,7 @@ struct Sensor {
     char address[12];
     char tempSourceId[24];
     char humSourceId[24];
+    float leafTempOffset;   // VPD leaf temperature offset (°C below air temp, default 0)
 };
 
 void init();

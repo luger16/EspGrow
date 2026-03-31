@@ -333,6 +333,7 @@ namespace {
             sensorDoc["address"] = payload["address"];
             sensorDoc["tempSourceId"] = payload["tempSourceId"];
             sensorDoc["humSourceId"] = payload["humSourceId"];
+            if (payload["leafTempOffset"].is<float>()) sensorDoc["leafTempOffset"] = payload["leafTempOffset"];
             
             SensorConfig::addSensor(sensorDoc);
             broadcastSensors();
@@ -347,6 +348,7 @@ namespace {
             if (payload["address"].is<const char*>()) updates["address"] = payload["address"];
             if (payload["tempSourceId"].is<const char*>()) updates["tempSourceId"] = payload["tempSourceId"];
             if (payload["humSourceId"].is<const char*>()) updates["humSourceId"] = payload["humSourceId"];
+            if (payload["leafTempOffset"].is<float>()) updates["leafTempOffset"] = payload["leafTempOffset"];
             
             SensorConfig::updateSensor(sensorId, updates);
             broadcastSensors();

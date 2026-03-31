@@ -24,6 +24,7 @@ namespace {
             if (sensor.address[0] != '\0') obj["address"] = sensor.address;
             if (sensor.tempSourceId[0] != '\0') obj["tempSourceId"] = sensor.tempSourceId;
             if (sensor.humSourceId[0] != '\0') obj["humSourceId"] = sensor.humSourceId;
+            if (sensor.leafTempOffset != 0.0f) obj["leafTempOffset"] = sensor.leafTempOffset;
         }
         
         Storage::writeJson(SENSORS_PATH, doc);
@@ -49,6 +50,7 @@ namespace {
             strlcpy(sensor.address, obj["address"] | "", sizeof(sensor.address));
             strlcpy(sensor.tempSourceId, obj["tempSourceId"] | "", sizeof(sensor.tempSourceId));
             strlcpy(sensor.humSourceId, obj["humSourceId"] | "", sizeof(sensor.humSourceId));
+            sensor.leafTempOffset = obj["leafTempOffset"] | 0.0f;
             
             sensors.push_back(sensor);
         }
@@ -80,6 +82,7 @@ bool addSensor(JsonDocument& doc) {
     strlcpy(sensor.address, doc["address"] | "", sizeof(sensor.address));
     strlcpy(sensor.tempSourceId, doc["tempSourceId"] | "", sizeof(sensor.tempSourceId));
     strlcpy(sensor.humSourceId, doc["humSourceId"] | "", sizeof(sensor.humSourceId));
+    sensor.leafTempOffset = doc["leafTempOffset"] | 0.0f;
     
     sensors.push_back(sensor);
     updateIdPtrs();
@@ -99,6 +102,7 @@ bool updateSensor(const char* sensorId, JsonDocument& doc) {
             if (doc["address"].is<const char*>()) strlcpy(sensor.address, doc["address"], sizeof(sensor.address));
             if (doc["tempSourceId"].is<const char*>()) strlcpy(sensor.tempSourceId, doc["tempSourceId"], sizeof(sensor.tempSourceId));
             if (doc["humSourceId"].is<const char*>()) strlcpy(sensor.humSourceId, doc["humSourceId"], sizeof(sensor.humSourceId));
+            if (doc["leafTempOffset"].is<float>()) sensor.leafTempOffset = doc["leafTempOffset"];
             
             saveConfig();
             Serial.printf("[SensorConfig] Updated sensor: %s\n", sensor.name);
@@ -136,6 +140,7 @@ void getSensorsJson(String& out) {
         if (sensor.address[0] != '\0') obj["address"] = sensor.address;
         if (sensor.tempSourceId[0] != '\0') obj["tempSourceId"] = sensor.tempSourceId;
         if (sensor.humSourceId[0] != '\0') obj["humSourceId"] = sensor.humSourceId;
+        if (sensor.leafTempOffset != 0.0f) obj["leafTempOffset"] = sensor.leafTempOffset;
     }
     
     serializeJson(doc, out);

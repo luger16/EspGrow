@@ -21,9 +21,12 @@
 		optimal: "hsl(142 71% 55% / 0.5)",
 	};
 
-	function calculateVPD(tempCelsius: number, humidity: number): number {
-		const svp = 0.6108 * Math.exp((17.27 * tempCelsius) / (tempCelsius + 237.3));
-		return svp * (1 - humidity / 100);
+	function calculateVPD(tempCelsius: number, humidity: number, leafOffset: number = 0): number {
+		const leafTemp = tempCelsius - leafOffset;
+		const svpLeaf = 0.6108 * Math.exp((17.27 * leafTemp) / (leafTemp + 237.3));
+		const svpAir = 0.6108 * Math.exp((17.27 * tempCelsius) / (tempCelsius + 237.3));
+		const avp = svpAir * (humidity / 100);
+		return svpLeaf - avp;
 	}
 
 	const targets = $derived(getCurrentTargets());
@@ -49,6 +52,9 @@
 		return ZONE_COLORS.critical;
 	}
 
+	const vpdSensor = $derived(sensors.find((s: Sensor) => s.type === "vpd"));
+	const leafOffset = $derived(vpdSensor?.leafTempOffset ?? 2);
+
 	const tempSensor = $derived(sensors.find((s: Sensor) => s.type === "temperature"));
 	const humSensor = $derived(sensors.find((s: Sensor) => s.type === "humidity"));
 	const currentTemp = $derived(tempSensor ? sensorReadings[tempSensor.id]?.value : undefined);
@@ -57,7 +63,7 @@
 
 	const currentVpd = $derived(
 		currentTemp !== undefined && currentHum !== undefined
-			? calculateVPD(currentTemp, currentHum)
+			? calculateVPD(currentTemp, currentHum, leafOffset)
 			: undefined
 	);
 
@@ -65,7 +71,7 @@
 		const rects: { tempMin: number; tempMax: number; humMin: number; humMax: number; color: string }[] = [];
 		for (let temp = TEMP_MIN_C; temp < TEMP_MAX_C; temp += TEMP_STEP) {
 			for (let hum = HUM_MIN; hum < HUM_MAX; hum += HUM_STEP) {
-				const vpd = calculateVPD(temp + TEMP_STEP / 2, hum + HUM_STEP / 2);
+				const vpd = calculateVPD(temp + TEMP_STEP / 2, hum + HUM_STEP / 2, leafOffset);
 				rects.push({
 					tempMin: temp,
 					tempMax: temp + TEMP_STEP,

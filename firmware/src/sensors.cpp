@@ -62,10 +62,12 @@ namespace {
         Serial.printf("[Sensors] Saved PPFD calibration factor: %.4f\n", ppfdCalFactor);
     }
 
-    float calculateVPD(float tempC, float rhPercent) {
-        float svp = 0.6108f * expf((17.27f * tempC) / (tempC + 237.3f));
-        float avp = svp * (rhPercent / 100.0f);
-        return svp - avp;
+    float calculateVPD(float tempC, float rhPercent, float leafOffset) {
+        float leafTemp = tempC - leafOffset;
+        float svpLeaf = 0.6108f * expf((17.27f * leafTemp) / (leafTemp + 237.3f));
+        float svpAir = 0.6108f * expf((17.27f * tempC) / (tempC + 237.3f));
+        float avp = svpAir * (rhPercent / 100.0f);
+        return svpLeaf - avp;
     }
 
     // Magnus-Tetens approximation for dew point (°C)
@@ -266,7 +268,7 @@ float getSensorValue(const char* sensorId) {
         if (isnan(temp) || isnan(hum) || hum <= 0) return NAN;
 
         if (strcmp(cfg->type, "vpd") == 0) {
-            return calculateVPD(temp, hum);
+            return calculateVPD(temp, hum, cfg->leafTempOffset);
         }
         if (strcmp(cfg->type, "dewpoint") == 0) {
             return calculateDewPoint(temp, hum);

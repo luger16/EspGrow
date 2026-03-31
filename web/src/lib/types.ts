@@ -9,6 +9,7 @@ export interface Sensor {
 	address?: string;
 	tempSourceId?: string;
 	humSourceId?: string;
+	leafTempOffset?: number;
 }
 
 export interface SensorReading {

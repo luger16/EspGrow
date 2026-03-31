@@ -17,6 +17,7 @@
 	let address = $state("");
 	let tempSourceId = $state("");
 	let humSourceId = $state("");
+	let leafTempOffset = $state(2);
 
 	const hardwareOptions: { value: Sensor["hardwareType"]; label: string; types: Sensor["type"][] }[] = [
 		{ value: "sht3x", label: "SHT3x (Temp + Humidity)", types: ["temperature", "humidity"] },
@@ -44,6 +45,7 @@
 	);
 
 	const needsSources = $derived(hardwareType === "calculated" && (sensorType === "vpd" || sensorType === "dewpoint"));
+	const isVpd = $derived(hardwareType === "calculated" && sensorType === "vpd");
 
 	const tempSensors = $derived(sensors.filter((s) => s.type === "temperature"));
 	const humSensors = $derived(sensors.filter((s) => s.type === "humidity"));
@@ -72,6 +74,7 @@
 			address: address || undefined,
 			tempSourceId: needsSources ? tempSourceId : undefined,
 			humSourceId: needsSources ? humSourceId : undefined,
+			leafTempOffset: isVpd ? leafTempOffset : undefined,
 		};
 		addSensor(sensor);
 		resetForm();
@@ -86,6 +89,7 @@
 		address = "";
 		tempSourceId = "";
 		humSourceId = "";
+		leafTempOffset = 2;
 	}
 </script>
 
@@ -173,6 +177,13 @@
 					{#if submitted && !humSourceId}
 						<p class="text-destructive text-xs">Humidity source is required</p>
 					{/if}
+				</div>
+			{/if}
+			{#if isVpd}
+				<div class="grid gap-2">
+					<Label for="leafOffset">Leaf Temperature Offset (°C)</Label>
+					<Input id="leafOffset" type="number" bind:value={leafTempOffset} min={0} max={10} step={0.5} />
+					<p class="text-muted-foreground text-xs">How much cooler leaves are than air. Typical: 2°C.</p>
 				</div>
 			{/if}
 			<Dialog.Footer>
