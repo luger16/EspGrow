@@ -92,7 +92,7 @@ const SENSOR_TYPE_TO_TARGET_KEY: Partial<Record<SensorType, keyof PhaseTargets>>
 	co2: "co2",
 };
 
-const WARNING_MARGIN: Record<keyof PhaseTargets, number> = {
+export const WARNING_MARGIN: Record<keyof PhaseTargets, number> = {
 	temp: 2,
 	humidity: 10,
 	vpd: 0.2,

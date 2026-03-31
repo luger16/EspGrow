@@ -5,7 +5,7 @@
 	import { scaleLinear } from "d3-scale";
 	import { sensors, sensorReadings } from "$lib/stores/sensors.svelte";
 	import { settings, convertTemperature } from "$lib/stores/settings.svelte";
-	import { getIsDay, getCurrentTargets } from "$lib/stores/climate.svelte";
+	import { getIsDay, getCurrentTargets, WARNING_MARGIN } from "$lib/stores/climate.svelte";
 	import type { Sensor } from "$lib/types";
 
 	const TEMP_MIN_C = 15;
@@ -15,29 +15,39 @@
 	const TEMP_STEP = 1;
 	const HUM_STEP = 2;
 
-	const VPD_ZONES: { max: number; color: string; label: string }[] = [
-		{ max: 0.4, color: "hsl(199 89% 68% / 0.5)", label: "Low" },
-		{ max: 0.8, color: "hsl(142 71% 55% / 0.5)", label: "Ideal" },
-		{ max: 1.2, color: "hsl(48 96% 53% / 0.5)", label: "Good" },
-		{ max: 1.6, color: "hsl(25 95% 53% / 0.5)", label: "High" },
-		{ max: Infinity, color: "hsl(0 72% 51% / 0.5)", label: "Danger" },
-	];
+	const ZONE_COLORS = {
+		critical: "hsl(0 72% 51% / 0.5)",
+		warning: "hsl(25 95% 53% / 0.5)",
+		optimal: "hsl(142 71% 55% / 0.5)",
+	};
 
 	function calculateVPD(tempCelsius: number, humidity: number): number {
 		const svp = 0.6108 * Math.exp((17.27 * tempCelsius) / (tempCelsius + 237.3));
 		return svp * (1 - humidity / 100);
 	}
 
-	function getZoneColor(vpd: number): string {
-		for (const zone of VPD_ZONES) {
-			if (vpd < zone.max) return zone.color;
-		}
-		return VPD_ZONES[VPD_ZONES.length - 1].color;
-	}
-
 	const targets = $derived(getCurrentTargets());
 	const isDay = $derived(getIsDay());
 	const targetVpd = $derived(isDay ? targets.vpd.day : targets.vpd.night);
+	const margin = WARNING_MARGIN.vpd;
+
+	const vpdZones = $derived.by(() => {
+		const t = targetVpd;
+		return [
+			{ max: t - margin * 2, color: ZONE_COLORS.critical, label: "Critical Low" },
+			{ max: t - margin, color: ZONE_COLORS.warning, label: "Low" },
+			{ max: t + margin, color: ZONE_COLORS.optimal, label: "Optimal" },
+			{ max: t + margin * 2, color: ZONE_COLORS.warning, label: "High" },
+			{ max: Infinity, color: ZONE_COLORS.critical, label: "Critical High" },
+		];
+	});
+
+	function getZoneColor(vpd: number): string {
+		for (const zone of vpdZones) {
+			if (vpd < zone.max) return zone.color;
+		}
+		return ZONE_COLORS.critical;
+	}
 
 	const tempSensor = $derived(sensors.find((s: Sensor) => s.type === "temperature"));
 	const humSensor = $derived(sensors.find((s: Sensor) => s.type === "humidity"));
@@ -93,11 +103,9 @@
 	);
 
 	const chartConfig: ChartUI.ChartConfig = {
-		low: { label: "Low", color: "hsl(199 89% 68%)" },
-		ideal: { label: "Ideal", color: "hsl(142 71% 55%)" },
-		good: { label: "Good", color: "hsl(48 96% 53%)" },
-		high: { label: "High", color: "hsl(25 95% 53%)" },
-		danger: { label: "Danger", color: "hsl(0 72% 51%)" },
+		critical: { label: "Critical", color: "hsl(0 72% 51%)" },
+		warning: { label: "Warning", color: "hsl(25 95% 53%)" },
+		optimal: { label: "Optimal", color: "hsl(142 71% 55%)" },
 	};
 </script>
 
