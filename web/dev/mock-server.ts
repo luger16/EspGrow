@@ -53,7 +53,7 @@ interface EnergyState {
 	deviceName: string;
 	watts: number;
 	kWh: number;
-	resetTimestamp: string;
+	resetTimestamp: number;
 }
 
 const WATT_RANGES: Record<string, { on: [number, number]; off: [number, number] }> = {
@@ -67,7 +67,7 @@ const energyState: EnergyState[] = DEVICES.filter((d) => d.hasEnergyMonitoring).
 	deviceName: d.name,
 	watts: 0,
 	kWh: Math.round(Math.random() * 50 * 100) / 100,
-	resetTimestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+	resetTimestamp: Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000),
 }));
 
 let lastEnergyTick = Date.now();
@@ -99,7 +99,7 @@ function syncEnergyDevices(): void {
 				deviceName: device.name,
 				watts: 0,
 				kWh: 0,
-				resetTimestamp: new Date().toISOString(),
+				resetTimestamp: Math.floor(Date.now() / 1000),
 			});
 		}
 	}
@@ -706,7 +706,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
 
 		case "reset_energy": {
 			const resetDeviceId = payload.deviceId as string | undefined;
-			const now = new Date().toISOString();
+			const now = Math.floor(Date.now() / 1000);
 			for (const entry of energyState) {
 				if (!resetDeviceId || entry.deviceId === resetDeviceId) {
 					entry.kWh = 0;

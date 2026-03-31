@@ -1,9 +1,11 @@
 #include "energy_tracker.h"
 #include "devices.h"
+#include "wifi_manager.h"
 #include "storage.h"
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <vector>
+#include <time.h>
 
 namespace EnergyTracker {
 
@@ -11,13 +13,14 @@ namespace {
     const char* ENERGY_PATH = "/energy.json";
     const unsigned long POLL_INTERVAL = 10000;       // 10 seconds
     const unsigned long PERSIST_INTERVAL = 300000;   // 5 minutes
+    static constexpr int ENERGY_TIMEOUT_MS = 500;
 
     struct DeviceEnergy {
         char deviceId[24];
         float watts = 0.0f;
         double kWh = 0.0;
-        unsigned long resetTimestamp = 0;  // millis() at last reset
-        unsigned long lastPollTime = 0;    // millis() at last successful poll
+        uint32_t resetTimestamp = 0;      // Unix timestamp at last reset
+        unsigned long lastPollTime = 0;   // millis() at last successful poll
     };
 
     std::vector<DeviceEnergy> energies;
@@ -37,17 +40,17 @@ namespace {
 
         DeviceEnergy entry;
         strlcpy(entry.deviceId, deviceId, sizeof(entry.deviceId));
-        entry.resetTimestamp = millis();
+        entry.resetTimestamp = (uint32_t)time(nullptr);
         energies.push_back(entry);
         return energies.back();
     }
 
     float pollWattsTasmota(const String& ip) {
         HTTPClient http;
-        String url = "http://" + ip + "/cm?cmnd=Status%208";
+        String url = "http://" + ip + "/cm?cmnd=Status%2010";
 
         http.begin(url);
-        http.setTimeout(3000);
+        http.setTimeout(ENERGY_TIMEOUT_MS);
 
         int code = http.GET();
         if (code != 200) {
@@ -69,7 +72,7 @@ namespace {
         String url = "http://" + ip + "/meter/0";
 
         http.begin(url);
-        http.setTimeout(3000);
+        http.setTimeout(ENERGY_TIMEOUT_MS);
 
         int code = http.GET();
         if (code != 200) {
@@ -91,7 +94,7 @@ namespace {
         String url = "http://" + ip + "/rpc/Switch.GetStatus?id=0";
 
         http.begin(url);
-        http.setTimeout(3000);
+        http.setTimeout(ENERGY_TIMEOUT_MS);
 
         int code = http.GET();
         if (code != 200) {
@@ -149,7 +152,7 @@ namespace {
 
             DeviceEnergy& entry = getOrCreateEnergy(deviceId);
             entry.kWh = obj["kWh"] | 0.0;
-            entry.resetTimestamp = obj["resetTimestamp"] | (unsigned long)millis();
+            entry.resetTimestamp = obj["resetTimestamp"] | (uint32_t)time(nullptr);
         }
 
         Serial.printf("[Energy] Loaded %d entries\n", energies.size());
@@ -167,31 +170,19 @@ void loop() {
     if (now - lastPollTime >= POLL_INTERVAL) {
         lastPollTime = now;
 
-        String devicesJson;
-        Devices::getDevicesJson(devicesJson);
-        
-        JsonDocument devDoc;
-        if (deserializeJson(devDoc, devicesJson)) return;
-
-        JsonArray devArr = devDoc.as<JsonArray>();
-        for (JsonObject devObj : devArr) {
-            bool hasEnergy = devObj["hasEnergyMonitoring"] | false;
-            if (!hasEnergy) continue;
-
-            const char* deviceId = devObj["id"];
-            if (!deviceId) continue;
-
-            Devices::Device* device = Devices::getDevice(deviceId);
-            if (!device) continue;
+        size_t count = Devices::getDeviceCount();
+        for (size_t i = 0; i < count; i++) {
+            Devices::Device* device = Devices::getDeviceByIndex(i);
+            if (!device || !device->hasEnergyMonitoring) continue;
 
             float watts = pollWatts(*device);
             if (isnan(watts)) {
-                DeviceEnergy& entry = getOrCreateEnergy(deviceId);
+                DeviceEnergy& entry = getOrCreateEnergy(device->id);
                 entry.watts = 0.0f;
                 continue;
             }
 
-            DeviceEnergy& entry = getOrCreateEnergy(deviceId);
+            DeviceEnergy& entry = getOrCreateEnergy(device->id);
             
             if (entry.lastPollTime > 0) {
                 unsigned long elapsed = now - entry.lastPollTime;
@@ -216,31 +207,19 @@ void getEnergiesJson(String& out) {
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();
 
-    String devicesJson;
-    Devices::getDevicesJson(devicesJson);
-    
-    JsonDocument devDoc;
-    if (deserializeJson(devDoc, devicesJson)) {
-        serializeJson(doc, out);
-        return;
-    }
+    size_t count = Devices::getDeviceCount();
+    for (size_t i = 0; i < count; i++) {
+        Devices::Device* device = Devices::getDeviceByIndex(i);
+        if (!device || !device->hasEnergyMonitoring) continue;
 
-    JsonArray devArr = devDoc.as<JsonArray>();
-    for (JsonObject devObj : devArr) {
-        bool hasEnergy = devObj["hasEnergyMonitoring"] | false;
-        if (!hasEnergy) continue;
-
-        const char* deviceId = devObj["id"];
-        if (!deviceId) continue;
-
-        DeviceEnergy* entry = findEnergy(deviceId);
+        DeviceEnergy* entry = findEnergy(device->id);
         
         JsonObject obj = arr.add<JsonObject>();
-        obj["deviceId"] = deviceId;
-        obj["deviceName"] = devObj["name"] | "";
+        obj["deviceId"] = device->id;
+        obj["deviceName"] = device->name;
         obj["watts"] = entry ? entry->watts : 0.0f;
         obj["kWh"] = entry ? (float)entry->kWh : 0.0f;
-        obj["resetTimestamp"] = entry ? entry->resetTimestamp : (unsigned long)millis();
+        obj["resetTimestamp"] = entry ? entry->resetTimestamp : (uint32_t)time(nullptr);
     }
 
     serializeJson(doc, out);
@@ -250,7 +229,7 @@ void resetEnergy(const char* deviceId) {
     DeviceEnergy* entry = findEnergy(deviceId);
     if (entry) {
         entry->kWh = 0.0;
-        entry->resetTimestamp = millis();
+        entry->resetTimestamp = (uint32_t)time(nullptr);
         Serial.printf("[Energy] Reset energy for device: %s\n", deviceId);
         saveEnergies();
     }
@@ -259,7 +238,7 @@ void resetEnergy(const char* deviceId) {
 void resetAllEnergy() {
     for (auto& e : energies) {
         e.kWh = 0.0;
-        e.resetTimestamp = millis();
+        e.resetTimestamp = (uint32_t)time(nullptr);
     }
     Serial.println("[Energy] Reset all energy counters");
     saveEnergies();

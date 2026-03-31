@@ -36,7 +36,7 @@ export function initEnergyWebSocket(): void {
 				deviceName: String(item.deviceName ?? ""),
 				watts: Number(item.watts ?? 0),
 				kWh: Number(item.kWh ?? 0),
-				resetTimestamp: new Date(String(item.resetTimestamp ?? Date.now())),
+				resetTimestamp: new Date(Number(item.resetTimestamp ?? 0) * 1000),
 			});
 		}
 	});
