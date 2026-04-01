@@ -80,8 +80,10 @@ QueryResult setShellyGen2(const String& ip, bool on) {
     
     if (resp.ok) {
         result.reachable = true;
+        bool wasOn = resp.doc["was_on"] | !on;
         result.isOn = on;
-        Serial.printf("[DeviceCtrl] Shelly Gen2 %s -> %s\n", ip.c_str(), result.isOn ? "ON" : "OFF");
+        Serial.printf("[DeviceCtrl] Shelly Gen2 %s -> %s (was %s)\n",
+            ip.c_str(), result.isOn ? "ON" : "OFF", wasOn ? "ON" : "OFF");
     } else {
         Serial.printf("[DeviceCtrl] Shelly Gen2 %s failed\n", ip.c_str());
     }
