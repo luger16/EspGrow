@@ -25,9 +25,9 @@ bool isTimeInRange(const char* startHHMM, const char* endHHMM) {
     int endMinutes = parseTimeToMinutes(endHHMM);
     
     if (startMinutes <= endMinutes) {
-        return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+        return currentMinutes >= startMinutes && currentMinutes < endMinutes;
     } else {
-        return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+        return currentMinutes >= startMinutes || currentMinutes < endMinutes;
     }
 }
 
