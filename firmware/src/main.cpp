@@ -20,7 +20,6 @@ namespace {
     unsigned long lastDevicePoll = 0;
     const unsigned long BROADCAST_INTERVAL = 5000;
     const unsigned long DEVICE_POLL_INTERVAL = 30000;
-    size_t nextPollIndex = 0;
     std::map<String, float> cachedSensorReadings;
     bool sensorReadingsDirty = false;
 
@@ -151,45 +150,41 @@ namespace {
         }
     }
 
-    void pollNextDevice() {
+    void pollAllDevices() {
         size_t count = Devices::getDeviceCount();
         if (count == 0) return;
         
-        if (nextPollIndex >= count) nextPollIndex = 0;
-        
-        Devices::Device* device = Devices::getDeviceByIndex(nextPollIndex);
-        if (!device || strlen(device->ipAddress) == 0) {
-            nextPollIndex++;
-            return;
-        }
-        
-        auto result = DeviceController::queryState(device->controlMethod, device->ipAddress);
-        
         bool changed = false;
-        if (result.reachable) {
-            if (!device->isOnline) {
-                Devices::setDeviceOnline(device->id, true);
-                changed = true;
-                Serial.printf("[Poll] %s came online\n", device->name);
-            }
-            if (device->isOn != result.isOn) {
-                Devices::setDeviceState(device->id, result.isOn);
-                changed = true;
-                Serial.printf("[Poll] %s state: %s\n", device->name, result.isOn ? "ON" : "OFF");
-            }
-        } else {
-            if (device->isOnline) {
-                Devices::setDeviceOnline(device->id, false);
-                changed = true;
-                Serial.printf("[Poll] %s went offline\n", device->name);
+        
+        for (size_t i = 0; i < count; i++) {
+            Devices::Device* device = Devices::getDeviceByIndex(i);
+            if (!device || strlen(device->ipAddress) == 0) continue;
+            
+            auto result = DeviceController::queryState(device->controlMethod, device->ipAddress);
+            
+            if (result.reachable) {
+                if (!device->isOnline) {
+                    Devices::setDeviceOnline(device->id, true);
+                    changed = true;
+                    Serial.printf("[Poll] %s came online\n", device->name);
+                }
+                if (device->isOn != result.isOn) {
+                    Devices::setDeviceState(device->id, result.isOn);
+                    changed = true;
+                    Serial.printf("[Poll] %s state: %s\n", device->name, result.isOn ? "ON" : "OFF");
+                }
+            } else {
+                if (device->isOnline) {
+                    Devices::setDeviceOnline(device->id, false);
+                    changed = true;
+                    Serial.printf("[Poll] %s went offline\n", device->name);
+                }
             }
         }
         
         if (changed) {
             broadcastDevices();
         }
-        
-        nextPollIndex++;
     }
 
     void handleMessage(const String& message) {
@@ -571,7 +566,7 @@ void loop() {
         
         if (millis() - lastDevicePoll >= DEVICE_POLL_INTERVAL) {
             lastDevicePoll = millis();
-            pollNextDevice();
+            pollAllDevices();
         }
         
         if (sensorReadingsDirty) {

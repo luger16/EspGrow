@@ -13,7 +13,7 @@ struct Device {
     char ipAddress[40];
     char controlMode[12];
     bool isOn = false;
-    bool isOnline = true;
+    bool isOnline = false;
     bool hasEnergyMonitoring = false;
 };
 

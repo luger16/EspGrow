@@ -6,7 +6,7 @@
 namespace DeviceController {
 
 static constexpr int CONTROL_TIMEOUT_MS = 2000;
-static constexpr int QUERY_TIMEOUT_MS = 500;
+static constexpr int QUERY_TIMEOUT_MS = 1000;
 
 namespace {
     struct HttpResult {

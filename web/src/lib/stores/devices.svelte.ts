@@ -95,6 +95,7 @@ export function initDeviceWebSocket(): void {
 				? devices.find((d) => d.ipAddress === msg.target)
 				: undefined;
 		if (device) {
+			device.isOnline = msg.success as boolean;
 			if (msg.success) device.isOn = msg.on;
 			pendingDevices.delete(device.id);
 			if (msg.overrideActive && typeof msg.overrideRemainingMs === "number") {
