@@ -40,10 +40,27 @@ namespace {
     MessageSlot messageQueue[MSG_QUEUE_SIZE];
     portMUX_TYPE queueMux = portMUX_INITIALIZER_UNLOCKED;
 
+    bool isPrivateIP(AsyncWebSocketClient* client) {
+        IPAddress ip = client->remoteIP();
+        uint8_t first = ip[0];
+        if (first == 10) return true;
+        if (first == 172 && ip[1] >= 16 && ip[1] <= 31) return true;
+        if (first == 192 && ip[1] == 168) return true;
+        if (first == 127) return true;
+        if (first == 169 && ip[1] == 254) return true;
+        return false;
+    }
+
     void onWsEvent(AsyncWebSocket* wsServer, AsyncWebSocketClient* client, 
                    AwsEventType type, void* arg, uint8_t* data, size_t len) {
         switch (type) {
             case WS_EVT_CONNECT:
+                if (!isPrivateIP(client)) {
+                    Serial.printf("[WS] Rejected non-local client #%u from %s\n",
+                        client->id(), client->remoteIP().toString().c_str());
+                    client->close();
+                    break;
+                }
                 Serial.printf("[WS] Client #%u connected from %s\n", 
                     client->id(), client->remoteIP().toString().c_str());
                 break;
@@ -272,6 +289,10 @@ void init() {
         broadcast(out);
     });
     
+    server->on("/*", HTTP_OPTIONS, [](AsyncWebServerRequest *request) {
+        request->send(403);
+    });
+
     server->on("/*", HTTP_GET, [](AsyncWebServerRequest *request) {
         String path = request->url();
         
