@@ -186,8 +186,8 @@ void loop() {
             
             if (entry.lastPollTime > 0) {
                 unsigned long elapsed = now - entry.lastPollTime;
-                // kWh = watts * (ms / 3600000)
-                entry.kWh += (double)entry.watts * (double)elapsed / 3600000.0;
+                // kWh = watts / 1000 * (ms / 3600000) = watts * ms / 3600000000
+                entry.kWh += (double)entry.watts * (double)elapsed / 3600000000.0;
             }
 
             entry.watts = watts;
