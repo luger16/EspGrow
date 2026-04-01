@@ -107,7 +107,7 @@ namespace {
 
     void sendHistory(const char* sensorId, const char* range) {
         History::Range r;
-        if (strcmp(range, "12h") == 0) r = History::RANGE_12H;
+        if (strcmp(range, "6h") == 0) r = History::RANGE_6H;
         else if (strcmp(range, "24h") == 0) r = History::RANGE_24H;
         else if (strcmp(range, "7d") == 0) r = History::RANGE_7D;
         else return;

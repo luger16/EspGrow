@@ -5,7 +5,7 @@
 namespace History {
 
 enum Range {
-    RANGE_12H = 0,
+    RANGE_6H = 0,
     RANGE_24H = 1,
     RANGE_7D = 2
 };
@@ -15,11 +15,11 @@ struct HistoryPoint {
     float value;
 };
 
-constexpr size_t POINTS_12H = 144;
+constexpr size_t POINTS_6H = 144;
 constexpr size_t POINTS_24H = 144;
 constexpr size_t POINTS_7D = 168;
 
-constexpr uint32_t INTERVAL_12H = 5 * 60;
+constexpr uint32_t INTERVAL_6H = 150;
 constexpr uint32_t INTERVAL_24H = 10 * 60;
 constexpr uint32_t INTERVAL_7D = 60 * 60;
 

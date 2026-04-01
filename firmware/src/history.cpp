@@ -36,7 +36,7 @@ namespace {
     
     size_t getCapacity(Range range) {
         switch (range) {
-            case RANGE_12H: return POINTS_12H;
+            case RANGE_6H: return POINTS_6H;
             case RANGE_24H: return POINTS_24H;
             case RANGE_7D: return POINTS_7D;
             default: return 0;
@@ -45,7 +45,7 @@ namespace {
     
     uint32_t getInterval(Range range) {
         switch (range) {
-            case RANGE_12H: return INTERVAL_12H;
+            case RANGE_6H: return INTERVAL_6H;
             case RANGE_24H: return INTERVAL_24H;
             case RANGE_7D: return INTERVAL_7D;
             default: return 0;
@@ -53,7 +53,7 @@ namespace {
     }
     
     String getFilePath(const char* sensorId, Range range) {
-        const char* suffix[] = {"12h", "24h", "7d"};
+        const char* suffix[] = {"6h", "24h", "7d"};
         return String(HISTORY_DIR) + "/" + sensorId + "_" + suffix[range] + ".bin";
     }
     
@@ -107,9 +107,9 @@ namespace {
         
         SensorHistory& sh = histories[sensorId];
         
-        sh.buffers[RANGE_12H].points = new HistoryPoint[POINTS_12H];
-        sh.buffers[RANGE_12H].capacity = POINTS_12H;
-        sh.buffers[RANGE_12H].interval = INTERVAL_12H;
+        sh.buffers[RANGE_6H].points = new HistoryPoint[POINTS_6H];
+        sh.buffers[RANGE_6H].capacity = POINTS_6H;
+        sh.buffers[RANGE_6H].interval = INTERVAL_6H;
         
         sh.buffers[RANGE_24H].points = new HistoryPoint[POINTS_24H];
         sh.buffers[RANGE_24H].capacity = POINTS_24H;
