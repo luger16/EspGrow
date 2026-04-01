@@ -1,9 +1,5 @@
 <script lang="ts">
 	import PageHeader from "$lib/components/page-header.svelte";
-	import AddSensorModal from "$lib/components/add-sensor-modal.svelte";
-	import AddDeviceModal from "$lib/components/add-device-modal.svelte";
-	import EditSensorModal from "$lib/components/edit-sensor-modal.svelte";
-	import EditDeviceModal from "$lib/components/edit-device-modal.svelte";
 	import PpfdCalibrationDialog from "$lib/components/ppfd-calibration-dialog.svelte";
 	import SystemInfoCard from "$lib/components/system-info-card.svelte";
 	import * as Select from "$lib/components/ui/select/index.js";
@@ -18,34 +14,19 @@
 	import { systemInfo, initSystemInfoWebSocket } from "$lib/stores/system.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { toast } from "svelte-sonner";
-	import { sensorIcons, deviceIcons } from "$lib/icons";
-	import PencilIcon from "@lucide/svelte/icons/pencil";
 	import DownloadIcon from "@lucide/svelte/icons/download";
 	import UploadIcon from "@lucide/svelte/icons/upload";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 	import PowerIcon from "@lucide/svelte/icons/power";
+	import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
 	import { climateConfig, setActivePhase, setDayNightMode, setManualSchedule, setLightThreshold } from "$lib/stores/climate.svelte";
-	import type { Sensor, Device, ClimatePhase } from "$lib/types";
+	import type { ClimatePhase } from "$lib/types";
 	import { onMount } from "svelte";
 
 	onMount(() => {
 		initSystemInfoWebSocket();
 	});
-
-	const hardwareLabels: Record<Sensor["hardwareType"], string> = {
-		sht3x: "SHT3x",
-		sht4x: "SHT4x",
-		scd4x: "SCD4x",
-		as7341: "AS7341",
-		calculated: "Calculated",
-	};
-
-	const controlMethodLabels: Record<Device["controlMethod"], string> = {
-		shelly_gen1: "Shelly Gen1",
-		shelly_gen2: "Shelly Gen2/Plus",
-		tasmota: "Tasmota",
-	};
 
 	const themeOptions: { value: Theme; label: string }[] = [
 		{ value: "system", label: "System" },
@@ -75,8 +56,6 @@
 		{ value: "manual", label: "Manual schedule" },
 	];
 
-	let editingSensorId = $state<string | null>(null);
-	let editingDeviceId = $state<string | null>(null);
 	let backingUp = $state(false);
 	let restoring = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
@@ -95,8 +74,6 @@
 	let firmwareSize = $state(0);
 	let reconnecting = $state(false);
 
-	const editingSensor = $derived(sensors.find((s) => s.id === editingSensorId));
-	const editingDevice = $derived(devices.find((d) => d.id === editingDeviceId));
 	const hasAs7341 = $derived(sensors.some((s) => s.hardwareType === "as7341"));
 	const otaInProgress = $derived(otaStatus !== "idle" && otaStatus !== "error");
 
@@ -482,71 +459,33 @@
 	{/if}
 
 	<section>
-		<div class="mb-3 flex items-center justify-between">
-			<h2 class="text-sm font-medium text-muted-foreground">Sensors</h2>
-			<AddSensorModal />
+		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Hardware</h2>
+		<div class="divide-y divide-border rounded-lg border">
+			<a href="/settings/sensors" class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50">
+				<div class="flex size-9 items-center justify-center rounded-md bg-muted">
+					<ThermometerIcon class="size-4 text-muted-foreground" />
+				</div>
+				<div class="flex-1">
+					<p class="text-sm font-medium">Sensors</p>
+					<p class="text-xs text-muted-foreground">
+						{sensors.length === 0 ? "No sensors configured" : `${sensors.length} sensor${sensors.length === 1 ? "" : "s"} configured`}
+					</p>
+				</div>
+				<ChevronRightIcon class="size-4 text-muted-foreground" />
+			</a>
+			<a href="/settings/devices" class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50">
+				<div class="flex size-9 items-center justify-center rounded-md bg-muted">
+					<PowerIcon class="size-4 text-muted-foreground" />
+				</div>
+				<div class="flex-1">
+					<p class="text-sm font-medium">Devices</p>
+					<p class="text-xs text-muted-foreground">
+						{devices.length === 0 ? "No devices configured" : `${devices.length} device${devices.length === 1 ? "" : "s"} configured`}
+					</p>
+				</div>
+				<ChevronRightIcon class="size-4 text-muted-foreground" />
+			</a>
 		</div>
-		{#if sensors.length === 0}
-			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-				<ThermometerIcon class="size-8 text-muted-foreground/50" />
-				<p class="mt-3 text-sm font-medium">No sensors</p>
-				<p class="mt-1 text-xs text-muted-foreground">Add a sensor to start monitoring your grow tent</p>
-			</div>
-		{:else}
-			<div class="divide-y divide-border rounded-lg border">
-				{#each sensors as sensor (sensor.id)}
-					{@const SensorIcon = sensorIcons[sensor.type]}
-					<div class="flex items-center gap-3 p-3">
-						<div class="flex size-9 items-center justify-center rounded-md bg-muted">
-							<SensorIcon class="size-4 text-muted-foreground" />
-						</div>
-						<div class="flex-1">
-							<p class="text-sm font-medium">{sensor.name}</p>
-							<p class="text-xs text-muted-foreground">
-								{hardwareLabels[sensor.hardwareType]}{sensor.address ? ` · ${sensor.address}` : ""}
-							</p>
-						</div>
-						<Button variant="ghost" size="icon" onclick={() => (editingSensorId = sensor.id)}>
-							<PencilIcon class="size-4 text-muted-foreground" />
-						</Button>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	</section>
-
-	<section>
-		<div class="mb-3 flex items-center justify-between">
-			<h2 class="text-sm font-medium text-muted-foreground">Devices</h2>
-			<AddDeviceModal />
-		</div>
-		{#if devices.length === 0}
-			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
-				<PowerIcon class="size-8 text-muted-foreground/50" />
-				<p class="mt-3 text-sm font-medium">No devices</p>
-				<p class="mt-1 text-xs text-muted-foreground">Add a device to control fans, lights, or other equipment</p>
-			</div>
-		{:else}
-			<div class="divide-y divide-border rounded-lg border">
-				{#each devices as device (device.id)}
-					{@const DeviceIcon = deviceIcons[device.type]}
-					<div class="flex items-center gap-3 p-3">
-						<div class="flex size-9 items-center justify-center rounded-md bg-muted">
-							<DeviceIcon class="size-4 text-muted-foreground" />
-						</div>
-						<div class="flex-1">
-							<p class="text-sm font-medium">{device.name}</p>
-							<p class="text-xs text-muted-foreground">
-								{controlMethodLabels[device.controlMethod]}{device.ipAddress ? ` · ${device.ipAddress}` : ""}
-							</p>
-						</div>
-						<Button variant="ghost" size="icon" onclick={() => (editingDeviceId = device.id)}>
-							<PencilIcon class="size-4 text-muted-foreground" />
-						</Button>
-					</div>
-				{/each}
-			</div>
-		{/if}
 	</section>
 
 	<section>
@@ -711,19 +650,3 @@
 {/if}
 
 <div class="h-20"></div>
-
-{#if editingSensor}
-	<EditSensorModal
-		sensor={editingSensor}
-		open={!!editingSensorId}
-		onOpenChange={(open) => !open && (editingSensorId = null)}
-	/>
-{/if}
-
-{#if editingDevice}
-	<EditDeviceModal
-		device={editingDevice}
-		open={!!editingDeviceId}
-		onOpenChange={(open) => !open && (editingDeviceId = null)}
-	/>
-{/if}

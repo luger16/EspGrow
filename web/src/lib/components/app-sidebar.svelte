@@ -41,7 +41,7 @@
 				<Sidebar.Menu>
 					{#each navItems as item (item.title)}
 						<Sidebar.MenuItem>
-							<Sidebar.MenuButton tooltipContent={item.title} isActive={page.url.pathname === item.url}>
+							<Sidebar.MenuButton tooltipContent={item.title} isActive={item.url === "/" ? page.url.pathname === "/" : page.url.pathname.startsWith(item.url)}>
 								{#snippet child({ props })}
 									<a href={item.url} {...props}>
 										<item.icon />

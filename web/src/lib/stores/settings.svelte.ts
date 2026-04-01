@@ -6,6 +6,10 @@ export type Settings = {
 	temperatureUnit: TemperatureUnit;
 	theme: Theme;
 	timeFormat: TimeFormat;
+	sensorOrder: string[];
+	hiddenSensors: string[];
+	deviceOrder: string[];
+	hiddenDevices: string[];
 };
 
 const STORAGE_KEY = "espgrow-settings";
@@ -14,6 +18,10 @@ const defaultSettings: Settings = {
 	temperatureUnit: "celsius",
 	theme: "system",
 	timeFormat: "24h",
+	sensorOrder: [],
+	hiddenSensors: [],
+	deviceOrder: [],
+	hiddenDevices: [],
 };
 
 function loadSettings(): Settings {
@@ -26,6 +34,10 @@ function loadSettings(): Settings {
 			temperatureUnit: parsed.temperatureUnit === "fahrenheit" ? "fahrenheit" : "celsius",
 			theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
 			timeFormat: parsed.timeFormat === "12h" ? "12h" : "24h",
+			sensorOrder: Array.isArray(parsed.sensorOrder) ? parsed.sensorOrder.filter((v): v is string => typeof v === "string") : [],
+			hiddenSensors: Array.isArray(parsed.hiddenSensors) ? parsed.hiddenSensors.filter((v): v is string => typeof v === "string") : [],
+			deviceOrder: Array.isArray(parsed.deviceOrder) ? parsed.deviceOrder.filter((v): v is string => typeof v === "string") : [],
+			hiddenDevices: Array.isArray(parsed.hiddenDevices) ? parsed.hiddenDevices.filter((v): v is string => typeof v === "string") : [],
 		};
 	} catch {
 		return { ...defaultSettings };
@@ -121,5 +133,43 @@ export function formatTimeFromDate(date: Date): string {
 	}
 	
 	return `${String(h).padStart(2, "0")}:${m}`;
+}
+
+export function toggleSensorVisibility(sensorId: string): void {
+	const hidden = settings.hiddenSensors.includes(sensorId)
+		? settings.hiddenSensors.filter((id) => id !== sensorId)
+		: [...settings.hiddenSensors, sensorId];
+	updateSettings({ hiddenSensors: hidden });
+}
+
+export function toggleDeviceVisibility(deviceId: string): void {
+	const hidden = settings.hiddenDevices.includes(deviceId)
+		? settings.hiddenDevices.filter((id) => id !== deviceId)
+		: [...settings.hiddenDevices, deviceId];
+	updateSettings({ hiddenDevices: hidden });
+}
+
+export function moveSensor(sensorId: string, direction: "up" | "down", allSensorIds: string[]): void {
+	const order = settings.sensorOrder.length > 0
+		? [...settings.sensorOrder]
+		: [...allSensorIds];
+	const idx = order.indexOf(sensorId);
+	if (idx === -1) return;
+	const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+	if (swapIdx < 0 || swapIdx >= order.length) return;
+	[order[idx], order[swapIdx]] = [order[swapIdx], order[idx]];
+	updateSettings({ sensorOrder: order });
+}
+
+export function moveDevice(deviceId: string, direction: "up" | "down", allDeviceIds: string[]): void {
+	const order = settings.deviceOrder.length > 0
+		? [...settings.deviceOrder]
+		: [...allDeviceIds];
+	const idx = order.indexOf(deviceId);
+	if (idx === -1) return;
+	const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+	if (swapIdx < 0 || swapIdx >= order.length) return;
+	[order[idx], order[swapIdx]] = [order[swapIdx], order[idx]];
+	updateSettings({ deviceOrder: order });
 }
 
