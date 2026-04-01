@@ -45,7 +45,7 @@ interface DeviceConfig {
 const DEVICES: DeviceConfig[] = [
 	{ id: "fan_exhaust", name: "Exhaust Fan", type: "fan", controlMethod: "shelly_gen2", ipAddress: "192.168.1.100", isOn: true, isOnline: true, controlMode: "automatic", hasEnergyMonitoring: true },
 	{ id: "light_main", name: "Grow Light", type: "light", controlMethod: "shelly_gen2", ipAddress: "192.168.1.101", isOn: true, isOnline: true, controlMode: "manual", hasEnergyMonitoring: true },
-	{ id: "humidifier", name: "Humidifier", type: "humidifier", controlMethod: "tasmota", ipAddress: "192.168.1.102", isOn: false, isOnline: true, controlMode: "automatic", hasEnergyMonitoring: true },
+	{ id: "humidifier", name: "Humidifier", type: "humidifier", controlMethod: "tasmota", ipAddress: "192.168.1.102", isOn: false, isOnline: false, controlMode: "automatic", hasEnergyMonitoring: true },
 ];
 
 interface EnergyState {
@@ -369,7 +369,7 @@ function scheduleRandomAlert(): void {
 		broadcast({ type: "alert", data: alert });
 		console.log(`[Mock] Alert broadcast: ${alert.sensorType} ${alert.severity}`);
 		scheduleRandomAlert();
-	}, 30_000 + Math.random() * 60_000);
+	}, 120_000 + Math.random() * 180_000);
 }
 scheduleRandomAlert();
 
@@ -397,8 +397,7 @@ function generateMockDeviceEvent(): Record<string, unknown> {
 		{ device: "Exhaust Fan", action: "turned on manually" },
 		{ device: "Exhaust Fan", action: "turned off manually" },
 		{ device: "Grow Light", action: "turned on manually" },
-		{ device: "Humidifier", action: "went offline" },
-		{ device: "Humidifier", action: "came back online" },
+		{ device: "Grow Light", action: "turned off manually" },
 	];
 	const s = scenarios[Math.floor(Math.random() * scenarios.length)];
 	eventIdCounter++;
@@ -434,21 +433,8 @@ function scheduleRandomEvents(): void {
 			broadcast({ type: "device_event", data: event });
 			console.log(`[Mock] Device event: ${event.title}`);
 		}
-scheduleRandomEvents();
-
-function scheduleOfflineSimulation(): void {
-	setTimeout(() => {
-		const humidifier = DEVICES.find((d) => d.id === "humidifier");
-		if (humidifier) {
-			humidifier.isOnline = !humidifier.isOnline;
-			broadcast({ type: "devices", data: DEVICES });
-			console.log(`[Mock] Humidifier ${humidifier.isOnline ? "came online" : "went offline"}`);
-		}
-		scheduleOfflineSimulation();
-	}, 45_000 + Math.random() * 45_000);
-}
-scheduleOfflineSimulation();
-	}, 20_000 + Math.random() * 40_000);
+		scheduleRandomEvents();
+	}, 60_000 + Math.random() * 120_000);
 }
 scheduleRandomEvents();
 
