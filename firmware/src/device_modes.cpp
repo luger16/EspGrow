@@ -98,12 +98,12 @@ namespace {
         }
 
         if (currentDaytime) {
-            if (light < dayNightConfig.lightThreshold) {
+            if (light < dayNightConfig.lightThreshold - dayNightConfig.lightHysteresis) {
                 currentDaytime = false;
                 Serial.println("[DeviceModes] Day -> Night (light sensor)");
             }
         } else {
-            if (light > dayNightConfig.lightThreshold) {
+            if (light > dayNightConfig.lightThreshold + dayNightConfig.lightHysteresis) {
                 currentDaytime = true;
                 Serial.println("[DeviceModes] Night -> Day (light sensor)");
             }
@@ -293,6 +293,7 @@ namespace {
         strlcpy(dayNightConfig.dayStartTime, "06:00", sizeof(dayNightConfig.dayStartTime));
         strlcpy(dayNightConfig.nightStartTime, "22:00", sizeof(dayNightConfig.nightStartTime));
         dayNightConfig.lightThreshold = 10.0f;
+        dayNightConfig.lightHysteresis = 5.0f;
 
         JsonDocument doc;
         if (!Storage::readJson(DAYNIGHT_PATH, doc)) return;
@@ -301,6 +302,7 @@ namespace {
         if (doc["dayStartTime"].is<const char*>()) strlcpy(dayNightConfig.dayStartTime, doc["dayStartTime"], sizeof(dayNightConfig.dayStartTime));
         if (doc["nightStartTime"].is<const char*>()) strlcpy(dayNightConfig.nightStartTime, doc["nightStartTime"], sizeof(dayNightConfig.nightStartTime));
         if (doc["lightThreshold"].is<float>()) dayNightConfig.lightThreshold = doc["lightThreshold"];
+        if (doc["lightHysteresis"].is<float>()) dayNightConfig.lightHysteresis = doc["lightHysteresis"];
 
         Serial.printf("[DeviceModes] Day/night config: %s, threshold=%.1f\n",
             dayNightConfig.useSchedule ? "schedule" : "light", dayNightConfig.lightThreshold);
@@ -312,6 +314,7 @@ namespace {
         doc["dayStartTime"] = dayNightConfig.dayStartTime;
         doc["nightStartTime"] = dayNightConfig.nightStartTime;
         doc["lightThreshold"] = dayNightConfig.lightThreshold;
+        doc["lightHysteresis"] = dayNightConfig.lightHysteresis;
         Storage::writeJson(DAYNIGHT_PATH, doc);
     }
 }
@@ -475,6 +478,7 @@ void getDayNightConfigJson(String& out) {
     doc["dayStartTime"] = dayNightConfig.dayStartTime;
     doc["nightStartTime"] = dayNightConfig.nightStartTime;
     doc["lightThreshold"] = dayNightConfig.lightThreshold;
+    doc["lightHysteresis"] = dayNightConfig.lightHysteresis;
     doc["isDaytime"] = currentDaytime;
     serializeJson(doc, out);
 }
@@ -484,6 +488,7 @@ bool setDayNightConfig(JsonDocument& doc) {
     if (doc["dayStartTime"].is<const char*>()) strlcpy(dayNightConfig.dayStartTime, doc["dayStartTime"], sizeof(dayNightConfig.dayStartTime));
     if (doc["nightStartTime"].is<const char*>()) strlcpy(dayNightConfig.nightStartTime, doc["nightStartTime"], sizeof(dayNightConfig.nightStartTime));
     if (doc["lightThreshold"].is<float>()) dayNightConfig.lightThreshold = doc["lightThreshold"];
+    if (doc["lightHysteresis"].is<float>()) dayNightConfig.lightHysteresis = doc["lightHysteresis"];
     saveDayNightConfig();
     Serial.printf("[DeviceModes] Updated day/night config\n");
     return true;
