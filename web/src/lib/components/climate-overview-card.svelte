@@ -52,7 +52,6 @@
 	const dli = $derived(getDli());
 	const dliTarget = $derived(getDliTarget());
 	const hasLightSensor = $derived(sensors.some((s) => s.type === "light"));
-	const dliProgress = $derived(dliTarget > 0 ? Math.min(100, (dli / dliTarget) * 100) : 0);
 
 	function formatSince(date: Date): string {
 		const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
@@ -81,6 +80,10 @@
 					<DayNightIcon class="size-3.5" />
 					<span>{dayNightText}</span>
 				</div>
+				{#if hasLightSensor && dliTarget > 0}
+					<span class="text-muted-foreground/40">·</span>
+					<span class="text-xs tabular-nums text-muted-foreground">{dli.toFixed(1)}/{dliTarget} DLI</span>
+				{/if}
 			</div>
 			<Button variant="outline" size="icon" class="relative size-8" onclick={onhistoryclick}>
 				<History class="size-4" />
@@ -109,22 +112,6 @@
 				</button>
 			{/if}
 		</div>
-		{#if hasLightSensor && dliTarget > 0}
-			<div class="flex items-center gap-2 border-t border-border/50 pt-2">
-				<Sun class="size-3.5 shrink-0 text-muted-foreground" />
-				<div class="flex-1">
-					<div class="h-1.5 overflow-hidden rounded-full bg-muted">
-						<div
-							class="h-full rounded-full transition-all {dliProgress >= 90 ? 'bg-green-500' : dliProgress >= 50 ? 'bg-amber-500' : 'bg-muted-foreground/40'}"
-							style="width: {dliProgress}%"
-						></div>
-					</div>
-				</div>
-				<span class="shrink-0 text-xs tabular-nums text-muted-foreground">
-					{dli.toFixed(1)} / {dliTarget}
-				</span>
-			</div>
-		{/if}
 	</Card.Content>
 </Card.Root>
 
