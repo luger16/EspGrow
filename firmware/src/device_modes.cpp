@@ -2,6 +2,7 @@
 #include "storage.h"
 #include "device_controller.h"
 #include "devices.h"
+#include "sensor_config.h"
 #include "time_utils.h"
 #include <vector>
 #include <cmath>
@@ -53,7 +54,8 @@ namespace {
 
     float getSensorValue(const char* sensorType, const std::map<String, float>& readings) {
         for (const auto& pair : readings) {
-            if (pair.first.indexOf(sensorType) >= 0) {
+            SensorConfig::Sensor* cfg = SensorConfig::getSensor(pair.first.c_str());
+            if (cfg && strcmp(cfg->type, sensorType) == 0) {
                 return pair.second;
             }
         }
@@ -69,7 +71,8 @@ namespace {
 
         float light = NAN;
         for (const auto& pair : readings) {
-            if (pair.first.indexOf("light") >= 0) {
+            SensorConfig::Sensor* cfg = SensorConfig::getSensor(pair.first.c_str());
+            if (cfg && strcmp(cfg->type, "light") == 0) {
                 light = pair.second;
                 break;
             }
