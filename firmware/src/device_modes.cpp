@@ -134,9 +134,9 @@ namespace {
         String key(cfg.deviceId);
         bool wasTriggered = autoStates[key].triggered;
         bool anyTriggerMet = false;
-        const char* firedSensorType = nullptr;
-        float firedValue = NAN;
-        float firedThreshold = NAN;
+        const char* reportSensorType = nullptr;
+        float reportValue = NAN;
+        float reportThreshold = NAN;
 
         for (uint8_t i = 0; i < cfg.triggerCount; i++) {
             const AutoTrigger& trigger = cfg.triggers[i];
@@ -144,6 +144,12 @@ namespace {
             if (std::isnan(value)) continue;
 
             float threshold = currentDaytime ? trigger.dayThreshold : trigger.nightThreshold;
+
+            if (!reportSensorType) {
+                reportSensorType = trigger.sensorType;
+                reportValue = value;
+                reportThreshold = threshold;
+            }
 
             bool met = false;
             if (trigger.triggerAbove) {
@@ -162,11 +168,9 @@ namespace {
 
             if (met) {
                 anyTriggerMet = true;
-                if (!firedSensorType) {
-                    firedSensorType = trigger.sensorType;
-                    firedValue = value;
-                    firedThreshold = threshold;
-                }
+                reportSensorType = trigger.sensorType;
+                reportValue = value;
+                reportThreshold = threshold;
             }
         }
 
@@ -180,9 +184,9 @@ namespace {
             char title[48];
             snprintf(title, sizeof(title), "%s (auto)", name);
             char desc[128];
-            if (firedSensorType) {
+            if (reportSensorType) {
                 snprintf(desc, sizeof(desc), "Turned on — %s at %.1f (threshold %.1f)",
-                    firedSensorType, firedValue, firedThreshold);
+                    reportSensorType, reportValue, reportThreshold);
             } else {
                 snprintf(desc, sizeof(desc), "Turned on by automation");
             }
@@ -197,9 +201,9 @@ namespace {
             char title[48];
             snprintf(title, sizeof(title), "%s (auto)", name);
             char desc[128];
-            if (firedSensorType) {
+            if (reportSensorType) {
                 snprintf(desc, sizeof(desc), "Turned off — %s at %.1f (threshold %.1f)",
-                    firedSensorType, firedValue, firedThreshold);
+                    reportSensorType, reportValue, reportThreshold);
             } else {
                 snprintf(desc, sizeof(desc), "Turned off by automation");
             }
