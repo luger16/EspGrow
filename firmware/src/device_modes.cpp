@@ -34,6 +34,9 @@ namespace {
     };
     std::map<String, AutoState> autoStates;
 
+    std::map<String, unsigned long> lastControlAttempt;
+    const unsigned long OFFLINE_RETRY_INTERVAL = 30000;
+
     void broadcastEvent(const char* type, const char* title, const char* description) {
         JsonDocument doc;
         doc["type"] = type;
@@ -52,6 +55,15 @@ namespace {
 
         if (device->isOn == on && device->isOnline) return;
 
+        // Throttle control attempts for offline devices to avoid blocking the main loop
+        if (!device->isOnline) {
+            String key(cfg.deviceId);
+            unsigned long now = millis();
+            unsigned long& last = lastControlAttempt[key];
+            if (now - last < OFFLINE_RETRY_INTERVAL && last != 0) return;
+            last = now;
+        }
+
         auto result = DeviceController::control(
             device->controlMethod, device->ipAddress, on);
 
@@ -59,6 +71,7 @@ namespace {
 
         if (result.reachable) {
             Devices::setDeviceState(cfg.deviceId, result.isOn);
+            lastControlAttempt.erase(String(cfg.deviceId));
             if (onDeviceStateChange) {
                 onDeviceStateChange(cfg.deviceId, result.isOn);
             }
