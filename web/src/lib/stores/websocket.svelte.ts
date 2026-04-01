@@ -15,9 +15,30 @@ let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 let shouldReconnect = true;
 let reconnectDelay = 3000;
 const RECONNECT_BASE = 3000;
-const RECONNECT_MAX = 30000;
+const RECONNECT_MAX = 10000;
+const HEARTBEAT_CHECK_MS = 5000;
+const HEARTBEAT_TIMEOUT_MS = 15000;
 const handlers = new Map<string, MessageHandler[]>();
 let pendingMessages: Array<{ type: string; payload?: Record<string, unknown> }> = [];
+let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let lastMessageTime = 0;
+
+function stopHeartbeat(): void {
+	if (heartbeatInterval) {
+		clearInterval(heartbeatInterval);
+		heartbeatInterval = null;
+	}
+}
+
+function startHeartbeat(url?: string): void {
+	stopHeartbeat();
+	heartbeatInterval = setInterval(() => {
+		if (ws?.readyState === WebSocket.OPEN && Date.now() - lastMessageTime > HEARTBEAT_TIMEOUT_MS) {
+			console.warn("WebSocket heartbeat timeout — reconnecting");
+			ws.close();
+		}
+	}, HEARTBEAT_CHECK_MS);
+}
 
 function getWebSocketUrl(): string {
 	if (typeof window === "undefined") return "";
@@ -45,6 +66,8 @@ export function connect(url?: string): void {
 		state.connected = true;
 		state.error = null;
 		reconnectDelay = RECONNECT_BASE;
+		lastMessageTime = Date.now();
+		startHeartbeat(url);
 		for (const msg of pendingMessages) {
 			const frame: Record<string, unknown> = { type: msg.type };
 			if (msg.payload && Object.keys(msg.payload).length > 0) {
@@ -58,6 +81,7 @@ export function connect(url?: string): void {
 	ws.onclose = () => {
 		state.connected = false;
 		ws = null;
+		stopHeartbeat();
 		if (shouldReconnect) {
 			reconnectTimeout = setTimeout(() => connect(url), reconnectDelay);
 			reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX);
@@ -69,6 +93,7 @@ export function connect(url?: string): void {
 	};
 
 	ws.onmessage = (event) => {
+		lastMessageTime = Date.now();
 		try {
 			const msg = JSON.parse(event.data);
 			if (typeof msg !== "object" || msg === null || !("type" in msg)) return;
@@ -89,6 +114,7 @@ export function connect(url?: string): void {
 
 export function disconnect(): void {
 	shouldReconnect = false;
+	stopHeartbeat();
 	if (reconnectTimeout) {
 		clearTimeout(reconnectTimeout);
 		reconnectTimeout = null;

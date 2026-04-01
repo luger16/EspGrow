@@ -20,7 +20,7 @@ namespace {
     MessageCallback messageCallback;
     bool initialized = false;
 
-    static constexpr size_t MSG_QUEUE_SIZE = 8;
+    static constexpr size_t MSG_QUEUE_SIZE = 16;
     static constexpr size_t MSG_MAX_LEN = 512;
     static constexpr size_t MAX_WS_CLIENTS = 4;
     static constexpr unsigned long CLEANUP_INTERVAL_MS = 2000;
