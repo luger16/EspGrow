@@ -230,9 +230,9 @@ interface HistoryConfig {
 }
 
 const HISTORY_CONFIG: Record<string, HistoryConfig> = {
+	"6h": { intervalSec: 150, points: 144 },
 	"24h": { intervalSec: 10 * 60, points: 144 },
 	"7d": { intervalSec: 60 * 60, points: 168 },
-	"30d": { intervalSec: 4 * 60 * 60, points: 180 },
 };
 
 function generateHistory(sensorId: string, range: string): Buffer {

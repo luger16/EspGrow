@@ -24,12 +24,13 @@
 		return SENSOR_TYPE_COLORS[sensor.type] ?? "hsl(0, 0%, 50%)";
 	}
 
-	type TimeRange = "24h" | "7d";
+	type TimeRange = "6h" | "24h" | "7d";
 
-	let timeRange = $state<TimeRange>("24h");
+	let timeRange = $state<TimeRange>("6h");
 	let hiddenSensors = $state<Set<string>>(new Set());
 
 	const timeRanges: { value: TimeRange; label: string }[] = [
+		{ value: "6h", label: "6h" },
 		{ value: "24h", label: "24h" },
 		{ value: "7d", label: "7d" },
 	];
@@ -54,6 +55,7 @@
 
 	// Gap detection thresholds per time range (in milliseconds)
 	const gapThresholds: Record<TimeRange, number> = {
+		"6h": 5 * 60 * 1000,    // 5 minutes (~2× the 2.5min interval)
 		"24h": 15 * 60 * 1000,  // 15 minutes
 		"7d": 90 * 60 * 1000,   // 1.5 hours
 	};
@@ -178,7 +180,7 @@
 		const last = (chartData[chartData.length - 1].date as Date).getTime();
 
 		// Adaptive tick count based on time range
-		const count = timeRange === "24h" ? 6 : 7;
+		const count = timeRange === "6h" ? 7 : timeRange === "24h" ? 6 : 7;
 
 		const step = (last - first) / (count - 1);
 		return Array.from({ length: count }, (_, i) => new Date(first + step * i));
@@ -189,7 +191,7 @@
 		if (!hasData) return false;
 		const now = new Date();
 		const oldestTimestamp = (chartData[0]?.date as Date)?.getTime() ?? now.getTime();
-		const intervalHours = timeRange === "24h" ? 24 : 168;
+		const intervalHours = timeRange === "6h" ? 6 : timeRange === "24h" ? 24 : 168;
 		const requiredMs = intervalHours * 60 * 60 * 1000;
 		return now.getTime() - oldestTimestamp >= requiredMs;
 	});

@@ -18,7 +18,7 @@ export const ppfdCalibration = $state<PpfdCalibration>({
 	error: null,
 });
 
-type HistoryRange = "24h" | "7d" | "30d";
+type HistoryRange = "6h" | "24h" | "7d";
 
 function decodeBase64(base64: string): Uint8Array {
 	const binaryString = atob(base64);
@@ -60,6 +60,47 @@ export function updateSensorReading(sensorId: string, value: number): void {
 	};
 }
 
+const RANGE_INTERVALS: Record<string, number> = {
+	"6h": 150 * 1000,
+	"24h": 10 * 60 * 1000,
+	"7d": 60 * 60 * 1000,
+};
+
+const RANGE_WINDOWS: Record<string, number> = {
+	"6h": 6 * 60 * 60 * 1000,
+	"24h": 24 * 60 * 60 * 1000,
+	"7d": 7 * 24 * 60 * 60 * 1000,
+};
+
+function appendToHistory(sensorId: string, value: number, now: Date): void {
+	const ranges = sensorHistory[sensorId];
+	if (!ranges) return;
+
+	const rounded = Math.round(value * 10) / 10;
+
+	for (const range of Object.keys(ranges) as HistoryRange[]) {
+		const points = ranges[range];
+		if (!points || points.length === 0) continue;
+
+		const interval = RANGE_INTERVALS[range];
+		if (!interval) continue;
+
+		const last = points[points.length - 1];
+		const gap = now.getTime() - last.date.getTime();
+
+		if (gap < interval) {
+			points[points.length - 1] = { date: now, value: rounded };
+		} else {
+			points.push({ date: now, value: rounded });
+
+			const cutoff = now.getTime() - (RANGE_WINDOWS[range] ?? 0);
+			while (points.length > 0 && points[0].date.getTime() < cutoff) {
+				points.shift();
+			}
+		}
+	}
+}
+
 export function initSensorWebSocket(): void {
 	websocket.on("sensor_config", (data: unknown) => {
 		if (!Array.isArray(data)) return;
@@ -73,6 +114,7 @@ export function initSensorWebSocket(): void {
 
 	websocket.on("sensors", (data: unknown) => {
 		if (!Array.isArray(data)) return;
+		const now = new Date();
 		for (const reading of data) {
 			if (
 				reading && typeof reading === "object" &&
@@ -80,11 +122,12 @@ export function initSensorWebSocket(): void {
 				typeof reading.value === "number"
 			) {
 				updateSensorReading(reading.id, reading.value);
+				appendToHistory(reading.id, reading.value, now);
 
 				if (Array.isArray(reading.channels)) {
 					spectralData.current = {
 						channels: reading.channels as number[],
-						timestamp: new Date(),
+						timestamp: now,
 					};
 				}
 			}
