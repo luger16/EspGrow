@@ -388,7 +388,7 @@ function generateMockAutomationEvent(): Record<string, unknown> {
 		id: `auto_${eventIdCounter}`,
 		title: `${s.device} (${s.mode})`,
 		description: `${s.action} — ${s.sensor} at ${s.value} (threshold ${s.threshold})`,
-		timestamp: new Date().toISOString(),
+		timestamp: Math.floor(Date.now() / 1000),
 	};
 }
 
@@ -405,16 +405,16 @@ function generateMockDeviceEvent(): Record<string, unknown> {
 		id: `dev_${eventIdCounter}`,
 		title: s.device,
 		description: s.action.charAt(0).toUpperCase() + s.action.slice(1),
-		timestamp: new Date().toISOString(),
+		timestamp: Math.floor(Date.now() / 1000),
 	};
 }
 
 function sendInitialEvents(ws: WebSocket): void {
 	const now = Date.now();
 	const events = [
-		{ type: "automation_trigger", data: { id: "auto_init_1", title: "Exhaust Fan (auto)", description: "Turned on — Temperature at 29.3°C (threshold 28°C)", timestamp: new Date(now - 15 * 60 * 1000).toISOString() } },
-		{ type: "device_event", data: { id: "dev_init_1", title: "Grow Light", description: "Turned on manually", timestamp: new Date(now - 8 * 60 * 1000).toISOString() } },
-		{ type: "automation_trigger", data: { id: "auto_init_2", title: "Humidifier (auto)", description: "Turned on — Humidity at 47% (threshold 50%)", timestamp: new Date(now - 3 * 60 * 1000).toISOString() } },
+		{ type: "automation_trigger", data: { id: "auto_init_1", title: "Exhaust Fan (auto)", description: "Turned on — Temperature at 29.3°C (threshold 28°C)", timestamp: Math.floor((now - 15 * 60 * 1000) / 1000) } },
+		{ type: "device_event", data: { id: "dev_init_1", title: "Grow Light", description: "Turned on manually", timestamp: Math.floor((now - 8 * 60 * 1000) / 1000) } },
+		{ type: "automation_trigger", data: { id: "auto_init_2", title: "Humidifier (auto)", description: "Turned on — Humidity at 47% (threshold 50%)", timestamp: Math.floor((now - 3 * 60 * 1000) / 1000) } },
 	];
 	for (const event of events) {
 		sendTo(ws, event);
