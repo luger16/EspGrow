@@ -490,26 +490,19 @@
 
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Backup & Restore</h2>
-		<div class="divide-y divide-border rounded-lg border">
-			<div class="flex items-center justify-between p-3">
-				<div>
-					<p class="text-sm font-medium">Backup Configuration</p>
-					<p class="text-xs text-muted-foreground">Download sensors, devices, and device modes as JSON</p>
+		<div class="rounded-lg border p-3">
+			<div class="flex items-center justify-between">
+				<p class="text-sm text-muted-foreground">Export or import all configuration as JSON</p>
+				<div class="flex gap-2">
+					<Button variant="outline" size="sm" disabled={backingUp} onclick={handleBackupConfig}>
+						<DownloadIcon class="size-4" />
+						{backingUp ? "..." : "Backup"}
+					</Button>
+					<Button variant="outline" size="sm" disabled={restoring} onclick={handleRestoreClick}>
+						<UploadIcon class="size-4" />
+						{restoring ? "..." : "Restore"}
+					</Button>
 				</div>
-				<Button variant="outline" size="sm" disabled={backingUp} onclick={handleBackupConfig}>
-					<DownloadIcon class="size-4" />
-					{backingUp ? "Backing up..." : "Backup"}
-				</Button>
-			</div>
-			<div class="flex items-center justify-between p-3">
-				<div>
-					<p class="text-sm font-medium">Restore Configuration</p>
-					<p class="text-xs text-muted-foreground">Replace all settings from a backup file</p>
-				</div>
-				<Button variant="outline" size="sm" disabled={restoring} onclick={handleRestoreClick}>
-					<UploadIcon class="size-4" />
-					{restoring ? "Restoring..." : "Restore"}
-				</Button>
 			</div>
 		</div>
 		<input
@@ -522,106 +515,67 @@
 	</section>
 
 	<section>
-		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Firmware Update</h2>
+		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Firmware</h2>
 		<div class="divide-y divide-border rounded-lg border">
 			<div class="flex items-center justify-between p-3">
 				<div class="flex-1">
-					<p class="text-sm font-medium">Current Version</p>
-					<p class="text-xs text-muted-foreground">{systemInfo.data?.firmwareVersion || "Unknown"}</p>
+					<p class="text-sm font-medium">{systemInfo.data?.firmwareVersion || "Unknown"}</p>
+					<p class="text-xs text-muted-foreground">
+						{#if rateLimited}
+							Rate limited — try later
+						{:else if updateAvailable}
+							{latestVersion} available
+						{:else}
+							Up to date
+						{/if}
+					</p>
 				</div>
-			</div>
-			
-		<div class="flex items-center justify-between p-3">
-			<div class="flex-1">
-				<p class="text-sm font-medium">Check for Updates</p>
-				<p class="text-xs text-muted-foreground">
-					{#if rateLimited}
-						GitHub rate limit reached — try again later
-					{:else if updateAvailable}
-						Update available: {latestVersion}
-					{:else}
-						Check GitHub for latest release
-					{/if}
-				</p>
-			</div>
-			<div class="flex gap-2">
-				<Button 
-					variant="outline" 
-					size="sm" 
-					disabled={checkingUpdate || otaInProgress}
-					onclick={handleCheckUpdate}
-				>
-					<RefreshCwIcon class={checkingUpdate ? "size-4 animate-spin" : "size-4"} />
-					Check
-				</Button>
-				{#if updateAvailable && !rateLimited}
-					<Button 
-						size="sm" 
-						disabled={otaInProgress || !firmwareFits}
-						onclick={handleInstallUpdate}
+				<div class="flex gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={checkingUpdate || otaInProgress}
+						onclick={handleCheckUpdate}
 					>
-						<DownloadIcon class="size-4" />
-						Install
+						<RefreshCwIcon class={checkingUpdate ? "size-4 animate-spin" : "size-4"} />
+						Check
 					</Button>
-				{/if}
-			</div>
-		</div>
-		
-		{#if sizeWarning}
-			<div class="border-t border-border p-3">
-				<div class="rounded-md bg-destructive/10 p-3">
-					<p class="text-xs font-medium text-destructive">{sizeWarning}</p>
-					{#if maxFirmwareSize > 0 && firmwareSize > 0}
-						<p class="mt-1 text-xs text-destructive/80">
-							Firmware: {(firmwareSize / 1024).toFixed(0)} KB / Partition: {(maxFirmwareSize / 1024).toFixed(0)} KB
-						</p>
+					{#if updateAvailable && !rateLimited}
+						<Button size="sm" disabled={otaInProgress || !firmwareFits} onclick={handleInstallUpdate}>
+							<DownloadIcon class="size-4" />
+							Install
+						</Button>
 					{/if}
+					<Button variant="outline" size="sm" disabled={otaInProgress} onclick={handleFirmwareUploadClick}>
+						<UploadIcon class="size-4" />
+						Upload
+					</Button>
 				</div>
 			</div>
-		{/if}
-			
-			<div class="flex items-center justify-between p-3">
-				<div class="flex-1">
-					<p class="text-sm font-medium">Upload Firmware</p>
-					<p class="text-xs text-muted-foreground">Manually upload a .bin file</p>
-				</div>
-				<Button 
-					variant="outline" 
-					size="sm" 
-					disabled={otaInProgress}
-					onclick={handleFirmwareUploadClick}
-				>
-					<UploadIcon class="size-4" />
-					Upload
-				</Button>
-			</div>
-			
-			{#if otaInProgress || otaStatus === "error"}
+			{#if sizeWarning}
 				<div class="p-3">
-					<div class="space-y-2">
-						<div class="flex items-center justify-between">
-							<p class="text-sm font-medium">
-								{#if otaStatus === "uploading"}
-									Uploading firmware...
-								{:else if otaStatus === "downloading"}
-									Downloading firmware...
-								{:else if otaStatus === "installing"}
-									Installing firmware...
-								{:else if otaStatus === "success"}
-									Update successful!
-								{:else if otaStatus === "error"}
-									Update failed
-								{/if}
+					<div class="rounded-md bg-destructive/10 px-3 py-2">
+						<p class="text-xs font-medium text-destructive">{sizeWarning}</p>
+						{#if maxFirmwareSize > 0 && firmwareSize > 0}
+							<p class="mt-0.5 text-xs text-destructive/80">
+								{(firmwareSize / 1024).toFixed(0)} KB / {(maxFirmwareSize / 1024).toFixed(0)} KB
 							</p>
-							{#if otaInProgress}
-								<span class="text-xs text-muted-foreground">{otaProgress}%</span>
-							{/if}
-						</div>
-						<Progress value={otaProgress} class="h-2" />
-						{#if otaStatus === "error" && otaError}
-							<p class="text-xs text-destructive">{otaError}</p>
 						{/if}
 					</div>
+				</div>
+			{/if}
+			{#if otaInProgress || otaStatus === "error"}
+				<div class="p-3">
+					<div class="flex items-center justify-between text-sm">
+						<span>
+							{#if otaStatus === "uploading"}Uploading...{:else if otaStatus === "downloading"}Downloading...{:else if otaStatus === "installing"}Installing...{:else if otaStatus === "success"}Done!{:else if otaStatus === "error"}Failed{/if}
+						</span>
+						{#if otaInProgress}<span class="text-xs text-muted-foreground">{otaProgress}%</span>{/if}
+					</div>
+					<Progress value={otaProgress} class="mt-1.5 h-1.5" />
+					{#if otaStatus === "error" && otaError}
+						<p class="mt-1 text-xs text-destructive">{otaError}</p>
+					{/if}
 				</div>
 			{/if}
 		</div>
