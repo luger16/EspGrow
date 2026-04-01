@@ -61,7 +61,7 @@ export function updateSensorReading(sensorId: string, value: number): void {
 }
 
 const RANGE_INTERVALS: Record<string, number> = {
-	"6h": 150 * 1000,
+	"6h": 120 * 1000,
 	"24h": 10 * 60 * 1000,
 	"7d": 60 * 60 * 1000,
 };

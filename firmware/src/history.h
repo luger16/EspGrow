@@ -15,11 +15,11 @@ struct HistoryPoint {
     float value;
 };
 
-constexpr size_t POINTS_6H = 144;
+constexpr size_t POINTS_6H = 180;
 constexpr size_t POINTS_24H = 144;
 constexpr size_t POINTS_7D = 168;
 
-constexpr uint32_t INTERVAL_6H = 150;
+constexpr uint32_t INTERVAL_6H = 120;
 constexpr uint32_t INTERVAL_24H = 10 * 60;
 constexpr uint32_t INTERVAL_7D = 60 * 60;
 

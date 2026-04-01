@@ -230,7 +230,7 @@ interface HistoryConfig {
 }
 
 const HISTORY_CONFIG: Record<string, HistoryConfig> = {
-	"6h": { intervalSec: 150, points: 144 },
+	"6h": { intervalSec: 120, points: 180 },
 	"24h": { intervalSec: 10 * 60, points: 144 },
 	"7d": { intervalSec: 60 * 60, points: 168 },
 };

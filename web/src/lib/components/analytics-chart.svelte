@@ -55,7 +55,7 @@
 
 	// Gap detection thresholds per time range (in milliseconds)
 	const gapThresholds: Record<TimeRange, number> = {
-		"6h": 5 * 60 * 1000,    // 5 minutes (~2× the 2.5min interval)
+		"6h": 4 * 60 * 1000,    // 4 minutes (~2× the 2min interval)
 		"24h": 15 * 60 * 1000,  // 15 minutes
 		"7d": 90 * 60 * 1000,   // 1.5 hours
 	};
