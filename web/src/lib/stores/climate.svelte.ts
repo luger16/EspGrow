@@ -76,6 +76,66 @@ function pushEvent(event: SystemEvent): void {
 	}
 }
 
+const ALERT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes between alerts per sensor
+const lastAlertTime: Record<string, number> = {};
+
+function evaluateClimateAlerts(): void {
+	const targets = climateConfig.phases[climateConfig.activePhase];
+	if (!targets) return;
+
+	const dayTime = _isDay;
+
+	for (const sensor of sensors) {
+		const targetKey = SENSOR_TYPE_TO_TARGET_KEY[sensor.type];
+		if (!targetKey) continue;
+
+		const reading = sensorReadings[sensor.id];
+		if (!reading) continue;
+
+		const target = targets[targetKey][dayTime ? "day" : "night"];
+		const margin = WARNING_MARGIN[targetKey];
+		const min = target - margin * 2;
+		const max = target + margin * 2;
+
+		if (reading.value >= min && reading.value <= max) continue;
+
+		const now = Date.now();
+		const lastTime = lastAlertTime[sensor.id] ?? 0;
+		if (now - lastTime < ALERT_COOLDOWN_MS) continue;
+		lastAlertTime[sensor.id] = now;
+
+		const severity: "warning" | "critical" =
+			reading.value < target - margin * 3 || reading.value > target + margin * 3
+				? "critical"
+				: "warning";
+
+		const alert: ClimateAlert = {
+			id: crypto.randomUUID(),
+			sensorId: sensor.id,
+			sensorType: sensor.type,
+			value: reading.value,
+			target: { min: target - margin, max: target + margin },
+			severity,
+			timestamp: new Date(),
+		};
+
+		climateAlerts.unshift(alert);
+		if (climateAlerts.length > 100) {
+			climateAlerts.length = 100;
+		}
+
+		const { title, description } = formatAlert(alert);
+		pushEvent({
+			id: alert.id,
+			type: "alert",
+			title,
+			description,
+			severity,
+			timestamp: alert.timestamp,
+		});
+	}
+}
+
 let serverStatus = $state<ClimateStatus | null>(null);
 
 let lastDayState: boolean | null = null;
@@ -330,7 +390,7 @@ export function initClimateWebSocket(): void {
 			title: String(msg.title ?? "Rule Triggered"),
 			description: String(msg.description ?? ""),
 			severity: "info",
-			timestamp: new Date(String(msg.timestamp ?? Date.now())),
+			timestamp: typeof msg.timestamp === "number" ? new Date(msg.timestamp * 1000) : new Date(),
 		});
 	});
 
@@ -344,12 +404,16 @@ export function initClimateWebSocket(): void {
 			title: String(msg.title ?? "Device Changed"),
 			description: String(msg.description ?? ""),
 			severity: "info",
-			timestamp: new Date(String(msg.timestamp ?? Date.now())),
+			timestamp: typeof msg.timestamp === "number" ? new Date(msg.timestamp * 1000) : new Date(),
 		});
 	});
 
 	websocket.send("get_climate_config");
 	websocket.send("get_climate_status");
+
+	websocket.on("sensors", () => {
+		evaluateClimateAlerts();
+	});
 }
 
 function parseTimeToMinutes(time: string): number {

@@ -43,7 +43,7 @@ namespace {
         JsonObject data = doc["data"].to<JsonObject>();
         data["title"] = title;
         data["description"] = description;
-        data["timestamp"] = millis();
+        data["timestamp"] = (unsigned long)time(nullptr);
         String out;
         serializeJson(doc, out);
         WebSocketServer::broadcast(out);
