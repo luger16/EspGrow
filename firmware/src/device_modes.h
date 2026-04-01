@@ -19,7 +19,7 @@ struct AutoTrigger {
     char sensorType[16];
     float dayThreshold;
     float nightThreshold;
-    float hysteresis;
+    float deadzone;
     bool triggerAbove;      // true = turn on when value EXCEEDS threshold
 };
 
@@ -49,7 +49,7 @@ struct DayNightConfig {
     char dayStartTime[6];   // HH:MM
     char nightStartTime[6]; // HH:MM
     float lightThreshold;
-    float lightHysteresis;
+    float lightDeadzone;
     bool useSchedule;
 };
 

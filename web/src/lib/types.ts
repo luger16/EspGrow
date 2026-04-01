@@ -45,7 +45,7 @@ export interface AutoTrigger {
 	sensorType: string;
 	dayThreshold: number;
 	nightThreshold: number;
-	hysteresis: number;
+	deadzone: number;
 	triggerAbove: boolean;
 }
 

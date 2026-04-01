@@ -116,12 +116,12 @@ namespace {
         }
 
         if (currentDaytime) {
-            if (light < dayNightConfig.lightThreshold - dayNightConfig.lightHysteresis) {
+            if (light < dayNightConfig.lightThreshold - dayNightConfig.lightDeadzone) {
                 currentDaytime = false;
                 Serial.println("[DeviceModes] Day -> Night (light sensor)");
             }
         } else {
-            if (light > dayNightConfig.lightThreshold + dayNightConfig.lightHysteresis) {
+            if (light > dayNightConfig.lightThreshold + dayNightConfig.lightDeadzone) {
                 currentDaytime = true;
                 Serial.println("[DeviceModes] Night -> Day (light sensor)");
             }
@@ -154,15 +154,15 @@ namespace {
             bool met = false;
             if (trigger.triggerAbove) {
                 if (wasTriggered) {
-                    if (value > (threshold - trigger.hysteresis)) met = true;
+                    if (value > (threshold - trigger.deadzone)) met = true;
                 } else {
-                    if (value > threshold) met = true;
+                    if (value > (threshold + trigger.deadzone)) met = true;
                 }
             } else {
                 if (wasTriggered) {
-                    if (value < (threshold + trigger.hysteresis)) met = true;
+                    if (value < (threshold + trigger.deadzone)) met = true;
                 } else {
-                    if (value < threshold) met = true;
+                    if (value < (threshold - trigger.deadzone)) met = true;
                 }
             }
 
@@ -264,7 +264,7 @@ namespace {
                     t["sensorType"] = cfg.triggers[i].sensorType;
                     t["dayThreshold"] = cfg.triggers[i].dayThreshold;
                     t["nightThreshold"] = cfg.triggers[i].nightThreshold;
-                    t["hysteresis"] = cfg.triggers[i].hysteresis;
+                    t["deadzone"] = cfg.triggers[i].deadzone;
                     t["triggerAbove"] = cfg.triggers[i].triggerAbove;
                 }
             }
@@ -310,7 +310,7 @@ namespace {
                     strlcpy(trigger.sensorType, t["sensorType"] | "", sizeof(trigger.sensorType));
                     trigger.dayThreshold = t["dayThreshold"] | 0.0f;
                     trigger.nightThreshold = t["nightThreshold"] | 0.0f;
-                    trigger.hysteresis = t["hysteresis"] | 0.5f;
+                    trigger.deadzone = t["deadzone"] | 0.5f;
                     trigger.triggerAbove = t["triggerAbove"] | true;
                     cfg.triggerCount++;
                 }
@@ -340,7 +340,7 @@ namespace {
         strlcpy(dayNightConfig.dayStartTime, "06:00", sizeof(dayNightConfig.dayStartTime));
         strlcpy(dayNightConfig.nightStartTime, "22:00", sizeof(dayNightConfig.nightStartTime));
         dayNightConfig.lightThreshold = 10.0f;
-        dayNightConfig.lightHysteresis = 5.0f;
+        dayNightConfig.lightDeadzone = 5.0f;
 
         JsonDocument doc;
         if (!Storage::readJson(DAYNIGHT_PATH, doc)) return;
@@ -349,7 +349,7 @@ namespace {
         if (doc["dayStartTime"].is<const char*>()) strlcpy(dayNightConfig.dayStartTime, doc["dayStartTime"], sizeof(dayNightConfig.dayStartTime));
         if (doc["nightStartTime"].is<const char*>()) strlcpy(dayNightConfig.nightStartTime, doc["nightStartTime"], sizeof(dayNightConfig.nightStartTime));
         if (doc["lightThreshold"].is<float>()) dayNightConfig.lightThreshold = doc["lightThreshold"];
-        if (doc["lightHysteresis"].is<float>()) dayNightConfig.lightHysteresis = doc["lightHysteresis"];
+        if (doc["lightDeadzone"].is<float>()) dayNightConfig.lightDeadzone = doc["lightDeadzone"];
 
         Serial.printf("[DeviceModes] Day/night config: %s, threshold=%.1f\n",
             dayNightConfig.useSchedule ? "schedule" : "light", dayNightConfig.lightThreshold);
@@ -361,7 +361,7 @@ namespace {
         doc["dayStartTime"] = dayNightConfig.dayStartTime;
         doc["nightStartTime"] = dayNightConfig.nightStartTime;
         doc["lightThreshold"] = dayNightConfig.lightThreshold;
-        doc["lightHysteresis"] = dayNightConfig.lightHysteresis;
+        doc["lightDeadzone"] = dayNightConfig.lightDeadzone;
         Storage::writeJson(DAYNIGHT_PATH, doc);
     }
 }
@@ -423,7 +423,7 @@ bool setMode(JsonDocument& doc) {
             strlcpy(trigger.sensorType, t["sensorType"] | "", sizeof(trigger.sensorType));
             trigger.dayThreshold = t["dayThreshold"] | 0.0f;
             trigger.nightThreshold = t["nightThreshold"] | 0.0f;
-            trigger.hysteresis = t["hysteresis"] | 0.5f;
+            trigger.deadzone = t["deadzone"] | 0.5f;
             trigger.triggerAbove = t["triggerAbove"] | true;
             cfg.triggerCount++;
         }
@@ -493,7 +493,7 @@ void getModesJson(String& out) {
                 t["sensorType"] = cfg.triggers[i].sensorType;
                 t["dayThreshold"] = cfg.triggers[i].dayThreshold;
                 t["nightThreshold"] = cfg.triggers[i].nightThreshold;
-                t["hysteresis"] = cfg.triggers[i].hysteresis;
+                t["deadzone"] = cfg.triggers[i].deadzone;
                 t["triggerAbove"] = cfg.triggers[i].triggerAbove;
             }
         }
@@ -534,7 +534,7 @@ void getDayNightConfigJson(String& out) {
     doc["dayStartTime"] = dayNightConfig.dayStartTime;
     doc["nightStartTime"] = dayNightConfig.nightStartTime;
     doc["lightThreshold"] = dayNightConfig.lightThreshold;
-    doc["lightHysteresis"] = dayNightConfig.lightHysteresis;
+    doc["lightDeadzone"] = dayNightConfig.lightDeadzone;
     doc["isDaytime"] = currentDaytime;
     serializeJson(doc, out);
 }
@@ -544,7 +544,7 @@ bool setDayNightConfig(JsonDocument& doc) {
     if (doc["dayStartTime"].is<const char*>()) strlcpy(dayNightConfig.dayStartTime, doc["dayStartTime"], sizeof(dayNightConfig.dayStartTime));
     if (doc["nightStartTime"].is<const char*>()) strlcpy(dayNightConfig.nightStartTime, doc["nightStartTime"], sizeof(dayNightConfig.nightStartTime));
     if (doc["lightThreshold"].is<float>()) dayNightConfig.lightThreshold = doc["lightThreshold"];
-    if (doc["lightHysteresis"].is<float>()) dayNightConfig.lightHysteresis = doc["lightHysteresis"];
+    if (doc["lightDeadzone"].is<float>()) dayNightConfig.lightDeadzone = doc["lightDeadzone"];
     saveDayNightConfig();
     Serial.printf("[DeviceModes] Updated day/night config\n");
     return true;

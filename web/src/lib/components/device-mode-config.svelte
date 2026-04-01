@@ -72,7 +72,7 @@
 			sensorType: sensorTypeOptions[0]?.value ?? "temperature",
 			dayThreshold: 25,
 			nightThreshold: 22,
-			hysteresis: 1,
+			deadzone: 1,
 			triggerAbove: true,
 		});
 	}
@@ -187,10 +187,10 @@
 									</div>
 								</div>
 								<div class="grid gap-1.5">
-									<Label class="text-xs">Hysteresis</Label>
-									<Input type="number" step="0.1" min="0" class="h-8 text-xs" bind:value={trigger.hysteresis} />
+									<Label class="text-xs">Deadzone</Label>
+									<Input type="number" step="0.1" min="0" class="h-8 text-xs" bind:value={trigger.deadzone} />
 									<p class="text-[10px] text-muted-foreground">
-										Deadband around threshold to prevent rapid switching
+										Distance from threshold before switching on or off
 									</p>
 								</div>
 							</div>
