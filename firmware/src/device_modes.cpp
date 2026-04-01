@@ -481,6 +481,15 @@ void getModesJson(String& out) {
     serializeJson(doc, out);
 }
 
+const char* getDeviceMode(const char* deviceId) {
+    for (const auto& cfg : configs) {
+        if (strcmp(cfg.deviceId, deviceId) == 0) {
+            return modeToString(cfg.mode);
+        }
+    }
+    return "manual";
+}
+
 bool isDaytime() {
     return currentDaytime;
 }

@@ -173,7 +173,7 @@ Device* findDeviceByTarget(const char* method, const char* target) {
 
 void computeControlModes() {
     for (auto& device : devices) {
-        strlcpy(device.controlMode, "manual", sizeof(device.controlMode));
+        strlcpy(device.controlMode, DeviceModes::getDeviceMode(device.id), sizeof(device.controlMode));
     }
 }
 

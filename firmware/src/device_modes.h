@@ -64,6 +64,7 @@ bool removeMode(const char* deviceId);
 void removeModeForDevice(const char* deviceId);
 
 void getModesJson(String& out);
+const char* getDeviceMode(const char* deviceId);
 
 bool isDaytime();
 void getDayNightConfigJson(String& out);
