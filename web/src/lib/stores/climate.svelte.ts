@@ -8,7 +8,7 @@ import type {
 	SensorType,
 	SystemEvent,
 } from "$lib/types";
-import { DEFAULT_CLIMATE_CONFIG } from "$lib/climate-presets";
+import { DEFAULT_CLIMATE_CONFIG, DEFAULT_PHASE_TARGETS } from "$lib/climate-presets";
 import { websocket } from "./websocket.svelte";
 import { sensors, sensorReadings } from "./sensors.svelte";
 
@@ -142,14 +142,14 @@ let lastDayState: boolean | null = null;
 
 const HYSTERESIS_OFFSET = 5;
 
-const SENSOR_TYPE_TO_TARGET_KEY: Partial<Record<SensorType, keyof PhaseTargets>> = {
+const SENSOR_TYPE_TO_TARGET_KEY: Partial<Record<SensorType, "temp" | "humidity" | "vpd" | "co2">> = {
 	temperature: "temp",
 	humidity: "humidity",
 	vpd: "vpd",
 	co2: "co2",
 };
 
-export const WARNING_MARGIN: Record<keyof PhaseTargets, number> = {
+export const WARNING_MARGIN: Record<"temp" | "humidity" | "vpd" | "co2", number> = {
 	temp: 2,
 	humidity: 10,
 	vpd: 0.2,
@@ -240,6 +240,53 @@ const _latestAlert = $derived<ClimateAlert | undefined>(
 	serverStatus?.latestAlert ?? climateAlerts[0]
 );
 
+// DLI (mol/m²/day) = sum of (PPFD × interval_seconds) / 1_000_000
+let _dliAccumulated = $state(0);
+let _dliLastTimestamp = $state<number | null>(null);
+let _dliLastDayState = $state<boolean | null>(null);
+
+function accumulateDli(): void {
+	const isDay = _isDay;
+
+	if (_dliLastDayState !== null && _dliLastDayState !== isDay) {
+		if (isDay) {
+			_dliAccumulated = 0;
+		}
+	}
+	_dliLastDayState = isDay;
+
+	if (!isDay) {
+		_dliLastTimestamp = null;
+		return;
+	}
+
+	const lightSensor = sensors.find((s) => s.type === "light");
+	if (!lightSensor) return;
+
+	const reading = sensorReadings[lightSensor.id];
+	if (!reading) return;
+
+	const now = Date.now();
+	if (_dliLastTimestamp !== null) {
+		const intervalSec = (now - _dliLastTimestamp) / 1000;
+		// Skip intervals > 5 min to avoid jumps after page reload
+		if (intervalSec > 0 && intervalSec < 300) {
+			_dliAccumulated += (reading.value * intervalSec) / 1_000_000;
+		}
+	}
+	_dliLastTimestamp = now;
+}
+
+const _dliTarget = $derived(_currentTargets.dli);
+
+const _phaseDay = $derived.by((): number => {
+	if (!climateConfig.phaseStartDate) return 1;
+	const start = new Date(climateConfig.phaseStartDate);
+	const now = new Date();
+	const diffMs = now.getTime() - start.getTime();
+	return Math.max(1, Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1);
+});
+
 export function getIsDay(): boolean {
 	return _isDay;
 }
@@ -256,6 +303,18 @@ export function getLatestAlert(): ClimateAlert | undefined {
 	return _latestAlert;
 }
 
+export function getDli(): number {
+	return Math.round(_dliAccumulated * 10) / 10;
+}
+
+export function getDliTarget(): number {
+	return _dliTarget;
+}
+
+export function getPhaseDay(): number {
+	return _phaseDay;
+}
+
 export function getSensorStatus(sensorId: string): SensorStatus | undefined {
 	return _sensorStatuses[sensorId];
 }
@@ -268,7 +327,8 @@ export function getSensorTarget(sensorType: SensorType): number | undefined {
 
 export function setActivePhase(phase: ClimatePhase): void {
 	climateConfig.activePhase = phase;
-	websocket.send("set_climate_phase", { phase });
+	climateConfig.phaseStartDate = new Date().toISOString();
+	websocket.send("set_climate_phase", { phase, phaseStartDate: climateConfig.phaseStartDate });
 }
 
 export function updatePhaseTargets(phase: ClimatePhase, targets: PhaseTargets): void {
@@ -289,6 +349,12 @@ export function setManualSchedule(dayStart: string, nightStart: string): void {
 export function setLightThreshold(threshold: number): void {
 	climateConfig.lightThreshold = threshold;
 	websocket.send("set_climate_light_threshold", { threshold });
+}
+
+export function resetPhaseTargets(phase: ClimatePhase): void {
+	const defaults = DEFAULT_PHASE_TARGETS[phase];
+	climateConfig.phases[phase] = { ...defaults };
+	websocket.send("set_climate_targets", { phase, targets: defaults });
 }
 
 export function initClimateWebSocket(): void {
@@ -316,6 +382,9 @@ export function initClimateWebSocket(): void {
 		}
 		if (typeof msg.lightThreshold === "number") {
 			climateConfig.lightThreshold = msg.lightThreshold;
+		}
+		if (typeof msg.phaseStartDate === "string") {
+			climateConfig.phaseStartDate = msg.phaseStartDate;
 		}
 	});
 
@@ -413,6 +482,7 @@ export function initClimateWebSocket(): void {
 
 	websocket.on("sensors", () => {
 		evaluateClimateAlerts();
+		accumulateDli();
 	});
 }
 

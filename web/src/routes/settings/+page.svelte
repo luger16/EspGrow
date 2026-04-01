@@ -20,8 +20,8 @@
 	import PowerIcon from "@lucide/svelte/icons/power";
 	import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
-	import { climateConfig, setActivePhase, setDayNightMode, setManualSchedule, setLightThreshold } from "$lib/stores/climate.svelte";
-	import type { ClimatePhase } from "$lib/types";
+	import { climateConfig } from "$lib/stores/climate.svelte";
+	import LeafIcon from "@lucide/svelte/icons/leaf";
 	import { onMount } from "svelte";
 
 	onMount(() => {
@@ -42,18 +42,6 @@
 	const timeFormatOptions: { value: TimeFormat; label: string }[] = [
 		{ value: "24h", label: "24 hour" },
 		{ value: "12h", label: "12 hour" },
-	];
-
-	const phaseOptions: { value: ClimatePhase; label: string }[] = [
-		{ value: "seedling", label: "Seedling" },
-		{ value: "veg", label: "Vegetative" },
-		{ value: "flower", label: "Flower" },
-		{ value: "dry", label: "Drying" },
-	];
-
-	const dayNightOptions: { value: "auto" | "manual"; label: string }[] = [
-		{ value: "auto", label: "Auto (light sensor)" },
-		{ value: "manual", label: "Manual schedule" },
 	];
 
 	let backingUp = $state(false);
@@ -356,84 +344,19 @@
 
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Climate</h2>
-		<div class="divide-y divide-border rounded-lg border">
-			<div class="flex items-center justify-between p-3">
-				<Label>Growth Phase</Label>
-				<Select.Root
-					type="single"
-					value={climateConfig.activePhase}
-					onValueChange={(v) => v && setActivePhase(v as ClimatePhase)}
-				>
-					<Select.Trigger class="w-44">
-						<span>{phaseOptions.find((o) => o.value === climateConfig.activePhase)?.label}</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each phaseOptions as option (option.value)}
-							<Select.Item value={option.value}>{option.label}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
-			<div class="flex items-center justify-between p-3">
-				<Label>Day/Night Detection</Label>
-				<Select.Root
-					type="single"
-					value={climateConfig.dayNightMode}
-					onValueChange={(v) => v && setDayNightMode(v as "auto" | "manual")}
-				>
-					<Select.Trigger class="w-44">
-						<span>{dayNightOptions.find((o) => o.value === climateConfig.dayNightMode)?.label}</span>
-					</Select.Trigger>
-					<Select.Content>
-						{#each dayNightOptions as option (option.value)}
-							<Select.Item value={option.value}>{option.label}</Select.Item>
-						{/each}
-					</Select.Content>
-				</Select.Root>
-			</div>
-			{#if climateConfig.dayNightMode === "manual"}
-				<div class="flex items-center justify-between p-3">
-					<Label>Manual Schedule</Label>
-					<div class="flex gap-2">
-						<Input
-							type="time"
-							value={climateConfig.manualSchedule?.dayStart || "06:00"}
-							onchange={(e) => {
-								const target = e.target as HTMLInputElement;
-								const dayStart = target.value;
-								const nightStart = climateConfig.manualSchedule?.nightStart || "18:00";
-								setManualSchedule(dayStart, nightStart);
-							}}
-							class="w-24"
-						/>
-						<Input
-							type="time"
-							value={climateConfig.manualSchedule?.nightStart || "18:00"}
-							onchange={(e) => {
-								const target = e.target as HTMLInputElement;
-								const nightStart = target.value;
-								const dayStart = climateConfig.manualSchedule?.dayStart || "06:00";
-								setManualSchedule(dayStart, nightStart);
-							}}
-							class="w-24"
-						/>
-					</div>
+		<div class="rounded-lg border">
+			<a href="/settings/climate" class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50">
+				<div class="flex size-9 items-center justify-center rounded-md bg-muted">
+					<LeafIcon class="size-4 text-muted-foreground" />
 				</div>
-			{/if}
-			{#if climateConfig.dayNightMode === "auto"}
-				<div class="flex items-center justify-between p-3">
-					<Label>Light Threshold (PPFD)</Label>
-					<Input
-						type="number"
-						value={climateConfig.lightThreshold}
-						onchange={(e) => {
-							const target = e.target as HTMLInputElement;
-							setLightThreshold(Number(target.value));
-						}}
-						class="w-24"
-					/>
+				<div class="flex-1">
+					<p class="text-sm font-medium">Climate Settings</p>
+					<p class="text-xs text-muted-foreground">
+						{climateConfig.activePhase.charAt(0).toUpperCase() + climateConfig.activePhase.slice(1)} phase · {climateConfig.dayNightMode === "auto" ? "Auto" : "Manual"} day/night
+					</p>
 				</div>
-			{/if}
+				<ChevronRightIcon class="size-4 text-muted-foreground" />
+			</a>
 		</div>
 	</section>
 

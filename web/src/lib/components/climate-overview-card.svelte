@@ -15,6 +15,9 @@
 		getUnseenEventCount,
 		getUnseenAlertCount,
 		markAlertsSeen,
+		getDli,
+		getDliTarget,
+		getPhaseDay,
 	} from "$lib/stores/climate.svelte";
 	import {
 		deviceEnergies,
@@ -22,6 +25,7 @@
 		getTotalKWh,
 		resetEnergy,
 	} from "$lib/stores/energy.svelte";
+	import { sensors } from "$lib/stores/sensors.svelte";
 
 	let { onhistoryclick }: { onhistoryclick?: () => void } = $props();
 
@@ -44,6 +48,11 @@
 	const totalWatts = $derived(getTotalWatts());
 	const totalKWh = $derived(getTotalKWh());
 	const hasEnergy = $derived(deviceEnergies.length > 0);
+	const phaseDay = $derived(getPhaseDay());
+	const dli = $derived(getDli());
+	const dliTarget = $derived(getDliTarget());
+	const hasLightSensor = $derived(sensors.some((s) => s.type === "light"));
+	const dliProgress = $derived(dliTarget > 0 ? Math.min(100, (dli / dliTarget) * 100) : 0);
 
 	function formatSince(date: Date): string {
 		const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
@@ -65,6 +74,7 @@
 				<div class="flex items-center gap-1.5">
 					<Leaf class="size-4 text-muted-foreground" />
 					<span class="text-sm font-medium">{activePhaseLabel}</span>
+					<span class="text-xs text-muted-foreground">Day {phaseDay}</span>
 				</div>
 				<span class="text-muted-foreground/40">·</span>
 				<div class="flex items-center gap-1 text-sm text-muted-foreground">
@@ -99,6 +109,22 @@
 				</button>
 			{/if}
 		</div>
+		{#if hasLightSensor && dliTarget > 0}
+			<div class="flex items-center gap-2 border-t border-border/50 pt-2">
+				<Sun class="size-3.5 shrink-0 text-muted-foreground" />
+				<div class="flex-1">
+					<div class="h-1.5 overflow-hidden rounded-full bg-muted">
+						<div
+							class="h-full rounded-full transition-all {dliProgress >= 90 ? 'bg-green-500' : dliProgress >= 50 ? 'bg-amber-500' : 'bg-muted-foreground/40'}"
+							style="width: {dliProgress}%"
+						></div>
+					</div>
+				</div>
+				<span class="shrink-0 text-xs tabular-nums text-muted-foreground">
+					{dli.toFixed(1)} / {dliTarget}
+				</span>
+			</div>
+		{/if}
 	</Card.Content>
 </Card.Root>
 

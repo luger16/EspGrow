@@ -96,6 +96,7 @@ export interface PhaseTargets {
 	humidity: { day: number; night: number };
 	vpd: { day: number; night: number };
 	co2: { day: number; night: number };
+	dli: number;
 }
 
 export interface ClimateConfig {
@@ -104,6 +105,7 @@ export interface ClimateConfig {
 	dayNightMode: "auto" | "manual";
 	manualSchedule?: { dayStart: string; nightStart: string };
 	lightThreshold: number;
+	phaseStartDate?: string;
 }
 
 export interface ClimateAlert {
