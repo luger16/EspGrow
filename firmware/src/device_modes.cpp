@@ -37,10 +37,15 @@ namespace {
     std::map<String, unsigned long> lastControlAttempt;
     const unsigned long OFFLINE_RETRY_INTERVAL = 30000;
 
+    static unsigned long eventIdCounter = 0;
+
     void broadcastEvent(const char* type, const char* title, const char* description) {
         JsonDocument doc;
         doc["type"] = type;
         JsonObject data = doc["data"].to<JsonObject>();
+        char idBuf[24];
+        snprintf(idBuf, sizeof(idBuf), "fw_%lu", ++eventIdCounter);
+        data["id"] = idBuf;
         data["title"] = title;
         data["description"] = description;
         data["timestamp"] = (unsigned long)time(nullptr);
@@ -129,6 +134,9 @@ namespace {
         String key(cfg.deviceId);
         bool wasTriggered = autoStates[key].triggered;
         bool anyTriggerMet = false;
+        const char* firedSensorType = nullptr;
+        float firedValue = NAN;
+        float firedThreshold = NAN;
 
         for (uint8_t i = 0; i < cfg.triggerCount; i++) {
             const AutoTrigger& trigger = cfg.triggers[i];
@@ -137,17 +145,27 @@ namespace {
 
             float threshold = currentDaytime ? trigger.dayThreshold : trigger.nightThreshold;
 
+            bool met = false;
             if (trigger.triggerAbove) {
                 if (wasTriggered) {
-                    if (value > (threshold - trigger.hysteresis)) anyTriggerMet = true;
+                    if (value > (threshold - trigger.hysteresis)) met = true;
                 } else {
-                    if (value > threshold) anyTriggerMet = true;
+                    if (value > threshold) met = true;
                 }
             } else {
                 if (wasTriggered) {
-                    if (value < (threshold + trigger.hysteresis)) anyTriggerMet = true;
+                    if (value < (threshold + trigger.hysteresis)) met = true;
                 } else {
-                    if (value < threshold) anyTriggerMet = true;
+                    if (value < threshold) met = true;
+                }
+            }
+
+            if (met) {
+                anyTriggerMet = true;
+                if (!firedSensorType) {
+                    firedSensorType = trigger.sensorType;
+                    firedValue = value;
+                    firedThreshold = threshold;
                 }
             }
         }
@@ -159,10 +177,16 @@ namespace {
 
             Devices::Device* device = Devices::getDevice(cfg.deviceId);
             const char* name = device ? device->name : cfg.deviceId;
-            char desc[96];
-            snprintf(desc, sizeof(desc), "%s turned on by automation", name);
-            broadcastEvent("automation_trigger", "Rule Triggered", desc);
-            broadcastEvent("device_event", "Device On", desc);
+            char title[48];
+            snprintf(title, sizeof(title), "%s (auto)", name);
+            char desc[128];
+            if (firedSensorType) {
+                snprintf(desc, sizeof(desc), "Turned on — %s at %.1f (threshold %.1f)",
+                    firedSensorType, firedValue, firedThreshold);
+            } else {
+                snprintf(desc, sizeof(desc), "Turned on by automation");
+            }
+            broadcastEvent("automation_trigger", title, desc);
         } else if (!anyTriggerMet && wasTriggered) {
             Serial.printf("[DeviceModes] AUTO cleared for %s\n", cfg.deviceId);
             applyDeviceState(cfg, false);
@@ -170,10 +194,16 @@ namespace {
 
             Devices::Device* device = Devices::getDevice(cfg.deviceId);
             const char* name = device ? device->name : cfg.deviceId;
-            char desc[96];
-            snprintf(desc, sizeof(desc), "%s turned off by automation", name);
-            broadcastEvent("automation_trigger", "Rule Cleared", desc);
-            broadcastEvent("device_event", "Device Off", desc);
+            char title[48];
+            snprintf(title, sizeof(title), "%s (auto)", name);
+            char desc[128];
+            if (firedSensorType) {
+                snprintf(desc, sizeof(desc), "Turned off — %s at %.1f (threshold %.1f)",
+                    firedSensorType, firedValue, firedThreshold);
+            } else {
+                snprintf(desc, sizeof(desc), "Turned off by automation");
+            }
+            broadcastEvent("automation_trigger", title, desc);
         }
     }
 
