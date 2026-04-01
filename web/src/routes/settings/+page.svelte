@@ -490,19 +490,26 @@
 
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Backup & Restore</h2>
-		<div class="rounded-lg border p-3">
-			<div class="flex items-center justify-between">
-				<p class="text-sm text-muted-foreground">Export or import all configuration as JSON</p>
-				<div class="flex gap-2">
-					<Button variant="outline" size="sm" disabled={backingUp} onclick={handleBackupConfig}>
-						<DownloadIcon class="size-4" />
-						{backingUp ? "..." : "Backup"}
-					</Button>
-					<Button variant="outline" size="sm" disabled={restoring} onclick={handleRestoreClick}>
-						<UploadIcon class="size-4" />
-						{restoring ? "..." : "Restore"}
-					</Button>
+		<div class="divide-y divide-border rounded-lg border">
+			<div class="flex items-center justify-between p-3">
+				<div>
+					<p class="text-sm font-medium">Backup</p>
+					<p class="text-xs text-muted-foreground">Download configuration as JSON</p>
 				</div>
+				<Button variant="outline" size="sm" disabled={backingUp} onclick={handleBackupConfig}>
+					<DownloadIcon class="size-4" />
+					{backingUp ? "..." : "Backup"}
+				</Button>
+			</div>
+			<div class="flex items-center justify-between p-3">
+				<div>
+					<p class="text-sm font-medium">Restore</p>
+					<p class="text-xs text-muted-foreground">Import from a backup file</p>
+				</div>
+				<Button variant="outline" size="sm" disabled={restoring} onclick={handleRestoreClick}>
+					<UploadIcon class="size-4" />
+					{restoring ? "..." : "Restore"}
+				</Button>
 			</div>
 		</div>
 		<input
