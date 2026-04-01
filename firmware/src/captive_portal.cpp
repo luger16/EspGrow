@@ -13,9 +13,27 @@ namespace {
     Config currentConfig;
     bool portalActive = false;
     
+    const int MAX_NETWORKS = 10;
     String scannedNetworks[16];
     int scannedRSSI[16];
     int networkCount = 0;
+    
+    String escapeHtml(const String& s) {
+        String out;
+        out.reserve(s.length());
+        for (unsigned int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '&':  out += "&amp;"; break;
+                case '<':  out += "&lt;"; break;
+                case '>':  out += "&gt;"; break;
+                case '"':  out += "&quot;"; break;
+                case '\'': out += "&#39;"; break;
+                default:   out += c;
+            }
+        }
+        return out;
+    }
     
     String lastError;
     String pendingSSID;
@@ -38,11 +56,16 @@ namespace {
 body{font:16px system-ui,sans-serif;padding:20px;background:#fff;color:#000}
 h1{font-size:20px;margin-bottom:20px}
 .error{background:#f88;padding:10px;margin-bottom:15px;border-radius:8px}
+.list{max-height:260px;overflow-y:auto;margin-bottom:12px}
 .network{padding:14px 16px;margin-bottom:10px;border:2px solid #e5e5e5;border-radius:12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s}
+.network:last-child{margin-bottom:0}
 .network:hover{background:#f9f9f9;border-color:#d0d0d0}
 .network.selected{background:#f5f5f5;border-color:#999;font-weight:500}
 .network span:first-child{font-weight:500}
 .network span:last-child{font-size:14px;color:#666}
+.pw{position:relative}
+.pw input{padding-right:48px}
+.pw button{position:absolute;right:2px;top:2px;width:auto;padding:10px 12px;background:none;color:#666;border:none;font-size:14px;cursor:pointer}
 input,button{width:100%;padding:12px;margin-bottom:10px;border:2px solid #e5e5e5;font-size:16px;border-radius:8px}
 input:focus{outline:none;border-color:#000}
 button{background:#000;color:#fff;cursor:pointer;border:none;font-weight:500}
@@ -56,28 +79,34 @@ document.querySelectorAll('.network').forEach(n=>n.classList.remove('selected'))
 el.classList.add('selected');
 document.getElementById('ssid').value=ssid;
 }
+function togglePw(){
+var p=document.getElementById('pw'),b=document.getElementById('pb');
+if(p.type==='password'){p.type='text';b.textContent='Hide';}
+else{p.type='password';b.textContent='Show';}
+}
 </script>
 </head>
 <body>
 <h1>WiFi Setup</h1>
 )";
         if (lastError.length() > 0) {
-            html += "<div class=\"error\">" + lastError + "</div>";
+            html += "<div class=\"error\">" + escapeHtml(lastError) + "</div>";
         }
-        html += "<form method=\"POST\" action=\"/connect\"><div>";
+        html += "<form method=\"POST\" action=\"/connect\"><div class=\"list\">";
         
         for (int i = 0; i < networkCount; i++) {
-            html += "<div class=\"network\" onclick=\"select('" + scannedNetworks[i] + "',this)\"><span>" + scannedNetworks[i] + "</span><span>" + String(scannedRSSI[i]) + " dBm</span></div>";
+            String escaped = escapeHtml(scannedNetworks[i]);
+            html += "<div class=\"network\" onclick=\"select('" + escaped + "',this)\"><span>" + escaped + "</span><span>" + String(scannedRSSI[i]) + " dBm</span></div>";
         }
 
-        html += R"(</div>
+        html += R"raw(</div>
 <input type="hidden" id="ssid" name="ssid" required>
-<input type="password" name="password" placeholder="Password">
+<div class="pw"><input type="password" id="pw" name="password" placeholder="Password"><button type="button" id="pb" onclick="togglePw()">Show</button></div>
 <button type="submit">Connect</button>
 </form>
 <button class="secondary" onclick="location.href='/scan'">Scan Again</button>
 </body>
-</html>)";
+</html>)raw";
         
         return html;
     }
@@ -103,7 +132,7 @@ document.getElementById('ssid').value=ssid;
         int indices[16];
         int validCount = 0;
         for (int i = 0; i < n && i < 16; i++) {
-            if (WiFi.RSSI(i) > -75) {
+            if (WiFi.RSSI(i) > -85) {
                 indices[validCount++] = i;
             }
         }
@@ -118,7 +147,7 @@ document.getElementById('ssid').value=ssid;
             }
         }
         
-        networkCount = min(validCount, 5);
+        networkCount = min(validCount, MAX_NETWORKS);
         for (int i = 0; i < networkCount; i++) {
             scannedNetworks[i] = WiFi.SSID(indices[i]);
             scannedRSSI[i] = WiFi.RSSI(indices[i]);
