@@ -3,6 +3,7 @@
 #include "device_controller.h"
 #include "devices.h"
 #include "sensor_config.h"
+#include "websocket_server.h"
 #include "time_utils.h"
 #include <vector>
 #include <cmath>
@@ -32,6 +33,18 @@ namespace {
         bool triggered = false;
     };
     std::map<String, AutoState> autoStates;
+
+    void broadcastEvent(const char* type, const char* title, const char* description) {
+        JsonDocument doc;
+        doc["type"] = type;
+        JsonObject data = doc["data"].to<JsonObject>();
+        data["title"] = title;
+        data["description"] = description;
+        data["timestamp"] = millis();
+        String out;
+        serializeJson(doc, out);
+        WebSocketServer::broadcast(out);
+    }
 
     void applyDeviceState(const DeviceModeConfig& cfg, bool on) {
         Devices::Device* device = Devices::getDevice(cfg.deviceId);
@@ -130,10 +143,24 @@ namespace {
             Serial.printf("[DeviceModes] AUTO triggered for %s\n", cfg.deviceId);
             applyDeviceState(cfg, true);
             autoStates[key].triggered = true;
+
+            Devices::Device* device = Devices::getDevice(cfg.deviceId);
+            const char* name = device ? device->name : cfg.deviceId;
+            char desc[96];
+            snprintf(desc, sizeof(desc), "%s turned on by automation", name);
+            broadcastEvent("automation_trigger", "Rule Triggered", desc);
+            broadcastEvent("device_event", "Device On", desc);
         } else if (!anyTriggerMet && wasTriggered) {
             Serial.printf("[DeviceModes] AUTO cleared for %s\n", cfg.deviceId);
             applyDeviceState(cfg, false);
             autoStates[key].triggered = false;
+
+            Devices::Device* device = Devices::getDevice(cfg.deviceId);
+            const char* name = device ? device->name : cfg.deviceId;
+            char desc[96];
+            snprintf(desc, sizeof(desc), "%s turned off by automation", name);
+            broadcastEvent("automation_trigger", "Rule Cleared", desc);
+            broadcastEvent("device_event", "Device Off", desc);
         }
     }
 
