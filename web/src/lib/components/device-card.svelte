@@ -2,13 +2,11 @@
 	import * as Card from "$lib/components/ui/card/index.js";
 	import { Switch } from "$lib/components/ui/switch/index.js";
 	import { Badge } from "$lib/components/ui/badge/index.js";
-	import { Button } from "$lib/components/ui/button/index.js";
 	import type { Device, DeviceMode } from "$lib/types";
-	import { toggleDevice, pendingDevices, overriddenDevices, clearOverride } from "$lib/stores/devices.svelte";
+	import { toggleDevice, pendingDevices } from "$lib/stores/devices.svelte";
 	import { getDeviceMode } from "$lib/stores/device-modes.svelte";
 	import { deviceIcons } from "$lib/icons";
 	import LoaderIcon from "@lucide/svelte/icons/loader-circle";
-	import TriangleAlertIcon from "@lucide/svelte/icons/triangle-alert";
 	import WifiOffIcon from "@lucide/svelte/icons/wifi-off";
 
 	let { device }: { device: Device } = $props();
@@ -17,11 +15,6 @@
 	const isPending = $derived(pendingDevices.has(device.id));
 	const isOnline = $derived(device.isOnline !== false);
 	const modeConfig = $derived(getDeviceMode(device.id));
-	const isOverridden = $derived(
-		device.controlMode === "automatic" &&
-		overriddenDevices[device.id] !== undefined &&
-		overriddenDevices[device.id] > Date.now()
-	);
 
 	const modeBadgeLabel: Record<DeviceMode, string> = {
 		off: "Off",
@@ -31,31 +24,9 @@
 		schedule: "Sched",
 	};
 
-	let now = $state(Date.now());
-
-	$effect(() => {
-		if (!isOverridden) return;
-		const interval = setInterval(() => {
-			now = Date.now();
-		}, 1000);
-		return () => clearInterval(interval);
-	});
-
-	const timeRemaining = $derived.by(() => {
-		if (!isOverridden) return "";
-		const remaining = overriddenDevices[device.id] - now;
-		if (remaining <= 0) return "";
-		const minutes = Math.floor(remaining / 60000);
-		const seconds = Math.floor((remaining % 60000) / 1000);
-		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-	});
 
 	function handleToggle() {
 		toggleDevice(device.id);
-	}
-
-	function handleClearOverride() {
-		clearOverride(device.id);
 	}
 </script>
 
@@ -79,12 +50,7 @@
 					</Badge>
 				{:else}
 					<span class="text-base font-semibold">{device.isOn ? "On" : "Off"}</span>
-					{#if isOverridden}
-						<Badge variant="destructive" class="text-[10px] px-1 py-0 gap-0.5">
-							<TriangleAlertIcon class="size-2.5" />
-							Override
-						</Badge>
-					{:else if modeConfig}
+					{#if modeConfig}
 						<Badge variant="secondary" class="text-[10px] px-1 py-0">
 							{modeBadgeLabel[modeConfig.mode]}
 						</Badge>
@@ -102,12 +68,4 @@
 			<Switch checked={device.isOn} onCheckedChange={handleToggle} />
 		{/if}
 	</Card.Content>
-	{#if isOverridden}
-		<Card.Content class="flex items-center justify-between gap-2 px-3 pt-2 border-t mt-2">
-			<span class="text-muted-foreground text-[10px]">Override ({timeRemaining})</span>
-			<Button variant="outline" size="sm" class="h-6 text-[10px] px-2" onclick={handleClearOverride}>
-				Resume
-			</Button>
-		</Card.Content>
-	{/if}
 </Card.Root>

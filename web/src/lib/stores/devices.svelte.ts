@@ -3,7 +3,7 @@ import { websocket } from "./websocket.svelte";
 
 export const devices = $state<Device[]>([]);
 export const pendingDevices = $state<Set<string>>(new Set());
-export const overriddenDevices = $state<Record<string, number>>({});
+
 
 function getDeviceTarget(device: Device): string {
 	return device.ipAddress ?? "";
@@ -62,9 +62,7 @@ export function updateDevice(deviceId: string, updates: Partial<Omit<Device, "id
 	});
 }
 
-export function clearOverride(deviceId: string): void {
-	websocket.send("clear_override", { deviceId });
-}
+
 
 export function initDeviceWebSocket(): void {
 	websocket.on("devices", (data: unknown) => {
@@ -98,17 +96,6 @@ export function initDeviceWebSocket(): void {
 			device.isOnline = msg.success as boolean;
 			if (msg.success) device.isOn = msg.on;
 			pendingDevices.delete(device.id);
-			if (msg.overrideActive && typeof msg.overrideRemainingMs === "number") {
-				overriddenDevices[device.id] = Date.now() + msg.overrideRemainingMs;
-			}
-		}
-	});
-
-	websocket.on("override_cleared", (data: unknown) => {
-		if (!data || typeof data !== "object") return;
-		const msg = data as Record<string, unknown>;
-		if (typeof msg.deviceId === "string" && overriddenDevices[msg.deviceId]) {
-			delete overriddenDevices[msg.deviceId];
 		}
 	});
 
