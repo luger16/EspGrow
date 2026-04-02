@@ -3,9 +3,11 @@
 	import * as Card from "$lib/components/ui/card/index.js";
 	import * as Checkbox from "$lib/components/ui/checkbox/index.js";
 	import * as Tabs from "$lib/components/ui/tabs/index.js";
+	import { Button } from "$lib/components/ui/button/index.js";
 	import { scaleUtc } from "d3-scale";
 	import { LineChart, Area, Spline } from "layerchart";
 	import { curveMonotoneX } from "d3-shape";
+	import DownloadIcon from "@lucide/svelte/icons/download";
 	import type { Sensor } from "$lib/types";
 	import { sensors, sensorReadings, requestHistory, getSensorHistory } from "$lib/stores/sensors.svelte";
 	import { settings, convertTemperature, formatTimeFromDate } from "$lib/stores/settings.svelte";
@@ -213,19 +215,85 @@
 		}
 		return config;
 	});
+
+	function downloadCsv(): void {
+		// Use all sensors (not just visible) so the export is complete
+		const allSensors = sensors;
+		if (allSensors.length === 0) return;
+
+		// Collect all timestamps across all sensors for the current time range
+		const timestampMap = new Map<number, Record<string, number | null>>();
+
+		for (const sensor of allSensors) {
+			const history = getSensorHistory(sensor.id, timeRange);
+			for (const point of history) {
+				const ts = point.date.getTime();
+				if (!timestampMap.has(ts)) {
+					timestampMap.set(ts, {});
+				}
+				const value =
+					sensor.type === "temperature" || sensor.type === "dewpoint"
+						? convertTemperature(point.value, settings.temperatureUnit)
+						: point.value;
+				timestampMap.get(ts)![sensor.id] = Math.round(value * 10) / 10;
+			}
+		}
+
+		if (timestampMap.size === 0) return;
+
+		// Sort by timestamp ascending
+		const sorted = Array.from(timestampMap.entries()).sort((a, b) => a[0] - b[0]);
+
+		// Build header with human-readable names and units
+		const tempUnit = settings.temperatureUnit === "fahrenheit" ? "°F" : "°C";
+		const columnHeaders = allSensors.map((sensor) => {
+			if (sensor.type === "temperature" || sensor.type === "dewpoint") {
+				return `${sensor.name} (${tempUnit})`;
+			}
+			return `${sensor.name} (${sensor.unit})`;
+		});
+
+		const header = ["Timestamp", ...columnHeaders].join(",");
+
+		// Build rows
+		const rows = sorted.map(([ts, values]) => {
+			const date = new Date(ts).toISOString();
+			const sensorValues = allSensors.map((sensor) => {
+				const val = values[sensor.id];
+				return val !== null && val !== undefined ? String(val) : "";
+			});
+			return [date, ...sensorValues].join(",");
+		});
+
+		const csv = [header, ...rows].join("\n");
+
+		// Trigger download
+		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement("a");
+		link.href = url;
+		link.download = `espgrow-${timeRange}-${new Date().toISOString().slice(0, 10)}.csv`;
+		link.click();
+		URL.revokeObjectURL(url);
+	}
 </script>
 
 <Card.Root>
 	<Card.Header>
 		<Card.Title>Analytics</Card.Title>
 		<Card.Action>
-			<Tabs.Root bind:value={timeRange}>
-				<Tabs.List>
-					{#each timeRanges as range}
-						<Tabs.Trigger value={range.value}>{range.label}</Tabs.Trigger>
-					{/each}
-				</Tabs.List>
-			</Tabs.Root>
+			<div class="flex items-center gap-2">
+				<Tabs.Root bind:value={timeRange}>
+					<Tabs.List>
+						{#each timeRanges as range}
+							<Tabs.Trigger value={range.value}>{range.label}</Tabs.Trigger>
+						{/each}
+					</Tabs.List>
+				</Tabs.Root>
+				<Button variant="ghost" size="icon" class="size-8" onclick={downloadCsv} title="Export CSV">
+					<DownloadIcon class="size-4" />
+				</Button>
+			</div>
 		</Card.Action>
 	</Card.Header>
 	<Card.Content>
