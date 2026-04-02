@@ -41,6 +41,7 @@ namespace {
 
         if (WiFi.status() == WL_CONNECTED) {
             Serial.printf("[WiFi] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+            esp_wifi_set_ps(WIFI_PS_NONE);
             startNTP();
             return true;
         }
@@ -108,6 +109,7 @@ void loop() {
             provisioningActive = false;
             wasConnected = true;
             reconnectFailures = 0;
+            esp_wifi_set_ps(WIFI_PS_NONE);
             startNTP();
         }
         return;
@@ -116,6 +118,11 @@ void loop() {
     bool connected = isConnected();
 
     if (connected) {
+        if (reconnectFailures > 0) {
+            Serial.printf("[WiFi] Reconnected — IP: %s\n", WiFi.localIP().toString().c_str());
+            esp_wifi_set_ps(WIFI_PS_NONE);
+            startNTP();
+        }
         wasConnected = true;
         reconnectFailures = 0;
         return;
