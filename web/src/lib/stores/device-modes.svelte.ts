@@ -14,12 +14,11 @@ export function setDeviceMode(config: DeviceModeConfig): void {
 	websocket.send("set_device_mode", {
 		deviceId: config.deviceId,
 		mode: config.mode,
-		triggers: config.triggers,
+		triggers: config.triggers ?? [],
 		cycle: config.cycle,
-		schedule: {
-			startTime: localToUtc(config.schedule.startTime),
-			endTime: localToUtc(config.schedule.endTime),
-		},
+		schedule: config.schedule
+			? { startTime: localToUtc(config.schedule.startTime), endTime: localToUtc(config.schedule.endTime) }
+			: undefined,
 	});
 }
 

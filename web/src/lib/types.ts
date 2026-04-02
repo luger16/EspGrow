@@ -63,9 +63,9 @@ export interface ScheduleConfig {
 export interface DeviceModeConfig {
 	deviceId: string;
 	mode: DeviceMode;
-	triggers: AutoTrigger[];
-	cycle: CycleConfig;
-	schedule: ScheduleConfig;
+	triggers?: AutoTrigger[];
+	cycle?: CycleConfig;
+	schedule?: ScheduleConfig;
 }
 
 export interface DayNightConfig {

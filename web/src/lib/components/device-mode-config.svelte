@@ -48,12 +48,12 @@
 			const existing = getDeviceMode(device.id);
 			if (existing) {
 				mode = existing.mode;
-				triggers = existing.triggers.map((t) => ({ ...t }));
-				cycleOnMin = Math.round(existing.cycle.onDurationSec / 60) || 1;
-				cycleOffMin = Math.round(existing.cycle.offDurationSec / 60) || 1;
-				cycleDayOnly = existing.cycle.dayOnly;
-				scheduleStart = existing.schedule.startTime;
-				scheduleEnd = existing.schedule.endTime;
+				triggers = (existing.triggers ?? []).map((t) => ({ ...t }));
+				cycleOnMin = Math.round((existing.cycle?.onDurationSec ?? 60) / 60) || 1;
+				cycleOffMin = Math.round((existing.cycle?.offDurationSec ?? 60) / 60) || 1;
+				cycleDayOnly = existing.cycle?.dayOnly ?? false;
+				scheduleStart = existing.schedule?.startTime ?? "06:00";
+				scheduleEnd = existing.schedule?.endTime ?? "22:00";
 			} else {
 				mode = "off";
 				triggers = [];

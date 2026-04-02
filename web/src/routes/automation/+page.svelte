@@ -40,21 +40,22 @@
 			case "on":
 				return "Device will stay on";
 			case "auto": {
-				if (config.triggers.length === 0) return "No triggers configured";
-				const descriptions = config.triggers.map((t) => {
+				const triggers = config.triggers ?? [];
+				if (triggers.length === 0) return "No triggers configured";
+				const descriptions = triggers.map((t) => {
 					const direction = t.triggerAbove ? ">" : "<";
 					return `${t.sensorType} ${direction} ${t.dayThreshold}/${t.nightThreshold}`;
 				});
 				return descriptions.join(" or ");
 			}
 			case "cycle": {
-				const onMin = Math.round(config.cycle.onDurationSec / 60);
-				const offMin = Math.round(config.cycle.offDurationSec / 60);
-				const dayLabel = config.cycle.dayOnly ? " (day only)" : "";
+				const onMin = Math.round((config.cycle?.onDurationSec ?? 0) / 60);
+				const offMin = Math.round((config.cycle?.offDurationSec ?? 0) / 60);
+				const dayLabel = config.cycle?.dayOnly ? " (day only)" : "";
 				return `${onMin}m on / ${offMin}m off${dayLabel}`;
 			}
 			case "schedule":
-				return `${config.schedule.startTime} – ${config.schedule.endTime}`;
+				return `${config.schedule?.startTime ?? "—"} – ${config.schedule?.endTime ?? "—"}`;
 			default:
 				return "";
 		}
