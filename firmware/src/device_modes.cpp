@@ -4,6 +4,7 @@
 #include "devices.h"
 #include "sensor_config.h"
 #include "websocket_server.h"
+#include "event_log.h"
 #include "time_utils.h"
 #include <vector>
 #include <cmath>
@@ -37,21 +38,8 @@ namespace {
     std::map<String, unsigned long> lastControlAttempt;
     const unsigned long OFFLINE_RETRY_INTERVAL = 30000;
 
-    static unsigned long eventIdCounter = 0;
-
     void broadcastEvent(const char* type, const char* title, const char* description) {
-        JsonDocument doc;
-        doc["type"] = type;
-        JsonObject data = doc["data"].to<JsonObject>();
-        char idBuf[24];
-        snprintf(idBuf, sizeof(idBuf), "fw_%lu", ++eventIdCounter);
-        data["id"] = idBuf;
-        data["title"] = title;
-        data["description"] = description;
-        data["timestamp"] = (unsigned long)time(nullptr);
-        String out;
-        serializeJson(doc, out);
-        WebSocketServer::broadcast(out);
+        EventLog::pushEvent(type, title, description);
     }
 
     void applyDeviceState(const DeviceModeConfig& cfg, bool on) {

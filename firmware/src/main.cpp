@@ -10,6 +10,7 @@
 #include "sensor_config.h"
 #include "history.h"
 #include "climate_config.h"
+#include "event_log.h"
 #include "ota_manager.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
@@ -84,6 +85,22 @@ namespace {
         JsonDocument dataDoc;
         deserializeJson(dataDoc, configJson);
         doc["data"] = dataDoc;
+
+        String out;
+        serializeJson(doc, out);
+        WebSocketServer::broadcast(out);
+    }
+
+    void broadcastEvents() {
+        JsonDocument doc;
+        doc["type"] = "events";
+
+        String eventsJson;
+        EventLog::getEventsJson(eventsJson);
+
+        JsonDocument dataDoc;
+        deserializeJson(dataDoc, eventsJson);
+        doc["data"] = dataDoc.as<JsonArray>();
 
         String out;
         serializeJson(doc, out);
@@ -463,6 +480,9 @@ namespace {
                 broadcastClimateConfig();
             }
         }
+        else if (strcmp(type, "get_events") == 0) {
+            broadcastEvents();
+        }
         else if (strcmp(type, "get_system_info") == 0) {
             JsonDocument response;
             response["type"] = "system_info";
@@ -572,6 +592,7 @@ void setup() {
     DeviceModes::init();
     EnergyTracker::init();
     ClimateConfig::init();
+    EventLog::init();
     DeviceModes::setDeviceStateCallback([](const char* deviceId, bool on) {
         JsonDocument response;
         response["type"] = "device_status";
@@ -636,6 +657,7 @@ void loop() {
     if (sensorReadingsDirty) {
         sensorReadingsDirty = false;
         DeviceModes::loop(cachedSensorReadings);
+        EventLog::loop(cachedSensorReadings);
     }
     
     wasConnected = connected;
