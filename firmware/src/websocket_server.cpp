@@ -5,6 +5,7 @@
 #include "device_modes.h"
 #include "sensor_config.h"
 #include "energy_tracker.h"
+#include "climate_config.h"
 #include "web_assets.h"
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
@@ -118,14 +119,14 @@ void init() {
         JsonDocument doc;
         JsonDocument sub;
 
-        const char* files[] = {"/devices.json", "/device_modes.json", "/daynight.json", "/sensors.json", "/energy.json"};
-        const char* keys[] = {"devices", "device_modes", "daynight", "sensors", "energy"};
+        const char* files[] = {"/devices.json", "/device_modes.json", "/daynight.json", "/sensors.json", "/energy.json", "/climate.json"};
+        const char* keys[] = {"devices", "device_modes", "daynight", "sensors", "energy", "climate"};
         
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 6; i++) {
             sub.clear();
             if (Storage::readJson(files[i], sub)) {
-                // daynight.json is an object, others are arrays
-                if (i == 2) {
+                // daynight.json and climate.json are objects, others are arrays
+                if (i == 2 || i == 5) {
                     doc[keys[i]] = sub.as<JsonObject>();
                 } else {
                     doc[keys[i]] = sub.as<JsonArray>();
@@ -188,6 +189,12 @@ void init() {
             success &= Storage::writeJson("/energy.json", sub);
         }
 
+        if (obj["climate"].is<JsonObject>()) {
+            sub.clear();
+            sub.set(obj["climate"]);
+            success &= Storage::writeJson("/climate.json", sub);
+        }
+
         if (success) {
             Serial.println("[API] Restore: success, reloading modules");
             
@@ -195,6 +202,7 @@ void init() {
             DeviceModes::init();
             SensorConfig::init();
             EnergyTracker::init();
+            ClimateConfig::init();
             Devices::computeControlModes();
             
             JsonDocument broadcastDoc;
@@ -254,6 +262,18 @@ void init() {
             EnergyTracker::getEnergiesJson(jsonStr);
             deserializeJson(dataDoc, jsonStr);
             broadcastDoc["data"] = dataDoc.as<JsonArray>();
+            serializeJson(broadcastDoc, output);
+            broadcast(output);
+            
+            broadcastDoc.clear();
+            dataDoc.clear();
+            jsonStr.clear();
+            output.clear();
+            
+            broadcastDoc["type"] = "climate_config";
+            ClimateConfig::getConfigJson(jsonStr);
+            deserializeJson(dataDoc, jsonStr);
+            broadcastDoc["data"] = dataDoc;
             serializeJson(broadcastDoc, output);
             broadcast(output);
             

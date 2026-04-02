@@ -9,6 +9,7 @@
 #include "energy_tracker.h"
 #include "sensor_config.h"
 #include "history.h"
+#include "climate_config.h"
 #include "ota_manager.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
@@ -68,6 +69,22 @@ namespace {
         deserializeJson(dataDoc, devicesJson);
         doc["data"] = dataDoc.as<JsonArray>();
         
+        String out;
+        serializeJson(doc, out);
+        WebSocketServer::broadcast(out);
+    }
+
+    void broadcastClimateConfig() {
+        JsonDocument doc;
+        doc["type"] = "climate_config";
+
+        String configJson;
+        ClimateConfig::getConfigJson(configJson);
+
+        JsonDocument dataDoc;
+        deserializeJson(dataDoc, configJson);
+        doc["data"] = dataDoc;
+
         String out;
         serializeJson(doc, out);
         WebSocketServer::broadcast(out);
@@ -420,6 +437,32 @@ namespace {
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
+        else if (strcmp(type, "get_climate_config") == 0) {
+            broadcastClimateConfig();
+        }
+        else if (strcmp(type, "set_climate_phase") == 0) {
+            const char* phase = payload["phase"];
+            const char* startDate = payload["phaseStartDate"];
+            if (phase) {
+                ClimateConfig::setPhase(phase, startDate);
+                broadcastClimateConfig();
+            }
+        }
+        else if (strcmp(type, "set_climate_targets") == 0) {
+            const char* phase = payload["phase"];
+            if (phase && payload["targets"].is<JsonObject>()) {
+                JsonObject targets = payload["targets"].as<JsonObject>();
+                ClimateConfig::setTargets(phase, targets);
+                broadcastClimateConfig();
+            }
+        }
+        else if (strcmp(type, "reset_climate_targets") == 0) {
+            const char* phase = payload["phase"];
+            if (phase) {
+                ClimateConfig::resetTargets(phase);
+                broadcastClimateConfig();
+            }
+        }
         else if (strcmp(type, "get_system_info") == 0) {
             JsonDocument response;
             response["type"] = "system_info";
@@ -528,6 +571,7 @@ void setup() {
     History::init();
     DeviceModes::init();
     EnergyTracker::init();
+    ClimateConfig::init();
     DeviceModes::setDeviceStateCallback([](const char* deviceId, bool on) {
         JsonDocument response;
         response["type"] = "device_status";
