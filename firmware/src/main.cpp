@@ -436,9 +436,7 @@ namespace {
         }
     }
 
-    void broadcastSensorData() {
-        if (!WebSocketServer::hasClients()) return;
-
+    void readAndRecordSensors() {
         Sensors::read();
 
         size_t sensorCount;
@@ -446,40 +444,56 @@ namespace {
         
         bool anyValid = false;
         
-        JsonDocument doc;
-        doc["type"] = "sensors";
-        JsonArray data = doc["data"].to<JsonArray>();
-        
         for (size_t i = 0; i < sensorCount; i++) {
             float value = Sensors::getSensorValue(sensorIds[i]);
             
             if (!isnan(value)) {
                 anyValid = true;
-                
-                JsonObject entry = data.add<JsonObject>();
-                entry["id"] = sensorIds[i];
-                SensorConfig::Sensor* cfg = SensorConfig::getSensor(sensorIds[i]);
-                if (cfg) entry["type"] = cfg->type;
-                entry["value"] = value;
-
-                if (cfg && strcmp(cfg->hardwareType, "as7341") == 0) {
-                    uint16_t channels[8];
-                    if (Sensors::getSpectralChannels(channels, 8)) {
-                        JsonArray ch = entry["channels"].to<JsonArray>();
-                        for (int j = 0; j < 8; j++) {
-                            ch.add(channels[j]);
-                        }
-                    }
-                }
-                
                 History::record(sensorIds[i], value);
                 cachedSensorReadings[String(sensorIds[i])] = value;
             }
         }
         
-        if (!anyValid) return;
+        if (anyValid) sensorReadingsDirty = true;
+    }
+
+    void broadcastSensorData() {
+        if (!WebSocketServer::hasClients()) return;
+
+        size_t sensorCount;
+        const char** sensorIds = SensorConfig::getSensorIds(sensorCount);
         
-        sensorReadingsDirty = true;
+        JsonDocument doc;
+        doc["type"] = "sensors";
+        JsonArray data = doc["data"].to<JsonArray>();
+        
+        bool anyValid = false;
+        
+        for (size_t i = 0; i < sensorCount; i++) {
+            auto it = cachedSensorReadings.find(String(sensorIds[i]));
+            if (it == cachedSensorReadings.end()) continue;
+            
+            anyValid = true;
+            float value = it->second;
+            
+            JsonObject entry = data.add<JsonObject>();
+            entry["id"] = sensorIds[i];
+            SensorConfig::Sensor* cfg = SensorConfig::getSensor(sensorIds[i]);
+            if (cfg) entry["type"] = cfg->type;
+            entry["value"] = value;
+
+            if (cfg && strcmp(cfg->hardwareType, "as7341") == 0) {
+                uint16_t channels[8];
+                if (Sensors::getSpectralChannels(channels, 8)) {
+                    JsonArray ch = entry["channels"].to<JsonArray>();
+                    for (int j = 0; j < 8; j++) {
+                        ch.add(channels[j]);
+                    }
+                }
+            }
+        }
+        
+        if (!anyValid) return;
 
         String out;
         serializeJson(doc, out);
@@ -555,24 +569,29 @@ void loop() {
         }
         
         WebSocketServer::loop();
-        History::loop();
         EnergyTracker::loop();
-        
-        if (millis() - lastBroadcast >= BROADCAST_INTERVAL) {
-            lastBroadcast = millis();
-            broadcastSensorData();
-            broadcastEnergy();
-        }
         
         if (millis() - lastDevicePoll >= DEVICE_POLL_INTERVAL) {
             lastDevicePoll = millis();
             pollAllDevices();
         }
-        
-        if (sensorReadingsDirty) {
-            sensorReadingsDirty = false;
-            DeviceModes::loop(cachedSensorReadings);
+    }
+    
+    // Sensor reading, history, and automation run regardless of WiFi
+    History::loop();
+    
+    if (millis() - lastBroadcast >= BROADCAST_INTERVAL) {
+        lastBroadcast = millis();
+        readAndRecordSensors();
+        if (connected) {
+            broadcastSensorData();
+            broadcastEnergy();
         }
+    }
+    
+    if (sensorReadingsDirty) {
+        sensorReadingsDirty = false;
+        DeviceModes::loop(cachedSensorReadings);
     }
     
     wasConnected = connected;
