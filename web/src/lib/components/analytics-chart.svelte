@@ -75,6 +75,13 @@
 			for (const sensor of sensors) {
 				requestHistory(sensor.id, timeRange);
 			}
+			// Re-fetch every 2 minutes so new points appear without page refresh
+			const interval = setInterval(() => {
+				for (const sensor of sensors) {
+					requestHistory(sensor.id, timeRange, true);
+				}
+			}, 2 * 60 * 1000);
+			return () => clearInterval(interval);
 		}
 	});
 
