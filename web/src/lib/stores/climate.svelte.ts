@@ -7,6 +7,7 @@ import type {
 	SensorStatus,
 	SensorType,
 	SystemEvent,
+	SystemEventType,
 } from "$lib/types";
 import { DEFAULT_CLIMATE_CONFIG, DEFAULT_PHASE_TARGETS } from "$lib/climate-presets";
 import { websocket } from "./websocket.svelte";
@@ -73,66 +74,6 @@ function pushEvent(event: SystemEvent): void {
 	systemEvents.unshift(event);
 	if (systemEvents.length > MAX_EVENTS) {
 		systemEvents.length = MAX_EVENTS;
-	}
-}
-
-const ALERT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes between alerts per sensor
-const lastAlertTime: Record<string, number> = {};
-
-function evaluateClimateAlerts(): void {
-	const targets = climateConfig.phases[climateConfig.activePhase];
-	if (!targets) return;
-
-	const dayTime = _isDay;
-
-	for (const sensor of sensors) {
-		const targetKey = SENSOR_TYPE_TO_TARGET_KEY[sensor.type];
-		if (!targetKey) continue;
-
-		const reading = sensorReadings[sensor.id];
-		if (!reading) continue;
-
-		const target = targets[targetKey][dayTime ? "day" : "night"];
-		const margin = WARNING_MARGIN[targetKey];
-		const min = target - margin * 2;
-		const max = target + margin * 2;
-
-		if (reading.value >= min && reading.value <= max) continue;
-
-		const now = Date.now();
-		const lastTime = lastAlertTime[sensor.id] ?? 0;
-		if (now - lastTime < ALERT_COOLDOWN_MS) continue;
-		lastAlertTime[sensor.id] = now;
-
-		const severity: "warning" | "critical" =
-			reading.value < target - margin * 3 || reading.value > target + margin * 3
-				? "critical"
-				: "warning";
-
-		const alert: ClimateAlert = {
-			id: crypto.randomUUID(),
-			sensorId: sensor.id,
-			sensorType: sensor.type,
-			value: reading.value,
-			target: { min: target - margin, max: target + margin },
-			severity,
-			timestamp: new Date(),
-		};
-
-		climateAlerts.unshift(alert);
-		if (climateAlerts.length > 100) {
-			climateAlerts.length = 100;
-		}
-
-		const { title, description } = formatAlert(alert);
-		pushEvent({
-			id: alert.id,
-			type: "alert",
-			title,
-			description,
-			severity,
-			timestamp: alert.timestamp,
-		});
 	}
 }
 
@@ -449,39 +390,69 @@ export function initClimateWebSocket(): void {
 		});
 	});
 
-	websocket.on("automation_trigger", (data: unknown) => {
+	websocket.on("event", (data: unknown) => {
 		if (!data || typeof data !== "object") return;
 		const msg = data as Record<string, unknown>;
 
+		const eventType = String(msg.eventType ?? msg.type ?? "system") as SystemEventType;
+		const severity = String(msg.severity ?? "info") as "info" | "warning" | "critical";
+		const timestamp = typeof msg.timestamp === "number"
+			? new Date(msg.timestamp * 1000) : new Date();
+
 		pushEvent({
 			id: String(msg.id ?? crypto.randomUUID()),
-			type: "automation",
-			title: String(msg.title ?? "Rule Triggered"),
+			type: eventType,
+			title: String(msg.title ?? ""),
 			description: String(msg.description ?? ""),
-			severity: "info",
-			timestamp: typeof msg.timestamp === "number" ? new Date(msg.timestamp * 1000) : new Date(),
+			severity,
+			timestamp,
 		});
+
+		if (eventType === "alert") {
+			climateAlerts.unshift({
+				id: String(msg.id ?? crypto.randomUUID()),
+				sensorId: "",
+				sensorType: "temperature",
+				value: 0,
+				target: { min: 0, max: 0 },
+				severity: severity === "critical" ? "critical" : "warning",
+				timestamp,
+			});
+			if (climateAlerts.length > 100) {
+				climateAlerts.length = 100;
+			}
+		}
 	});
 
-	websocket.on("device_event", (data: unknown) => {
-		if (!data || typeof data !== "object") return;
-		const msg = data as Record<string, unknown>;
+	websocket.on("events", (data: unknown) => {
+		if (!Array.isArray(data)) return;
+		for (const item of data) {
+			if (!item || typeof item !== "object") continue;
+			const msg = item as Record<string, unknown>;
+			const eventType = String(msg.type ?? "system") as SystemEventType;
+			const severity = String(msg.severity ?? "info") as "info" | "warning" | "critical";
+			const timestamp = typeof msg.timestamp === "number"
+				? new Date(msg.timestamp * 1000) : new Date();
 
-		pushEvent({
-			id: String(msg.id ?? crypto.randomUUID()),
-			type: "device",
-			title: String(msg.title ?? "Device Changed"),
-			description: String(msg.description ?? ""),
-			severity: "info",
-			timestamp: typeof msg.timestamp === "number" ? new Date(msg.timestamp * 1000) : new Date(),
-		});
+			systemEvents.push({
+				id: String(msg.id ?? crypto.randomUUID()),
+				type: eventType,
+				title: String(msg.title ?? ""),
+				description: String(msg.description ?? ""),
+				severity,
+				timestamp,
+			});
+		}
+		systemEvents.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+		if (systemEvents.length > MAX_EVENTS) {
+			systemEvents.length = MAX_EVENTS;
+		}
 	});
 
 	websocket.send("get_climate_config");
-	websocket.send("get_climate_status");
+	websocket.send("get_events");
 
 	websocket.on("sensors", () => {
-		evaluateClimateAlerts();
 		accumulateDli();
 	});
 }
