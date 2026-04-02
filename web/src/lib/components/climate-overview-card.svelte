@@ -82,7 +82,7 @@
 				</div>
 				{#if hasLightSensor && dliTarget > 0}
 					<span class="text-muted-foreground/40">·</span>
-					<span class="text-xs tabular-nums text-muted-foreground">{dli.toFixed(1)}/{dliTarget} DLI</span>
+					<span class="text-sm tabular-nums text-muted-foreground">{dli.toFixed(1)}/{dliTarget} DLI</span>
 				{/if}
 			</div>
 			<Button variant="outline" size="icon" class="relative size-8" onclick={onhistoryclick}>
