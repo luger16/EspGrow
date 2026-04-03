@@ -97,29 +97,30 @@
 		hiddenDevices = newSet;
 	}
 
+	const sensorIds = $derived(sensors.map((s) => s.id).join(","));
+	const onlineDeviceIds = $derived(
+		devices.filter((d) => d.isOnline !== false).map((d) => d.id).join(",")
+	);
+
 	$effect(() => {
-		for (const sensor of sensors) {
-			requestHistory(sensor.id, timeRange);
-		}
-		const onlineDevices = devices.filter(d => d.isOnline !== false);
-		for (const device of onlineDevices) {
-			requestHistory(device.id, timeRange);
-		}
-		if (sensors.length === 0 && onlineDevices.length === 0) return;
+		const sIds = sensorIds.split(",").filter(Boolean);
+		const dIds = onlineDeviceIds.split(",").filter(Boolean);
+		for (const id of sIds) requestHistory(id, timeRange);
+		for (const id of dIds) requestHistory(id, timeRange);
+		if (sIds.length === 0 && dIds.length === 0) return;
 		const interval = setInterval(() => {
-			for (const sensor of sensors) {
-				requestHistory(sensor.id, timeRange, true);
-			}
-			const currentOnline = devices.filter(d => d.isOnline !== false);
-			for (const device of currentOnline) {
-				requestHistory(device.id, timeRange, true);
-			}
+			for (const id of sIds) requestHistory(id, timeRange, true);
+			for (const id of dIds) requestHistory(id, timeRange, true);
 		}, 2 * 60 * 1000);
 		return () => clearInterval(interval);
 	});
 
 	const visibleSensors = $derived(sensors.filter((s) => !hiddenSensors.has(s.id)));
-	const visibleDevices = $derived(devices.filter((d) => !hiddenDevices.has(d.id) && d.isOnline !== false));
+	const visibleDevices = $derived(
+		devices
+			.filter((d) => d.isOnline !== false)
+			.filter((d) => !hiddenDevices.has(d.id))
+	);
 	const deviceIds = $derived(new Set(visibleDevices.map((d) => d.id)));
 
 	const sortedEntries = $derived.by(() => {
@@ -214,10 +215,12 @@
 		})
 	);
 
+	const rawValueLookup = $derived(new Map(sortedEntries.map(([ts, values]) => [ts, values])));
+
 	function getRawValueAtTimestamp(id: string, timestamp: number): number | null {
-		const entry = sortedEntries.find(([ts]) => ts === timestamp);
-		if (!entry) return null;
-		const data = entry[1][id];
+		const values = rawValueLookup.get(timestamp);
+		if (!values) return null;
+		const data = values[id];
 		return data?.raw ?? null;
 	}
 
