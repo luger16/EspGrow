@@ -21,7 +21,7 @@ namespace {
     MessageCallback messageCallback;
     bool initialized = false;
 
-    static constexpr size_t MSG_QUEUE_SIZE = 16;
+    static constexpr size_t MSG_QUEUE_SIZE = 32;
     static constexpr size_t MSG_MAX_LEN = 512;
     static constexpr size_t MAX_WS_CLIENTS = 4;
     static constexpr unsigned long CLEANUP_INTERVAL_MS = 2000;
@@ -381,7 +381,8 @@ void loop() {
         }
     }
     
-    while (queueTail != queueHead) {
+    // Process one message per loop() to let WiFi flush outgoing data between responses
+    if (queueTail != queueHead) {
         portENTER_CRITICAL(&queueMux);
         String message(messageQueue[queueTail].data);
         queueTail = (queueTail + 1) % MSG_QUEUE_SIZE;

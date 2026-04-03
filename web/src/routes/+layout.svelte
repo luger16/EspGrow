@@ -7,7 +7,7 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { initTheme } from "$lib/stores/settings.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
-	import { initSensorWebSocket } from "$lib/stores/sensors.svelte";
+	import { initSensorWebSocket, sensorHistory } from "$lib/stores/sensors.svelte";
 	import { initDeviceWebSocket } from "$lib/stores/devices.svelte";
 	import { initDeviceModesWebSocket } from "$lib/stores/device-modes.svelte";
 	import { initClimateWebSocket } from "$lib/stores/climate.svelte";
@@ -25,6 +25,22 @@
 		initClimateWebSocket();
 		initEnergyWebSocket();
 		return () => websocket.disconnect();
+	});
+
+	$effect(() => {
+		if (websocket.connectCount > 1) {
+			for (const key of Object.keys(sensorHistory)) {
+				delete sensorHistory[key];
+			}
+			websocket.send("get_sensors");
+			websocket.send("get_devices");
+			websocket.send("get_device_modes");
+			websocket.send("get_daynight_config");
+			websocket.send("get_climate_config");
+			websocket.send("get_events");
+			websocket.send("get_energy");
+			websocket.send("get_ppfd_calibration");
+		}
 	});
 </script>
 

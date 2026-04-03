@@ -3,11 +3,13 @@ type MessageHandler = (data: unknown) => void;
 interface WebSocketState {
 	connected: boolean;
 	error: string | null;
+	connectCount: number;
 }
 
 const state = $state<WebSocketState>({
 	connected: false,
 	error: null,
+	connectCount: 0,
 });
 
 let ws: WebSocket | null = null;
@@ -65,6 +67,7 @@ export function connect(url?: string): void {
 	ws.onopen = () => {
 		state.connected = true;
 		state.error = null;
+		state.connectCount++;
 		reconnectDelay = RECONNECT_BASE;
 		lastMessageTime = Date.now();
 		startHeartbeat(url);
@@ -159,6 +162,9 @@ export const websocket = {
 	},
 	get error() {
 		return state.error;
+	},
+	get connectCount() {
+		return state.connectCount;
 	},
 	connect,
 	disconnect,

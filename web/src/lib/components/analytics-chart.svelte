@@ -105,14 +105,27 @@
 	$effect(() => {
 		const sIds = sensorIds.split(",").filter(Boolean);
 		const dIds = onlineDeviceIds.split(",").filter(Boolean);
-		for (const id of sIds) requestHistory(id, timeRange);
-		for (const id of dIds) requestHistory(id, timeRange);
-		if (sIds.length === 0 && dIds.length === 0) return;
+		const allIds = [...sIds, ...dIds];
+		if (allIds.length === 0) return;
+
+		const STAGGER_MS = 200;
+		const timeouts: ReturnType<typeof setTimeout>[] = [];
+		for (let i = 0; i < allIds.length; i++) {
+			const id = allIds[i];
+			timeouts.push(setTimeout(() => requestHistory(id, timeRange), i * STAGGER_MS));
+		}
+
 		const interval = setInterval(() => {
-			for (const id of sIds) requestHistory(id, timeRange, true);
-			for (const id of dIds) requestHistory(id, timeRange, true);
+			for (let i = 0; i < allIds.length; i++) {
+				const id = allIds[i];
+				timeouts.push(setTimeout(() => requestHistory(id, timeRange, true), i * STAGGER_MS));
+			}
 		}, 2 * 60 * 1000);
-		return () => clearInterval(interval);
+
+		return () => {
+			for (const t of timeouts) clearTimeout(t);
+			clearInterval(interval);
+		};
 	});
 
 	const visibleSensors = $derived(sensors.filter((s) => !hiddenSensors.has(s.id)));
