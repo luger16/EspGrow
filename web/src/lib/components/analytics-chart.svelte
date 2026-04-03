@@ -6,30 +6,45 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { scaleUtc } from "d3-scale";
 	import { LineChart, Area, Spline } from "layerchart";
-	import { curveMonotoneX } from "d3-shape";
+	import { curveMonotoneX, curveStepAfter } from "d3-shape";
 	import DownloadIcon from "@lucide/svelte/icons/download";
-	import type { Sensor } from "$lib/types";
+	import type { Sensor, DeviceType } from "$lib/types";
 	import { sensors, sensorReadings, requestHistory, getSensorHistory } from "$lib/stores/sensors.svelte";
+	import { devices } from "$lib/stores/devices.svelte";
 	import { settings, convertTemperature, formatTimeFromDate } from "$lib/stores/settings.svelte";
 	import { formatUnit, cn } from "$lib/utils";
 
 	const SENSOR_TYPE_COLORS: Record<string, string> = {
-		temperature: "hsl(0, 72%, 51%)",      // red — heat
-		humidity: "hsl(199, 89%, 48%)",        // blue — water
-		co2: "hsl(220, 15%, 55%)",             // slate — gas
-		light: "hsl(45, 93%, 47%)",            // amber — sun
-		vpd: "hsl(280, 65%, 60%)",             // purple — derived
-		dewpoint: "hsl(175, 70%, 45%)",        // teal — condensation
+		temperature: "hsl(0, 72%, 51%)",
+		humidity: "hsl(199, 89%, 48%)",
+		co2: "hsl(220, 15%, 55%)",
+		light: "hsl(45, 93%, 47%)",
+		vpd: "hsl(280, 65%, 60%)",
+		dewpoint: "hsl(175, 70%, 45%)",
 	};
 
 	function getSensorColor(sensor: Sensor): string {
 		return SENSOR_TYPE_COLORS[sensor.type] ?? "hsl(0, 0%, 50%)";
 	}
 
+	const DEVICE_TYPE_COLORS: Record<DeviceType, string> = {
+		fan: "hsl(145, 45%, 55%)",
+		light: "hsl(38, 70%, 55%)",
+		heater: "hsl(8, 65%, 58%)",
+		pump: "hsl(230, 45%, 60%)",
+		humidifier: "hsl(185, 40%, 55%)",
+		dehumidifier: "hsl(310, 40%, 58%)",
+	};
+
+	function getDeviceColor(device: { type: DeviceType }): string {
+		return DEVICE_TYPE_COLORS[device.type] ?? "hsl(0, 0%, 60%)";
+	}
+
 	type TimeRange = "6h" | "24h" | "7d";
 
 	let timeRange = $state<TimeRange>("6h");
 	let hiddenSensors = $state<Set<string>>(new Set());
+	let hiddenDevices = $state<Set<string>>(new Set());
 
 	const timeRanges: { value: TimeRange; label: string }[] = [
 		{ value: "6h", label: "6h" },
@@ -44,6 +59,7 @@
 		co2: [300, 2000],
 		light: [0, 1500],
 		vpd: [0, 2.5],
+		device: [0, 1],
 	};
 
 	const sensorTypeLabels: Record<string, string> = {
@@ -55,11 +71,10 @@
 		dewpoint: "Dew Point",
 	};
 
-	// Gap detection thresholds per time range (in milliseconds)
 	const gapThresholds: Record<TimeRange, number> = {
-		"6h": 4 * 60 * 1000,    // 4 minutes (~2× the 2min interval)
-		"24h": 15 * 60 * 1000,  // 15 minutes
-		"7d": 90 * 60 * 1000,   // 1.5 hours
+		"6h": 4 * 60 * 1000,
+		"24h": 15 * 60 * 1000,
+		"7d": 90 * 60 * 1000,
 	};
 
 	function toggleSensorVisibility(sensorId: string): void {
@@ -72,28 +87,44 @@
 		hiddenSensors = newSet;
 	}
 
-	$effect(() => {
-		if (sensors.length > 0) {
-			for (const sensor of sensors) {
-				requestHistory(sensor.id, timeRange);
-			}
-			// Re-fetch every 2 minutes so new points appear without page refresh
-			const interval = setInterval(() => {
-				for (const sensor of sensors) {
-					requestHistory(sensor.id, timeRange, true);
-				}
-			}, 2 * 60 * 1000);
-			return () => clearInterval(interval);
+	function toggleDeviceVisibility(deviceId: string): void {
+		const newSet = new Set(hiddenDevices);
+		if (newSet.has(deviceId)) {
+			newSet.delete(deviceId);
+		} else {
+			newSet.add(deviceId);
 		}
+		hiddenDevices = newSet;
+	}
+
+	$effect(() => {
+		for (const sensor of sensors) {
+			requestHistory(sensor.id, timeRange);
+		}
+		const onlineDevices = devices.filter(d => d.isOnline !== false);
+		for (const device of onlineDevices) {
+			requestHistory(device.id, timeRange);
+		}
+		if (sensors.length === 0 && onlineDevices.length === 0) return;
+		const interval = setInterval(() => {
+			for (const sensor of sensors) {
+				requestHistory(sensor.id, timeRange, true);
+			}
+			const currentOnline = devices.filter(d => d.isOnline !== false);
+			for (const device of currentOnline) {
+				requestHistory(device.id, timeRange, true);
+			}
+		}, 2 * 60 * 1000);
+		return () => clearInterval(interval);
 	});
 
 	const visibleSensors = $derived(sensors.filter((s) => !hiddenSensors.has(s.id)));
+	const visibleDevices = $derived(devices.filter((d) => !hiddenDevices.has(d.id) && d.isOnline !== false));
+	const deviceIds = $derived(new Set(visibleDevices.map((d) => d.id)));
 
-	// Shared sorted entries with gap detection — inserts null markers at data gaps
 	const sortedEntries = $derived.by(() => {
-		if (visibleSensors.length === 0) return [];
+		if (visibleSensors.length === 0 && visibleDevices.length === 0) return [];
 
-		// First, collect all per-sensor timestamps with their gaps
 		const threshold = gapThresholds[timeRange];
 		const gapTimestamps = new Set<number>();
 
@@ -109,7 +140,18 @@
 			}
 		}
 
-		// Build timestamp map with normalized + raw values
+		for (const device of visibleDevices) {
+			const history = getSensorHistory(device.id, timeRange);
+			if (history.length < 2) continue;
+			for (let i = 1; i < history.length; i++) {
+				const timeDiff = history[i].date.getTime() - history[i - 1].date.getTime();
+				if (timeDiff > threshold) {
+					const gapMid = Math.floor((history[i - 1].date.getTime() + history[i].date.getTime()) / 2);
+					gapTimestamps.add(gapMid);
+				}
+			}
+		}
+
 		const timestampMap = new Map<number, Record<string, { normalized: number; raw: number } | null>>();
 
 		for (const sensor of visibleSensors) {
@@ -132,11 +174,29 @@
 			}
 		}
 
-		// Insert gap markers (all sensor values null at gap timestamp)
+		for (const device of visibleDevices) {
+			const history = getSensorHistory(device.id, timeRange);
+			const [normMin, normMax] = normalizationRanges["device"];
+			for (const point of history) {
+				const ts = point.date.getTime();
+				if (!timestampMap.has(ts)) {
+					timestampMap.set(ts, {});
+				}
+				const normalized = ((point.value - normMin) / (normMax - normMin)) * 100;
+				timestampMap.get(ts)![device.id] = {
+					normalized: Math.max(0, Math.min(100, normalized)),
+					raw: point.value,
+				};
+			}
+		}
+
 		for (const gapTs of gapTimestamps) {
 			const gapEntry: Record<string, null> = {};
 			for (const sensor of visibleSensors) {
 				gapEntry[sensor.id] = null;
+			}
+			for (const device of visibleDevices) {
+				gapEntry[device.id] = null;
 			}
 			timestampMap.set(gapTs, gapEntry);
 		}
@@ -147,37 +207,39 @@
 	const chartData = $derived(
 		sortedEntries.map(([ts, values]) => {
 			const entry: Record<string, number | null | Date> = { date: new Date(ts) };
-			for (const [sensorId, data] of Object.entries(values)) {
-				entry[sensorId] = data ? data.normalized : null;
+			for (const [id, data] of Object.entries(values)) {
+				entry[id] = data ? data.normalized : null;
 			}
 			return entry;
 		})
 	);
 
-	// Lookup raw values from sortedEntries by timestamp for tooltip display
-	function getRawValueAtTimestamp(sensorId: string, timestamp: number): number | null {
+	function getRawValueAtTimestamp(id: string, timestamp: number): number | null {
 		const entry = sortedEntries.find(([ts]) => ts === timestamp);
 		if (!entry) return null;
-		const sensorData = entry[1][sensorId];
-		return sensorData?.raw ?? null;
+		const data = entry[1][id];
+		return data?.raw ?? null;
 	}
 
 	const lightSensorIds = $derived(new Set(visibleSensors.filter((s) => s.type === "light").map((s) => s.id)));
 
-	const series = $derived(
-		visibleSensors.map((sensor) => ({
+	const series = $derived([
+		...visibleSensors.map((sensor) => ({
 			key: sensor.id,
 			label: sensor.name,
 			color: getSensorColor(sensor),
-		}))
-	);
+		})),
+		...visibleDevices.map((device) => ({
+			key: device.id,
+			label: device.name,
+			color: getDeviceColor(device),
+		})),
+	]);
 
 	const yDomain = $derived.by(() => {
-		// Always 0-100 for normalized view
 		return [0, 100];
 	});
 
-	// Y-axis ticks - always 0-100 for normalized view
 	const yTickInfo = $derived({
 		ticks: [0, 25, 50, 75, 100],
 		precision: 0,
@@ -187,15 +249,12 @@
 		if (chartData.length < 2) return [];
 		const first = (chartData[0].date as Date).getTime();
 		const last = (chartData[chartData.length - 1].date as Date).getTime();
-
-		// Adaptive tick count based on time range
 		const count = timeRange === "6h" ? 7 : timeRange === "24h" ? 6 : 7;
-
 		const step = (last - first) / (count - 1);
 		return Array.from({ length: count }, (_, i) => new Date(first + step * i));
 	});
 
-	const hasData = $derived(visibleSensors.length > 0 && chartData.length >= 2);
+	const hasData = $derived((visibleSensors.length > 0 || visibleDevices.length > 0) && chartData.length >= 2);
 	const hasFullInterval = $derived.by(() => {
 		if (!hasData) return false;
 		const now = new Date();
@@ -213,16 +272,21 @@
 				color: getSensorColor(sensor),
 			};
 		}
+		for (const device of visibleDevices) {
+			config[device.id] = {
+				label: device.name,
+				color: getDeviceColor(device),
+			};
+		}
 		return config;
 	});
 
 	function downloadCsv(): void {
-		// Use all sensors (not just visible) so the export is complete
 		const allSensors = sensors;
-		if (allSensors.length === 0) return;
+		const allDevices = devices.filter(d => d.isOnline !== false);
+		if (allSensors.length === 0 && allDevices.length === 0) return;
 
-		// Collect all timestamps across all sensors for the current time range
-		const timestampMap = new Map<number, Record<string, number | null>>();
+		const timestampMap = new Map<number, Record<string, number | string | null>>();
 
 		for (const sensor of allSensors) {
 			const history = getSensorHistory(sensor.id, timeRange);
@@ -239,35 +303,47 @@
 			}
 		}
 
+		for (const device of allDevices) {
+			const history = getSensorHistory(device.id, timeRange);
+			for (const point of history) {
+				const ts = point.date.getTime();
+				if (!timestampMap.has(ts)) {
+					timestampMap.set(ts, {});
+				}
+				timestampMap.get(ts)![device.id] = point.value >= 0.5 ? "ON" : "OFF";
+			}
+		}
+
 		if (timestampMap.size === 0) return;
 
-		// Sort by timestamp ascending
 		const sorted = Array.from(timestampMap.entries()).sort((a, b) => a[0] - b[0]);
 
-		// Build header with human-readable names and units
 		const tempUnit = settings.temperatureUnit === "fahrenheit" ? "°F" : "°C";
-		const columnHeaders = allSensors.map((sensor) => {
+		const sensorHeaders = allSensors.map((sensor) => {
 			if (sensor.type === "temperature" || sensor.type === "dewpoint") {
 				return `${sensor.name} (${tempUnit})`;
 			}
 			return `${sensor.name} (${sensor.unit})`;
 		});
+		const deviceHeaders = allDevices.map((device) => `${device.name} (ON/OFF)`);
 
-		const header = ["Timestamp", ...columnHeaders].join(",");
+		const header = ["Timestamp", ...sensorHeaders, ...deviceHeaders].join(",");
 
-		// Build rows
 		const rows = sorted.map(([ts, values]) => {
 			const date = new Date(ts).toISOString();
 			const sensorValues = allSensors.map((sensor) => {
 				const val = values[sensor.id];
 				return val !== null && val !== undefined ? String(val) : "";
 			});
-			return [date, ...sensorValues].join(",");
+			const deviceValues = allDevices.map((device) => {
+				const val = values[device.id];
+				return val !== null && val !== undefined ? String(val) : "";
+			});
+			return [date, ...sensorValues, ...deviceValues].join(",");
 		});
 
 		const csv = [header, ...rows].join("\n");
 
-		// Trigger download
 		const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
 		const url = URL.createObjectURL(blob);
 		const link = document.createElement("a");
@@ -297,17 +373,17 @@
 		</Card.Action>
 	</Card.Header>
 	<Card.Content>
-	{#if sensors.length === 0}
+	{#if sensors.length === 0 && devices.length === 0}
 		<div class="text-muted-foreground flex h-64 w-full items-center justify-center rounded-lg border border-dashed text-sm">
-			No sensors configured
+			No sensors or devices configured
 		</div>
 	{:else}
 		<div class="flex gap-4">
 			<div class="min-w-0 flex-1">
 				{#if !hasData}
 					<div class="text-muted-foreground flex h-64 w-full items-center justify-center rounded-lg border border-dashed text-sm sm:h-80">
-						{#if visibleSensors.length === 0}
-							Select at least one sensor to view analytics
+						{#if visibleSensors.length === 0 && visibleDevices.length === 0}
+							Select at least one sensor or device to view analytics
 						{:else}
 							No data available for this time range
 						{/if}
@@ -360,6 +436,8 @@
 													line={{ stroke: s.color, class: "stroke-2", curve: curveMonotoneX }}
 													curve={curveMonotoneX}
 												/>
+											{:else if deviceIds.has(s.key)}
+												<Spline {...getSplineProps(s, i)} curve={curveStepAfter} />
 											{:else}
 												<Spline {...getSplineProps(s, i)} />
 											{/if}
@@ -386,19 +464,22 @@
 										>
 											{#snippet formatter(args: { value: unknown; name: string; item: { payload: Record<string, unknown>; key: string; color?: string }; index: number })}
 												{@const sensor = visibleSensors.find(s => s.name === args.name)}
-												{@const sensorColor = sensor ? getSensorColor(sensor) : (args.item.color ?? 'currentColor')}
+												{@const device = visibleDevices.find(d => d.name === args.name)}
+												{@const itemColor = sensor ? getSensorColor(sensor) : device ? getDeviceColor(device) : (args.item.color ?? 'currentColor')}
 												{@const timestamp = args.item.payload?.date instanceof Date ? args.item.payload.date.getTime() : 0}
-												{@const rawValue = sensor ? getRawValueAtTimestamp(sensor.id, timestamp) : null}
+												{@const rawValue = sensor ? getRawValueAtTimestamp(sensor.id, timestamp) : device ? getRawValueAtTimestamp(device.id, timestamp) : null}
 												<div
 													class="shrink-0 rounded-[2px] border bg-[var(--indicator-color)]"
-													style="--indicator-color: {sensorColor}; border-color: {sensorColor}; width: 4px;"
+													style="--indicator-color: {itemColor}; border-color: {itemColor}; width: 4px;"
 												></div>
 												<div class="flex flex-1 items-center justify-between gap-2 leading-none">
 													<span class="text-muted-foreground">
 														{args.name}
 													</span>
 													<span class="text-foreground font-mono font-medium tabular-nums">
-														{#if sensor && rawValue !== null}
+														{#if device && rawValue !== null}
+															{rawValue >= 0.5 ? "ON" : "OFF"}
+														{:else if sensor && rawValue !== null}
 															{#if sensor.type === "temperature" || sensor.type === "dewpoint"}
 																{rawValue.toFixed(1)}{settings.temperatureUnit === "fahrenheit" ? "°F" : "°C"}
 															{:else}
@@ -419,6 +500,9 @@
 				</div>
 
 				<div class="flex w-40 shrink-0 flex-col gap-1.5">
+					{#if sensors.length > 0}
+						<span class="text-muted-foreground px-1 text-xs">Sensors</span>
+					{/if}
 					{#each sensors as sensor, i (sensor.id)}
 						<button
 							onclick={() => toggleSensorVisibility(sensor.id)}
@@ -440,6 +524,30 @@
 							</div>
 						</button>
 					{/each}
+					{#if devices.filter(d => d.isOnline !== false).length > 0}
+						<span class="text-muted-foreground mt-2 px-1 text-xs">Devices</span>
+						{#each devices.filter(d => d.isOnline !== false) as device (device.id)}
+							<button
+								onclick={() => toggleDeviceVisibility(device.id)}
+								class={cn(
+									"rounded-lg border px-3 py-1.5 text-sm transition-colors",
+									"hover:bg-muted",
+									hiddenDevices.has(device.id)
+										? "border-muted bg-muted/30 text-muted-foreground opacity-50"
+										: "border-border bg-background text-foreground"
+								)}
+							>
+								<div class="flex items-center gap-2">
+									<div class="h-4 w-1 shrink-0 rounded-[2px]" style="background-color: {getDeviceColor(device)}"></div>
+									<span class="truncate">{device.name}</span>
+									<Checkbox.Root
+										class="pointer-events-none ml-auto"
+										checked={!hiddenDevices.has(device.id)}
+									/>
+								</div>
+							</button>
+						{/each}
+					{/if}
 				</div>
 			</div>
 		{/if}

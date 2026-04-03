@@ -235,10 +235,31 @@ const HISTORY_CONFIG: Record<string, HistoryConfig> = {
 	"7d": { intervalSec: 60 * 60, points: 168 },
 };
 
-function generateHistory(sensorId: string, range: string): Buffer {
+function generateDeviceValue(deviceId: string, timestamp: number): number {
+	const hour = new Date(timestamp * 1000).getUTCHours();
+	switch (deviceId) {
+		case "fan_exhaust": {
+			const temp = generateRealisticValue("sht4x_temp", timestamp);
+			return temp > 27 ? 1 : 0;
+		}
+		case "light_main":
+			return (hour >= 6 && hour <= 20) ? 1 : 0;
+		case "humidifier": {
+			const hum = generateRealisticValue("sht4x_hum", timestamp);
+			return hum < 55 ? 1 : 0;
+		}
+		default:
+			return 0;
+	}
+}
+
+const DEVICE_IDS = new Set(DEVICES.map((d) => d.id));
+
+function generateHistory(id: string, range: string): Buffer {
 	const config = HISTORY_CONFIG[range];
 	if (!config) return Buffer.alloc(0);
 
+	const isDevice = DEVICE_IDS.has(id);
 	const now = Math.floor(Date.now() / 1000);
 	const startTime = now - config.points * config.intervalSec;
 
@@ -252,12 +273,9 @@ function generateHistory(sensorId: string, range: string): Buffer {
 
 		if (timestamp >= gapStart && timestamp < gapEnd) continue;
 
-		const value = generateRealisticValue(sensorId, timestamp);
+		const value = isDevice ? generateDeviceValue(id, timestamp) : generateRealisticValue(id, timestamp);
 
-		points.push({
-			timestamp,
-			value,
-		});
+		points.push({ timestamp, value });
 	}
 
 	const buf = Buffer.alloc(points.length * 8);
