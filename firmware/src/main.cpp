@@ -497,6 +497,25 @@ namespace {
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
+        else if (strcmp(type, "clear_history") == 0) {
+            History::clearAll();
+            JsonDocument response;
+            response["type"] = "clear_history";
+            response["data"]["success"] = true;
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
+        }
+        else if (strcmp(type, "restart") == 0) {
+            JsonDocument response;
+            response["type"] = "restart";
+            response["data"]["success"] = true;
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
+            delay(500);
+            ESP.restart();
+        }
     }
 
     void readAndRecordSensors() {

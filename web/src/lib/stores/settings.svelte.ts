@@ -58,9 +58,11 @@ export const settings = $state<Settings>(loadSettings());
 export function updateSettings(updates: Partial<Settings>): void {
 	Object.assign(settings, updates);
 	saveSettings(settings);
-	if ("theme" in updates) {
-		applyTheme(settings.theme);
-	}
+}
+
+export function resetSettings(): void {
+	Object.assign(settings, defaultSettings);
+	saveSettings(settings);
 }
 
 export function applyTheme(theme: Theme): void {

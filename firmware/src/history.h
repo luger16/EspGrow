@@ -33,6 +33,7 @@ void loop();
 
 void record(const char* sensorId, float value, RecordMode mode = AVERAGE);
 void removeSensor(const char* sensorId);
+void clearAll();
 
 size_t getHistory(const char* sensorId, Range range, uint8_t* buffer, size_t bufferSize);
 size_t getPointCount(Range range);

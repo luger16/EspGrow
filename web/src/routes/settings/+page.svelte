@@ -3,14 +3,15 @@
 	import PpfdCalibrationDialog from "$lib/components/ppfd-calibration-dialog.svelte";
 	import SystemInfoCard from "$lib/components/system-info-card.svelte";
 	import * as Select from "$lib/components/ui/select/index.js";
+	import * as AlertDialog from "$lib/components/ui/alert-dialog/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { Progress } from "$lib/components/ui/progress/index.js";
 
-	import { sensors, ppfdCalibration } from "$lib/stores/sensors.svelte";
+	import { sensors, ppfdCalibration, sensorHistory } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
-	import { settings, updateSettings, type Theme, type TemperatureUnit, type TimeFormat } from "$lib/stores/settings.svelte";
+	import { settings, updateSettings, resetSettings, applyTheme, type Theme, type TemperatureUnit, type TimeFormat } from "$lib/stores/settings.svelte";
 	import { systemInfo, initSystemInfoWebSocket } from "$lib/stores/system.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { toast } from "svelte-sonner";
@@ -20,6 +21,9 @@
 	import PowerIcon from "@lucide/svelte/icons/power";
 	import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 	import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
+	import Trash2Icon from "@lucide/svelte/icons/trash-2";
+	import RotateCcwIcon from "@lucide/svelte/icons/rotate-ccw";
+	import PowerOffIcon from "@lucide/svelte/icons/power-off";
 	import { climateConfig } from "$lib/stores/climate.svelte";
 	import LeafIcon from "@lucide/svelte/icons/leaf";
 	import { onMount } from "svelte";
@@ -281,6 +285,45 @@
 			toast.error(`Install failed: ${otaError}`);
 		}
 	}
+	let clearingHistory = $state(false);
+	let restarting = $state(false);
+
+	function handleClearHistory(): void {
+		clearingHistory = true;
+		websocket.send("clear_history");
+
+		const unsub = websocket.on("clear_history", () => {
+			unsub();
+			clearingHistory = false;
+			for (const key of Object.keys(sensorHistory)) {
+				delete sensorHistory[key];
+			}
+			toast.success("History cleared");
+		});
+
+		setTimeout(() => {
+			unsub();
+			if (clearingHistory) {
+				clearingHistory = false;
+				toast.error("Clear history timed out");
+			}
+		}, 5000);
+	}
+
+	function handleRestart(): void {
+		restarting = true;
+		websocket.send("restart");
+		reconnecting = true;
+		setTimeout(() => {
+			window.location.reload();
+		}, 10000);
+	}
+
+	function handleResetSettings(): void {
+		resetSettings();
+		applyTheme(settings.theme);
+		toast.success("Settings reset to defaults");
+	}
 </script>
 
 <PageHeader title="Settings" />
@@ -516,6 +559,96 @@
 			onchange={handleFirmwareFileSelect}
 			class="hidden"
 		/>
+	</section>
+
+	<section>
+		<h2 class="mb-3 text-sm font-medium text-destructive">Danger Zone</h2>
+		<div class="divide-y divide-border rounded-lg border border-destructive/30">
+			<div class="flex items-center justify-between p-3">
+				<div>
+					<p class="text-sm font-medium">Clear History</p>
+					<p class="text-xs text-muted-foreground">Delete all sensor and device history data</p>
+				</div>
+				<AlertDialog.Root>
+					<AlertDialog.Trigger>
+						{#snippet child({ props })}
+							<Button variant="outline" size="sm" disabled={clearingHistory} {...props}>
+								<Trash2Icon class="size-4" />
+								{clearingHistory ? "..." : "Clear"}
+							</Button>
+						{/snippet}
+					</AlertDialog.Trigger>
+					<AlertDialog.Content>
+						<AlertDialog.Header>
+							<AlertDialog.Title>Clear all history?</AlertDialog.Title>
+							<AlertDialog.Description>
+								This will permanently delete all sensor and device history from the device. Chart data for all time ranges will be lost.
+							</AlertDialog.Description>
+						</AlertDialog.Header>
+						<AlertDialog.Footer>
+							<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+							<AlertDialog.Action onclick={handleClearHistory}>Clear History</AlertDialog.Action>
+						</AlertDialog.Footer>
+					</AlertDialog.Content>
+				</AlertDialog.Root>
+			</div>
+			<div class="flex items-center justify-between p-3">
+				<div>
+					<p class="text-sm font-medium">Reset Settings</p>
+					<p class="text-xs text-muted-foreground">Reset preferences, ordering, and visibility to defaults</p>
+				</div>
+				<AlertDialog.Root>
+					<AlertDialog.Trigger>
+						{#snippet child({ props })}
+							<Button variant="outline" size="sm" {...props}>
+								<RotateCcwIcon class="size-4" />
+								Reset
+							</Button>
+						{/snippet}
+					</AlertDialog.Trigger>
+					<AlertDialog.Content>
+						<AlertDialog.Header>
+							<AlertDialog.Title>Reset all settings?</AlertDialog.Title>
+							<AlertDialog.Description>
+								This will reset theme, temperature unit, time format, sensor/device ordering, and visibility to their defaults. Hardware configuration is not affected.
+							</AlertDialog.Description>
+						</AlertDialog.Header>
+						<AlertDialog.Footer>
+							<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+							<AlertDialog.Action onclick={handleResetSettings}>Reset Settings</AlertDialog.Action>
+						</AlertDialog.Footer>
+					</AlertDialog.Content>
+				</AlertDialog.Root>
+			</div>
+			<div class="flex items-center justify-between p-3">
+				<div>
+					<p class="text-sm font-medium">Restart Device</p>
+					<p class="text-xs text-muted-foreground">Reboot the ESP32 microcontroller</p>
+				</div>
+				<AlertDialog.Root>
+					<AlertDialog.Trigger>
+						{#snippet child({ props })}
+							<Button variant="outline" size="sm" disabled={restarting} {...props}>
+								<PowerOffIcon class="size-4" />
+								{restarting ? "..." : "Restart"}
+							</Button>
+						{/snippet}
+					</AlertDialog.Trigger>
+					<AlertDialog.Content>
+						<AlertDialog.Header>
+							<AlertDialog.Title>Restart device?</AlertDialog.Title>
+							<AlertDialog.Description>
+								The ESP32 will reboot. The page will automatically reconnect once the device is back online.
+							</AlertDialog.Description>
+						</AlertDialog.Header>
+						<AlertDialog.Footer>
+							<AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+							<AlertDialog.Action onclick={handleRestart}>Restart</AlertDialog.Action>
+						</AlertDialog.Footer>
+					</AlertDialog.Content>
+				</AlertDialog.Root>
+			</div>
+		</div>
 	</section>
 
 	<SystemInfoCard />

@@ -273,4 +273,23 @@ void removeSensor(const char* sensorId) {
     Serial.printf("[History] Removed sensor: %s\n", sensorId);
 }
 
+void clearAll() {
+    for (auto& pair : histories) {
+        for (int i = 0; i < 3; i++) {
+            pair.second.buffers[i].head = 0;
+            pair.second.buffers[i].count = 0;
+            pair.second.buffers[i].lastWrite = 0;
+            pair.second.accumulators[i].sum = 0;
+            pair.second.accumulators[i].lastValue = 0;
+            pair.second.accumulators[i].sampleCount = 0;
+
+            String path = getFilePath(pair.first.c_str(), (Range)i);
+            if (LittleFS.exists(path)) {
+                LittleFS.remove(path);
+            }
+        }
+    }
+    Serial.println("[History] Cleared all history");
+}
+
 }
