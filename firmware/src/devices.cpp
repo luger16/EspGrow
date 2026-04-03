@@ -147,7 +147,7 @@ bool setDeviceState(const char* deviceId, bool on) {
     for (auto& device : devices) {
         if (strcmp(device.id, deviceId) == 0) {
             device.isOn = on;
-            History::record(deviceId, on ? 1.0f : 0.0f);
+            History::record(deviceId, on ? 1.0f : 0.0f, History::LAST_VALUE);
             return true;
         }
     }

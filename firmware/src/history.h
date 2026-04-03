@@ -10,6 +10,11 @@ enum Range {
     RANGE_7D = 2
 };
 
+enum RecordMode {
+    AVERAGE,
+    LAST_VALUE
+};
+
 struct HistoryPoint {
     uint32_t timestamp;
     float value;
@@ -26,7 +31,7 @@ constexpr uint32_t INTERVAL_7D = 60 * 60;
 void init();
 void loop();
 
-void record(const char* sensorId, float value);
+void record(const char* sensorId, float value, RecordMode mode = AVERAGE);
 void removeSensor(const char* sensorId);
 
 size_t getHistory(const char* sensorId, Range range, uint8_t* buffer, size_t bufferSize);

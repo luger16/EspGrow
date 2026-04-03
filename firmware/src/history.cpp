@@ -20,8 +20,10 @@ namespace {
     
     struct SensorAccumulator {
         float sum;
+        float lastValue;
         uint32_t sampleCount;
         uint32_t lastSample;
+        RecordMode mode;
     };
     
     struct SensorHistory {
@@ -125,8 +127,10 @@ namespace {
             sh.buffers[i].lastWrite = 0;
             
             sh.accumulators[i].sum = 0;
+            sh.accumulators[i].lastValue = 0;
             sh.accumulators[i].sampleCount = 0;
             sh.accumulators[i].lastSample = 0;
+            sh.accumulators[i].mode = AVERAGE;
             
             loadBuffer(sensorId, (Range)i, sh.buffers[i]);
         }
@@ -180,7 +184,7 @@ void loop() {
     }
 }
 
-void record(const char* sensorId, float value) {
+void record(const char* sensorId, float value, RecordMode mode) {
     if (!WiFiManager::isTimeSynced()) return;
     
     if (histories.find(sensorId) == histories.end()) {
@@ -194,7 +198,9 @@ void record(const char* sensorId, float value) {
         SensorAccumulator& acc = sh.accumulators[i];
         CircularBuffer& buf = sh.buffers[i];
         
+        acc.mode = mode;
         acc.sum += value;
+        acc.lastValue = value;
         acc.sampleCount++;
         
         // Round to interval boundaries (e.g., 13:00:00, 13:05:00, 13:10:00)
@@ -203,8 +209,10 @@ void record(const char* sensorId, float value) {
         
         if (currentBoundary > lastBoundary) {
             if (acc.sampleCount > 0) {
-                float avg = acc.sum / acc.sampleCount;
-                addPoint(buf, currentBoundary, avg);
+                float recorded = (acc.mode == LAST_VALUE)
+                    ? acc.lastValue
+                    : acc.sum / acc.sampleCount;
+                addPoint(buf, currentBoundary, recorded);
                 buf.lastWrite = currentBoundary;
                 
                 acc.sum = 0;
