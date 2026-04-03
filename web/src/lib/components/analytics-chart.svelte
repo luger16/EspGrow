@@ -466,8 +466,8 @@
 											}}
 										>
 											{#snippet formatter(args: { value: unknown; name: string; item: { payload: Record<string, unknown>; key: string; color?: string }; index: number })}
-												{@const sensor = visibleSensors.find(s => s.name === args.name)}
-												{@const device = visibleDevices.find(d => d.name === args.name)}
+												{@const sensor = visibleSensors.find(s => s.id === args.item.key)}
+												{@const device = visibleDevices.find(d => d.id === args.item.key)}
 												{@const itemColor = sensor ? getSensorColor(sensor) : device ? getDeviceColor(device) : (args.item.color ?? 'currentColor')}
 												{@const timestamp = args.item.payload?.date instanceof Date ? args.item.payload.date.getTime() : 0}
 												{@const rawValue = sensor ? getRawValueAtTimestamp(sensor.id, timestamp) : device ? getRawValueAtTimestamp(device.id, timestamp) : null}
