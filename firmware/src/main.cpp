@@ -22,6 +22,8 @@ namespace {
     unsigned long lastDevicePoll = 0;
     const unsigned long BROADCAST_INTERVAL = 5000;
     const unsigned long DEVICE_POLL_INTERVAL = 30000;
+    unsigned int pollCycle = 0;
+    const unsigned int OFFLINE_RECHECK_INTERVAL = 3;
     std::map<String, float> cachedSensorReadings;
     bool sensorReadingsDirty = false;
 
@@ -196,11 +198,15 @@ namespace {
         size_t count = Devices::getDeviceCount();
         if (count == 0) return;
         
+        bool recheckOffline = (pollCycle % OFFLINE_RECHECK_INTERVAL == 0);
+        pollCycle++;
         bool changed = false;
         
         for (size_t i = 0; i < count; i++) {
             Devices::Device* device = Devices::getDeviceByIndex(i);
             if (!device || strlen(device->ipAddress) == 0) continue;
+            
+            if (!device->isOnline && !recheckOffline) continue;
             
             auto result = DeviceController::queryState(device->controlMethod, device->ipAddress);
             
