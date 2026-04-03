@@ -1,6 +1,7 @@
 #include "devices.h"
 #include "storage.h"
 #include "device_modes.h"
+#include "history.h"
 #include <vector>
 
 namespace Devices {
@@ -146,6 +147,7 @@ bool setDeviceState(const char* deviceId, bool on) {
     for (auto& device : devices) {
         if (strcmp(device.id, deviceId) == 0) {
             device.isOn = on;
+            History::record(deviceId, on ? 1.0f : 0.0f);
             return true;
         }
     }

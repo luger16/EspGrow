@@ -516,6 +516,14 @@ namespace {
                 cachedSensorReadings[String(sensorIds[i])] = value;
             }
         }
+
+        size_t deviceCount = Devices::getDeviceCount();
+        for (size_t i = 0; i < deviceCount; i++) {
+            Devices::Device* device = Devices::getDeviceByIndex(i);
+            if (device && device->isOnline) {
+                History::record(device->id, device->isOn ? 1.0f : 0.0f);
+            }
+        }
         
         if (anyValid) sensorReadingsDirty = true;
     }
