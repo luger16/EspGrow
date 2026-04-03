@@ -658,6 +658,8 @@ void loop() {
                 Serial.println("[mDNS] Started: espgrow.local");
                 MDNS.addService("http", "tcp", 80);
             }
+            pollAllDevices();
+            lastDevicePoll = millis();
         }
         
         WebSocketServer::loop();
