@@ -12,7 +12,7 @@
 
 	import { sensors, sensorReadings } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
-	import { settings } from "$lib/stores/settings.svelte";
+	import { settings, reconcileOrder } from "$lib/stores/settings.svelte";
 	import ThermometerIcon from "@lucide/svelte/icons/thermometer";
 	import PowerIcon from "@lucide/svelte/icons/power";
 
@@ -22,28 +22,14 @@
 
 	const visibleSensors = $derived.by(() => {
 		const visible = sensors.filter((s) => !settings.hiddenSensors.includes(s.id));
-		if (settings.sensorOrder.length === 0) return visible;
-		return [...visible].sort((a, b) => {
-			const ai = settings.sensorOrder.indexOf(a.id);
-			const bi = settings.sensorOrder.indexOf(b.id);
-			if (ai === -1 && bi === -1) return 0;
-			if (ai === -1) return 1;
-			if (bi === -1) return -1;
-			return ai - bi;
-		});
+		const order = reconcileOrder(settings.sensorOrder, visible.map((s) => s.id));
+		return [...visible].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 	});
 
 	const visibleDevices = $derived.by(() => {
 		const visible = devices.filter((d) => !settings.hiddenDevices.includes(d.id));
-		if (settings.deviceOrder.length === 0) return visible;
-		return [...visible].sort((a, b) => {
-			const ai = settings.deviceOrder.indexOf(a.id);
-			const bi = settings.deviceOrder.indexOf(b.id);
-			if (ai === -1 && bi === -1) return 0;
-			if (ai === -1) return 1;
-			if (bi === -1) return -1;
-			return ai - bi;
-		});
+		const order = reconcileOrder(settings.deviceOrder, visible.map((d) => d.id));
+		return [...visible].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 	});
 </script>
 

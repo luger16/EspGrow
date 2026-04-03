@@ -5,7 +5,7 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 
 	import { sensors } from "$lib/stores/sensors.svelte";
-	import { settings, toggleSensorVisibility, moveSensor } from "$lib/stores/settings.svelte";
+	import { settings, toggleSensorVisibility, moveSensor, reconcileOrder } from "$lib/stores/settings.svelte";
 	import { sensorIcons } from "$lib/icons";
 	import type { Sensor } from "$lib/types";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -28,15 +28,8 @@
 	const editingSensor = $derived(sensors.find((s) => s.id === editingSensorId));
 
 	const orderedSensors = $derived.by(() => {
-		if (settings.sensorOrder.length === 0) return sensors;
-		return [...sensors].sort((a, b) => {
-			const ai = settings.sensorOrder.indexOf(a.id);
-			const bi = settings.sensorOrder.indexOf(b.id);
-			if (ai === -1 && bi === -1) return 0;
-			if (ai === -1) return 1;
-			if (bi === -1) return -1;
-			return ai - bi;
-		});
+		const order = reconcileOrder(settings.sensorOrder, sensors.map((s) => s.id));
+		return [...sensors].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 	});
 
 	const allSensorIds = $derived(orderedSensors.map((s) => s.id));

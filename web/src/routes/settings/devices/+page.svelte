@@ -5,7 +5,7 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 
 	import { devices } from "$lib/stores/devices.svelte";
-	import { settings, toggleDeviceVisibility, moveDevice } from "$lib/stores/settings.svelte";
+	import { settings, toggleDeviceVisibility, moveDevice, reconcileOrder } from "$lib/stores/settings.svelte";
 	import { deviceIcons } from "$lib/icons";
 	import type { Device } from "$lib/types";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -26,15 +26,8 @@
 	const editingDevice = $derived(devices.find((d) => d.id === editingDeviceId));
 
 	const orderedDevices = $derived.by(() => {
-		if (settings.deviceOrder.length === 0) return devices;
-		return [...devices].sort((a, b) => {
-			const ai = settings.deviceOrder.indexOf(a.id);
-			const bi = settings.deviceOrder.indexOf(b.id);
-			if (ai === -1 && bi === -1) return 0;
-			if (ai === -1) return 1;
-			if (bi === -1) return -1;
-			return ai - bi;
-		});
+		const order = reconcileOrder(settings.deviceOrder, devices.map((d) => d.id));
+		return [...devices].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 	});
 
 	const allDeviceIds = $derived(orderedDevices.map((d) => d.id));

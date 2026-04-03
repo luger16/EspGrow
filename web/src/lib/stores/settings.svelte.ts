@@ -149,10 +149,16 @@ export function toggleDeviceVisibility(deviceId: string): void {
 	updateSettings({ hiddenDevices: hidden });
 }
 
+export function reconcileOrder(savedOrder: string[], currentIds: string[]): string[] {
+	const currentSet = new Set(currentIds);
+	const kept = savedOrder.filter((id) => currentSet.has(id));
+	const keptSet = new Set(kept);
+	const added = currentIds.filter((id) => !keptSet.has(id));
+	return [...kept, ...added];
+}
+
 export function moveSensor(sensorId: string, direction: "up" | "down", allSensorIds: string[]): void {
-	const order = settings.sensorOrder.length > 0
-		? [...settings.sensorOrder]
-		: [...allSensorIds];
+	const order = reconcileOrder(settings.sensorOrder, allSensorIds);
 	const idx = order.indexOf(sensorId);
 	if (idx === -1) return;
 	const swapIdx = direction === "up" ? idx - 1 : idx + 1;
@@ -162,9 +168,7 @@ export function moveSensor(sensorId: string, direction: "up" | "down", allSensor
 }
 
 export function moveDevice(deviceId: string, direction: "up" | "down", allDeviceIds: string[]): void {
-	const order = settings.deviceOrder.length > 0
-		? [...settings.deviceOrder]
-		: [...allDeviceIds];
+	const order = reconcileOrder(settings.deviceOrder, allDeviceIds);
 	const idx = order.indexOf(deviceId);
 	if (idx === -1) return;
 	const swapIdx = direction === "up" ? idx - 1 : idx + 1;
