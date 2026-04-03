@@ -25,7 +25,15 @@ namespace {
     std::map<String, float> cachedSensorReadings;
     bool sensorReadingsDirty = false;
 
-    void broadcastDeviceModes() {
+    void sendMessage(const String& message, uint32_t clientId = 0) {
+        if (clientId) {
+            WebSocketServer::sendTo(clientId, message);
+        } else {
+            WebSocketServer::broadcast(message);
+        }
+    }
+
+    void sendDeviceModes(uint32_t clientId = 0) {
         JsonDocument doc;
         doc["type"] = "device_modes";
         
@@ -38,10 +46,10 @@ namespace {
         
         String out;
         serializeJson(doc, out);
-        WebSocketServer::broadcast(out);
+        sendMessage(out, clientId);
     }
 
-    void broadcastDayNightConfig() {
+    void sendDayNightConfig(uint32_t clientId = 0) {
         JsonDocument doc;
         doc["type"] = "daynight_config";
         
@@ -54,10 +62,10 @@ namespace {
         
         String out;
         serializeJson(doc, out);
-        WebSocketServer::broadcast(out);
+        sendMessage(out, clientId);
     }
 
-    void broadcastDevices() {
+    void sendDevices(uint32_t clientId = 0) {
         Devices::computeControlModes();
         
         JsonDocument doc;
@@ -72,10 +80,10 @@ namespace {
         
         String out;
         serializeJson(doc, out);
-        WebSocketServer::broadcast(out);
+        sendMessage(out, clientId);
     }
 
-    void broadcastClimateConfig() {
+    void sendClimateConfig(uint32_t clientId = 0) {
         JsonDocument doc;
         doc["type"] = "climate_config";
 
@@ -88,10 +96,10 @@ namespace {
 
         String out;
         serializeJson(doc, out);
-        WebSocketServer::broadcast(out);
+        sendMessage(out, clientId);
     }
 
-    void broadcastEvents() {
+    void sendEvents(uint32_t clientId = 0) {
         JsonDocument doc;
         doc["type"] = "events";
 
@@ -104,10 +112,10 @@ namespace {
 
         String out;
         serializeJson(doc, out);
-        WebSocketServer::broadcast(out);
+        sendMessage(out, clientId);
     }
 
-    void broadcastEnergy() {
+    void sendEnergy(uint32_t clientId = 0) {
         JsonDocument doc;
         doc["type"] = "energy";
         
@@ -120,10 +128,10 @@ namespace {
         
         String out;
         serializeJson(doc, out);
-        WebSocketServer::broadcast(out);
+        sendMessage(out, clientId);
     }
 
-    void broadcastSensors() {
+    void sendSensors(uint32_t clientId = 0) {
         JsonDocument doc;
         doc["type"] = "sensor_config";
         
@@ -136,10 +144,10 @@ namespace {
         
         String out;
         serializeJson(doc, out);
-        WebSocketServer::broadcast(out);
+        sendMessage(out, clientId);
     }
 
-    void sendHistory(const char* sensorId, const char* range) {
+    void sendHistory(const char* sensorId, const char* range, uint32_t clientId = 0) {
         History::Range r;
         if (strcmp(range, "6h") == 0) r = History::RANGE_6H;
         else if (strcmp(range, "24h") == 0) r = History::RANGE_24H;
@@ -180,7 +188,7 @@ namespace {
             String out;
             serializeJson(doc, out);
             delete[] b64buf;
-            WebSocketServer::broadcast(out);
+            sendMessage(out, clientId);
         }
     }
 
@@ -217,11 +225,11 @@ namespace {
         }
         
         if (changed) {
-            broadcastDevices();
+            sendDevices();
         }
     }
 
-    void handleMessage(const String& message) {
+    void handleMessage(uint32_t clientId, const String& message) {
         JsonDocument doc;
         DeserializationError err = deserializeJson(doc, message);
         if (err) {
@@ -235,14 +243,64 @@ namespace {
         // Extract payload from "data" key (new protocol), fallback to top-level (legacy)
         JsonObject payload = doc["data"].is<JsonObject>() ? doc["data"].as<JsonObject>() : doc.as<JsonObject>();
 
+        // Request-response: reply only to requesting client
         if (strcmp(type, "ping") == 0) {
             JsonDocument response;
             response["type"] = "pong";
             response["data"]["timestamp"] = millis();
             String out;
             serializeJson(response, out);
-            WebSocketServer::broadcast(out);
+            sendMessage(out, clientId);
         }
+        else if (strcmp(type, "get_device_modes") == 0) {
+            sendDeviceModes(clientId);
+            sendDayNightConfig(clientId);
+        }
+        else if (strcmp(type, "get_devices") == 0) {
+            sendDevices(clientId);
+        }
+        else if (strcmp(type, "get_sensors") == 0) {
+            sendSensors(clientId);
+        }
+        else if (strcmp(type, "get_history") == 0) {
+            const char* sensorId = payload["sensorId"];
+            const char* range = payload["range"];
+            if (sensorId && range) {
+                sendHistory(sensorId, range, clientId);
+            }
+        }
+        else if (strcmp(type, "get_ppfd_calibration") == 0) {
+            JsonDocument response;
+            response["type"] = "ppfd_calibration";
+            response["data"]["factor"] = Sensors::getPpfdCalibrationFactor();
+            String out;
+            serializeJson(response, out);
+            sendMessage(out, clientId);
+        }
+        else if (strcmp(type, "get_energy") == 0) {
+            sendEnergy(clientId);
+        }
+        else if (strcmp(type, "get_climate_config") == 0) {
+            sendClimateConfig(clientId);
+        }
+        else if (strcmp(type, "get_events") == 0) {
+            sendEvents(clientId);
+        }
+        else if (strcmp(type, "get_system_info") == 0) {
+            JsonDocument response;
+            response["type"] = "system_info";
+            JsonObject respData = response["data"].to<JsonObject>();
+            respData["uptime"] = millis() / 1000;
+            respData["freeHeap"] = ESP.getFreeHeap();
+            respData["chipModel"] = ESP.getChipModel();
+            respData["wifiRssi"] = WiFi.RSSI();
+            respData["ipAddress"] = WiFiManager::getIP();
+            respData["firmwareVersion"] = FIRMWARE_VERSION;
+            String out;
+            serializeJson(response, out);
+            sendMessage(out, clientId);
+        }
+        // Mutations: broadcast state changes to all clients
         else if (strcmp(type, "device_control") == 0) {
             const char* method = payload["method"];
             const char* target = payload["target"];
@@ -279,10 +337,6 @@ namespace {
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
-        else if (strcmp(type, "get_device_modes") == 0) {
-            broadcastDeviceModes();
-            broadcastDayNightConfig();
-        }
         else if (strcmp(type, "set_device_mode") == 0) {
             JsonDocument modeDoc;
             modeDoc["deviceId"] = payload["deviceId"];
@@ -292,15 +346,15 @@ namespace {
             if (payload["schedule"].is<JsonObject>()) modeDoc["schedule"] = payload["schedule"];
             
             DeviceModes::setMode(modeDoc);
-            broadcastDeviceModes();
-            broadcastDevices();
+            sendDeviceModes();
+            sendDevices();
         }
         else if (strcmp(type, "delete_device_mode") == 0) {
             const char* deviceId = payload["deviceId"];
             if (deviceId) {
                 DeviceModes::removeMode(deviceId);
-                broadcastDeviceModes();
-                broadcastDevices();
+                sendDeviceModes();
+                sendDevices();
             }
         }
         else if (strcmp(type, "set_daynight_config") == 0) {
@@ -312,10 +366,7 @@ namespace {
             if (payload["lightHysteresis"].is<float>()) configDoc["lightHysteresis"] = payload["lightHysteresis"];
             
             DeviceModes::setDayNightConfig(configDoc);
-            broadcastDayNightConfig();
-        }
-        else if (strcmp(type, "get_devices") == 0) {
-            broadcastDevices();
+            sendDayNightConfig();
         }
         else if (strcmp(type, "add_device") == 0) {
             JsonDocument deviceDoc;
@@ -328,7 +379,7 @@ namespace {
             deviceDoc["hasEnergyMonitoring"] = payload["hasEnergyMonitoring"] | false;
             
             Devices::addDevice(deviceDoc);
-            broadcastDevices();
+            sendDevices();
         }
         else if (strcmp(type, "update_device") == 0) {
             const char* deviceId = payload["id"];
@@ -340,17 +391,14 @@ namespace {
             if (payload["hasEnergyMonitoring"].is<bool>()) updates["hasEnergyMonitoring"] = payload["hasEnergyMonitoring"];
             
             Devices::updateDevice(deviceId, updates);
-            broadcastDevices();
+            sendDevices();
         }
         else if (strcmp(type, "remove_device") == 0) {
             const char* deviceId = payload["id"];
             DeviceModes::removeModeForDevice(deviceId);
             Devices::removeDevice(deviceId);
-            broadcastDevices();
-            broadcastDeviceModes();
-        }
-        else if (strcmp(type, "get_sensors") == 0) {
-            broadcastSensors();
+            sendDevices();
+            sendDeviceModes();
         }
         else if (strcmp(type, "add_sensor") == 0) {
             JsonDocument sensorDoc;
@@ -365,7 +413,7 @@ namespace {
             if (payload["leafTempOffset"].is<float>()) sensorDoc["leafTempOffset"] = payload["leafTempOffset"];
             
             SensorConfig::addSensor(sensorDoc);
-            broadcastSensors();
+            sendSensors();
         }
         else if (strcmp(type, "update_sensor") == 0) {
             const char* sensorId = payload["id"];
@@ -380,27 +428,12 @@ namespace {
             if (payload["leafTempOffset"].is<float>()) updates["leafTempOffset"] = payload["leafTempOffset"];
             
             SensorConfig::updateSensor(sensorId, updates);
-            broadcastSensors();
+            sendSensors();
         }
         else if (strcmp(type, "remove_sensor") == 0) {
             const char* sensorId = payload["id"];
             SensorConfig::removeSensor(sensorId);
-            broadcastSensors();
-        }
-        else if (strcmp(type, "get_history") == 0) {
-            const char* sensorId = payload["sensorId"];
-            const char* range = payload["range"];
-            if (sensorId && range) {
-                sendHistory(sensorId, range);
-            }
-        }
-        else if (strcmp(type, "get_ppfd_calibration") == 0) {
-            JsonDocument response;
-            response["type"] = "ppfd_calibration";
-            response["data"]["factor"] = Sensors::getPpfdCalibrationFactor();
-            String out;
-            serializeJson(response, out);
-            WebSocketServer::broadcast(out);
+            sendSensors();
         }
         else if (strcmp(type, "calibrate_ppfd") == 0) {
             float knownPpfd = payload["knownPpfd"] | 0.0f;
@@ -430,9 +463,6 @@ namespace {
                 WebSocketServer::broadcast(out);
             }
         }
-        else if (strcmp(type, "get_energy") == 0) {
-            broadcastEnergy();
-        }
         else if (strcmp(type, "reset_energy") == 0) {
             const char* deviceId = payload["deviceId"];
             if (deviceId) {
@@ -440,7 +470,7 @@ namespace {
             } else {
                 EnergyTracker::resetAllEnergy();
             }
-            broadcastEnergy();
+            sendEnergy();
         }
         else if (strcmp(type, "reset_ppfd_calibration") == 0) {
             Sensors::setPpfdCalibrationFactor(1.0f);
@@ -454,15 +484,12 @@ namespace {
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
-        else if (strcmp(type, "get_climate_config") == 0) {
-            broadcastClimateConfig();
-        }
         else if (strcmp(type, "set_climate_phase") == 0) {
             const char* phase = payload["phase"];
             const char* startDate = payload["phaseStartDate"];
             if (phase) {
                 ClimateConfig::setPhase(phase, startDate);
-                broadcastClimateConfig();
+                sendClimateConfig();
             }
         }
         else if (strcmp(type, "set_climate_targets") == 0) {
@@ -470,32 +497,15 @@ namespace {
             if (phase && payload["targets"].is<JsonObject>()) {
                 JsonObject targets = payload["targets"].as<JsonObject>();
                 ClimateConfig::setTargets(phase, targets);
-                broadcastClimateConfig();
+                sendClimateConfig();
             }
         }
         else if (strcmp(type, "reset_climate_targets") == 0) {
             const char* phase = payload["phase"];
             if (phase) {
                 ClimateConfig::resetTargets(phase);
-                broadcastClimateConfig();
+                sendClimateConfig();
             }
-        }
-        else if (strcmp(type, "get_events") == 0) {
-            broadcastEvents();
-        }
-        else if (strcmp(type, "get_system_info") == 0) {
-            JsonDocument response;
-            response["type"] = "system_info";
-            JsonObject respData = response["data"].to<JsonObject>();
-            respData["uptime"] = millis() / 1000;
-            respData["freeHeap"] = ESP.getFreeHeap();
-            respData["chipModel"] = ESP.getChipModel();
-            respData["wifiRssi"] = WiFi.RSSI();
-            respData["ipAddress"] = WiFiManager::getIP();
-            respData["firmwareVersion"] = FIRMWARE_VERSION;
-            String out;
-            serializeJson(response, out);
-            WebSocketServer::broadcast(out);
         }
         else if (strcmp(type, "clear_history") == 0) {
             History::clearAll();
@@ -679,7 +689,7 @@ void loop() {
         readAndRecordSensors();
         if (connected) {
             broadcastSensorData();
-            broadcastEnergy();
+            sendEnergy();
         }
     }
     

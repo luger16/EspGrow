@@ -33,7 +33,7 @@ namespace {
     struct MessageSlot {
         char data[MSG_MAX_LEN];
         size_t len = 0;
-        bool used = false;
+        uint32_t clientId = 0;
     };
     
     volatile size_t queueHead = 0;
@@ -62,6 +62,7 @@ namespace {
                     client->close();
                     break;
                 }
+                client->setCloseClientOnQueueFull(false);
                 Serial.printf("[WS] Client #%u connected from %s\n", 
                     client->id(), client->remoteIP().toString().c_str());
                 break;
@@ -82,6 +83,7 @@ namespace {
                     memcpy(messageQueue[queueHead].data, data, copyLen);
                     messageQueue[queueHead].data[copyLen] = '\0';
                     messageQueue[queueHead].len = copyLen;
+                    messageQueue[queueHead].clientId = client->id();
                     queueHead = next;
                     portEXIT_CRITICAL(&queueMux);
                 }
@@ -381,15 +383,15 @@ void loop() {
         }
     }
     
-    // Process one message per loop() to let WiFi flush outgoing data between responses
-    if (queueTail != queueHead) {
+    while (queueTail != queueHead) {
         portENTER_CRITICAL(&queueMux);
         String message(messageQueue[queueTail].data);
+        uint32_t clientId = messageQueue[queueTail].clientId;
         queueTail = (queueTail + 1) % MSG_QUEUE_SIZE;
         portEXIT_CRITICAL(&queueMux);
         
         if (messageCallback) {
-            messageCallback(message);
+            messageCallback(clientId, message);
         }
     }
 }
@@ -397,6 +399,14 @@ void loop() {
 void broadcast(const String& message) {
     if (ws && ws->count() > 0) {
         ws->textAll(message);
+    }
+}
+
+void sendTo(uint32_t clientId, const String& message) {
+    if (!ws) return;
+    AsyncWebSocketClient* client = ws->client(clientId);
+    if (client && client->status() == WS_CONNECTED && client->canSend()) {
+        client->text(message);
     }
 }
 

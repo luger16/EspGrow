@@ -7,14 +7,14 @@ class AsyncWebServer;
 
 namespace WebSocketServer {
 
-using MessageCallback = std::function<void(const String& message)>;
+using MessageCallback = std::function<void(uint32_t clientId, const String& message)>;
 
-// Get or create the shared server instance
 AsyncWebServer* getServer(uint16_t port = 80);
 
-void init();  // Sets up WebSocket and static file serving on existing server
-void loop();  // Drains message queue + cleans up clients
+void init();
+void loop();
 void broadcast(const String& message);
+void sendTo(uint32_t clientId, const String& message);
 void onMessage(MessageCallback callback);
 bool hasClients();
 
