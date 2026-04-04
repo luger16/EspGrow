@@ -170,7 +170,7 @@ namespace {
             } else {
                 snprintf(desc, sizeof(desc), "Turned on by automation");
             }
-            broadcastEvent("automation_trigger", title, desc);
+            broadcastEvent("automation", title, desc);
         } else if (!anyTriggerMet && wasTriggered) {
             Serial.printf("[DeviceModes] AUTO cleared for %s\n", cfg.deviceId);
             applyDeviceState(cfg, false);
@@ -187,7 +187,7 @@ namespace {
             } else {
                 snprintf(desc, sizeof(desc), "Turned off by automation");
             }
-            broadcastEvent("automation_trigger", title, desc);
+            broadcastEvent("automation", title, desc);
         }
     }
 
