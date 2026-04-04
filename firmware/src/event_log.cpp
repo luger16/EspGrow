@@ -8,6 +8,7 @@
 #include <ArduinoJson.h>
 #include <cmath>
 #include <time.h>
+#include <esp_system.h>
 
 namespace EventLog {
 
@@ -207,6 +208,23 @@ namespace {
 
 void init() {
     loadEvents();
+
+    esp_reset_reason_t reason = esp_reset_reason();
+    const char* reasonStr;
+    switch (reason) {
+        case ESP_RST_POWERON:  reasonStr = "Power on"; break;
+        case ESP_RST_SW:       reasonStr = "Software reset"; break;
+        case ESP_RST_PANIC:    reasonStr = "Crash (panic)"; break;
+        case ESP_RST_INT_WDT:  reasonStr = "Interrupt watchdog"; break;
+        case ESP_RST_TASK_WDT: reasonStr = "Task watchdog"; break;
+        case ESP_RST_WDT:      reasonStr = "Watchdog"; break;
+        case ESP_RST_BROWNOUT: reasonStr = "Brownout"; break;
+        default:               reasonStr = "Unknown"; break;
+    }
+    char desc[128];
+    snprintf(desc, sizeof(desc), "Reason: %s", reasonStr);
+    pushEvent("system", "ESP32 restarted", desc);
+
     Serial.println("[EventLog] Initialized");
 }
 

@@ -1,5 +1,6 @@
 #include "websocket_server.h"
 #include "ota_manager.h"
+#include "event_log.h"
 #include "storage.h"
 #include "devices.h"
 #include "device_modes.h"
@@ -340,6 +341,14 @@ void init() {
     server->addHandler(restoreHandler);
     
     OtaManager::begin(server, [](const OtaManager::StatusEvent& event) {
+        if (event.status == OtaManager::Status::Success) {
+            EventLog::pushEvent("system", "OTA update completed", "Firmware updated successfully");
+        } else if (event.status == OtaManager::Status::Error) {
+            char desc[128];
+            snprintf(desc, sizeof(desc), "%s", event.error.length() > 0 ? event.error.c_str() : "Unknown error");
+            EventLog::pushEvent("system", "OTA update failed", desc, "warning");
+        }
+
         JsonDocument doc;
         doc["type"] = "ota_status";
         JsonObject otaData = doc["data"].to<JsonObject>();

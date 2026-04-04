@@ -1,5 +1,6 @@
 #include "wifi_manager.h"
 #include "captive_portal.h"
+#include "event_log.h"
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <esp_sntp.h>
@@ -122,6 +123,12 @@ void loop() {
             Serial.printf("[WiFi] Reconnected — IP: %s\n", WiFi.localIP().toString().c_str());
             esp_wifi_set_ps(WIFI_PS_NONE);
             startNTP();
+
+            char desc[128];
+            snprintf(desc, sizeof(desc), "Reconnected after %d attempt%s — IP: %s",
+                reconnectFailures, reconnectFailures == 1 ? "" : "s",
+                WiFi.localIP().toString().c_str());
+            EventLog::pushEvent("system", "WiFi reconnected", desc);
         }
         wasConnected = true;
         reconnectFailures = 0;

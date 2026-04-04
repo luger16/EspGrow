@@ -394,12 +394,14 @@ function generateMockDeviceEvent(): Record<string, unknown> {
 function getInitialEvents(): Record<string, unknown>[] {
 	const now = Date.now();
 	return [
+		{ id: "sys_init_1", type: "system", title: "ESP32 restarted", description: "Reason: Power on", severity: "info", timestamp: Math.floor((now - 60 * 60 * 1000) / 1000) },
 		{ id: "auto_init_1", type: "automation", title: "Exhaust Fan (auto)", description: "Turned on — Temperature at 29.3°C (threshold 28°C)", severity: "info", timestamp: Math.floor((now - 15 * 60 * 1000) / 1000) },
 		{ id: "dev_init_1", type: "device", title: "Grow Light", description: "Turned on manually", severity: "info", timestamp: Math.floor((now - 8 * 60 * 1000) / 1000) },
 		{ id: "auto_init_2", type: "automation", title: "Humidifier (auto)", description: "Turned on — Humidity at 47% (threshold 50%)", severity: "info", timestamp: Math.floor((now - 3 * 60 * 1000) / 1000) },
 		{ id: "alert_init_1", type: "alert", title: "Temperature High", description: "30.4°C (target 26.0°C)", severity: "warning", timestamp: Math.floor((now - 10 * 60 * 1000) / 1000) },
 		{ id: "alert_init_2", type: "alert", title: "Humidity High", description: "84% (target 60%)", severity: "critical", timestamp: Math.floor((now - 5 * 60 * 1000) / 1000) },
 		{ id: "alert_init_3", type: "alert", title: "VPD High", description: "1.75 kPa (target 1.0 kPa)", severity: "warning", timestamp: Math.floor((now - 2 * 60 * 1000) / 1000) },
+		{ id: "sys_init_2", type: "system", title: "WiFi reconnected", description: "Reconnected after 2 attempts — IP: 192.168.1.42", severity: "info", timestamp: Math.floor((now - 45 * 60 * 1000) / 1000) },
 	];
 }
 

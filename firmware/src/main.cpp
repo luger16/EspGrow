@@ -605,6 +605,10 @@ void setup() {
                 Devices::setDeviceOnline(device->id, true);
                 changed = true;
                 Serial.printf("[DeviceCtrl] %s came online\n", device->name);
+
+                char desc[128];
+                snprintf(desc, sizeof(desc), "%s is reachable", device->name);
+                EventLog::pushEvent("system", "Device online", desc);
             }
             if (device->isOn != ar.result.isOn) {
                 Devices::setDeviceState(device->id, ar.result.isOn);
@@ -615,6 +619,10 @@ void setup() {
                 Devices::setDeviceOnline(device->id, false);
                 changed = true;
                 Serial.printf("[DeviceCtrl] %s went offline\n", device->name);
+
+                char desc[128];
+                snprintf(desc, sizeof(desc), "%s is unreachable", device->name);
+                EventLog::pushEvent("system", "Device offline", desc, "warning");
             }
         }
 
