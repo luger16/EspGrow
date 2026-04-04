@@ -20,8 +20,10 @@ namespace {
     std::vector<DeviceModeConfig> configs;
     DayNightConfig dayNightConfig;
     bool currentDaytime = true;
+    bool firstEvalDone = false;
 
     unsigned long lastEvaluation = 0;
+    const unsigned long STARTUP_GRACE_MS = 15000;
 
     struct CycleState {
         bool isOn = false;
@@ -357,6 +359,9 @@ void loop(const std::map<String, float>& sensorReadings) {
     lastEvaluation = millis();
 
     updateDayNight(sensorReadings);
+
+    if (!firstEvalDone && millis() < STARTUP_GRACE_MS) return;
+    firstEvalDone = true;
 
     for (auto& cfg : configs) {
         switch (cfg.mode) {
