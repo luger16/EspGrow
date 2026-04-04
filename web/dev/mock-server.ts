@@ -72,6 +72,34 @@ const energyState: EnergyState[] = DEVICES.filter((d) => d.hasEnergyMonitoring).
 
 let lastEnergyTick = Date.now();
 
+interface DliState {
+	dli: number;
+	lastTick: number;
+}
+
+const dliState: DliState = {
+	dli: 0,
+	lastTick: Date.now(),
+};
+
+function isDaytime(): boolean {
+	const hour = new Date().getUTCHours();
+	return hour >= 6 && hour <= 20;
+}
+
+function updateDliState(): void {
+	const now = Date.now();
+	const elapsedSec = (now - dliState.lastTick) / 1000;
+	dliState.lastTick = now;
+
+	if (!isDaytime() || elapsedSec <= 0) return;
+
+	const ppfd = generateRealisticValue("as7341_ppfd", Math.floor(now / 1000));
+	if (ppfd <= 0) return;
+
+	dliState.dli = Math.round((dliState.dli + (ppfd * elapsedSec) / 1_000_000) * 10) / 10;
+}
+
 function updateEnergyState(): void {
 	const now = Date.now();
 	const elapsedMs = now - lastEnergyTick;
@@ -467,6 +495,8 @@ function handleMessage(ws: WebSocket, raw: string): void {
 			sendTo(ws, { type: "climate_config", data: CLIMATE_CONFIG });
 			updateEnergyState();
 			sendTo(ws, { type: "energy", data: energyState });
+			updateDliState();
+			sendTo(ws, { type: "dli", data: { dli: dliState.dli, isDay: isDaytime() } });
 			sendTo(ws, { type: "ppfd_calibration", data: { factor: 1.0 } });
 			break;
 
@@ -705,6 +735,17 @@ function handleMessage(ws: WebSocket, raw: string): void {
 			break;
 		}
 
+		case "get_dli":
+			updateDliState();
+			sendTo(ws, { type: "dli", data: { dli: dliState.dli, isDay: isDaytime() } });
+			break;
+
+		case "reset_dli":
+			dliState.dli = 0;
+			broadcast({ type: "dli", data: { dli: 0, isDay: isDaytime() } });
+			console.log("[Mock] DLI reset");
+			break;
+
 		default:
 			console.log(`[Mock] Unknown message type: ${type}`);
 	}
@@ -751,6 +792,9 @@ setInterval(() => {
 
 	updateEnergyState();
 	broadcast({ type: "energy", data: energyState });
+
+	updateDliState();
+	broadcast({ type: "dli", data: { dli: dliState.dli, isDay: isDaytime() } });
 }, BROADCAST_INTERVAL);
 
 // --- Connection handling ---

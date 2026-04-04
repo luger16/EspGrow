@@ -181,42 +181,7 @@ const _latestAlert = $derived<ClimateAlert | undefined>(
 	serverStatus?.latestAlert ?? climateAlerts[0]
 );
 
-// DLI (mol/m²/day) = sum of (PPFD × interval_seconds) / 1_000_000
-let _dliAccumulated = $state(0);
-let _dliLastTimestamp = $state<number | null>(null);
-let _dliLastDayState = $state<boolean | null>(null);
-
-function accumulateDli(): void {
-	const isDay = _isDay;
-
-	if (_dliLastDayState !== null && _dliLastDayState !== isDay) {
-		if (isDay) {
-			_dliAccumulated = 0;
-		}
-	}
-	_dliLastDayState = isDay;
-
-	if (!isDay) {
-		_dliLastTimestamp = null;
-		return;
-	}
-
-	const lightSensor = sensors.find((s) => s.type === "light");
-	if (!lightSensor) return;
-
-	const reading = sensorReadings[lightSensor.id];
-	if (!reading) return;
-
-	const now = Date.now();
-	if (_dliLastTimestamp !== null) {
-		const intervalSec = (now - _dliLastTimestamp) / 1000;
-		// Skip intervals > 5 min to avoid jumps after page reload
-		if (intervalSec > 0 && intervalSec < 300) {
-			_dliAccumulated += (reading.value * intervalSec) / 1_000_000;
-		}
-	}
-	_dliLastTimestamp = now;
-}
+let _dliFromFirmware = $state(0);
 
 const _dliTarget = $derived(_currentTargets.dli);
 
@@ -245,7 +210,7 @@ export function getLatestAlert(): ClimateAlert | undefined {
 }
 
 export function getDli(): number {
-	return Math.round(_dliAccumulated * 10) / 10;
+	return _dliFromFirmware;
 }
 
 export function getDliTarget(): number {
@@ -449,8 +414,12 @@ export function initClimateWebSocket(): void {
 		}
 	});
 
-	websocket.on("sensors", () => {
-		accumulateDli();
+	websocket.on("dli", (data: unknown) => {
+		if (!data || typeof data !== "object") return;
+		const msg = data as Record<string, unknown>;
+		if (typeof msg.dli === "number") {
+			_dliFromFirmware = msg.dli;
+		}
 	});
 }
 

@@ -7,6 +7,7 @@
 #include "device_modes.h"
 #include "devices.h"
 #include "energy_tracker.h"
+#include "dli_tracker.h"
 #include "sensor_config.h"
 #include "history.h"
 #include "climate_config.h"
@@ -133,6 +134,22 @@ namespace {
         sendMessage(out, clientId);
     }
 
+    void sendDli(uint32_t clientId = 0) {
+        JsonDocument doc;
+        doc["type"] = "dli";
+        
+        String dliJson;
+        DliTracker::getDliJson(dliJson);
+        
+        JsonDocument dataDoc;
+        deserializeJson(dataDoc, dliJson);
+        doc["data"] = dataDoc;
+        
+        String out;
+        serializeJson(doc, out);
+        sendMessage(out, clientId);
+    }
+
     void sendSensors(uint32_t clientId = 0) {
         JsonDocument doc;
         doc["type"] = "sensor_config";
@@ -241,6 +258,7 @@ namespace {
             sendDayNightConfig(clientId);
             sendClimateConfig(clientId);
             sendEnergy(clientId);
+            sendDli(clientId);
             
             JsonDocument ppfdResp;
             ppfdResp["type"] = "ppfd_calibration";
@@ -276,6 +294,9 @@ namespace {
         }
         else if (strcmp(type, "get_energy") == 0) {
             sendEnergy(clientId);
+        }
+        else if (strcmp(type, "get_dli") == 0) {
+            sendDli(clientId);
         }
         else if (strcmp(type, "get_climate_config") == 0) {
             sendClimateConfig(clientId);
@@ -443,6 +464,10 @@ namespace {
                 EnergyTracker::resetAllEnergy();
             }
             sendEnergy();
+        }
+        else if (strcmp(type, "reset_dli") == 0) {
+            DliTracker::resetDli();
+            sendDli();
         }
         else if (strcmp(type, "reset_ppfd_calibration") == 0) {
             Sensors::setPpfdCalibrationFactor(1.0f);
@@ -645,6 +670,7 @@ void setup() {
     History::init();
     DeviceModes::init();
     EnergyTracker::init();
+    DliTracker::init();
     ClimateConfig::init();
     EventLog::init();
     
@@ -681,6 +707,7 @@ void loop() {
         
         WebSocketServer::loop();
         EnergyTracker::loop();
+        DliTracker::loop();
         
         if (millis() - lastDevicePoll >= DEVICE_POLL_INTERVAL) {
             lastDevicePoll = millis();
@@ -697,6 +724,7 @@ void loop() {
         if (connected) {
             broadcastSensorData();
             sendEnergy();
+            sendDli();
         }
     }
     
