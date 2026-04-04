@@ -124,9 +124,6 @@ export function initSensorWebSocket(): void {
 			ppfdCalibration.error = null;
 		}
 	});
-
-	websocket.send("get_sensors");
-	websocket.send("get_ppfd_calibration");
 }
 
 export function requestHistory(sensorId: string, range: HistoryRange, force = false): void {

@@ -344,43 +344,7 @@ function generateMockAlert(): Record<string, unknown> {
 	};
 }
 
-// Send a few initial alerts on connection, then periodic random ones
-function sendInitialAlerts(ws: WebSocket): void {
-	const initialAlerts = [
-		{
-			id: "alert_init_1",
-			sensorId: "sht4x_temp",
-			sensorType: "temperature",
-			value: 30.4,
-			target: { min: 24, max: 28 },
-			severity: "warning",
-			timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-		},
-		{
-			id: "alert_init_2",
-			sensorId: "sht4x_hum",
-			sensorType: "humidity",
-			value: 84,
-			target: { min: 55, max: 65 },
-			severity: "critical",
-			timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-		},
-		{
-			id: "alert_init_3",
-			sensorId: "vpd_calc",
-			sensorType: "vpd",
-			value: 1.75,
-			target: { min: 0.8, max: 1.2 },
-			severity: "warning",
-			timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
-		},
-	];
-
-	for (const alert of initialAlerts) {
-		sendTo(ws, { type: "alert", data: alert });
-	}
-}
-
+// Send periodic random alerts
 function scheduleRandomAlert(): void {
 	setTimeout(() => {
 		const alert = generateMockAlert();
@@ -427,16 +391,16 @@ function generateMockDeviceEvent(): Record<string, unknown> {
 	};
 }
 
-function sendInitialEvents(ws: WebSocket): void {
+function getInitialEvents(): Record<string, unknown>[] {
 	const now = Date.now();
-	const events = [
-		{ type: "automation_trigger", data: { id: "auto_init_1", title: "Exhaust Fan (auto)", description: "Turned on — Temperature at 29.3°C (threshold 28°C)", timestamp: Math.floor((now - 15 * 60 * 1000) / 1000) } },
-		{ type: "device_event", data: { id: "dev_init_1", title: "Grow Light", description: "Turned on manually", timestamp: Math.floor((now - 8 * 60 * 1000) / 1000) } },
-		{ type: "automation_trigger", data: { id: "auto_init_2", title: "Humidifier (auto)", description: "Turned on — Humidity at 47% (threshold 50%)", timestamp: Math.floor((now - 3 * 60 * 1000) / 1000) } },
+	return [
+		{ id: "auto_init_1", type: "automation", title: "Exhaust Fan (auto)", description: "Turned on — Temperature at 29.3°C (threshold 28°C)", severity: "info", timestamp: Math.floor((now - 15 * 60 * 1000) / 1000) },
+		{ id: "dev_init_1", type: "device", title: "Grow Light", description: "Turned on manually", severity: "info", timestamp: Math.floor((now - 8 * 60 * 1000) / 1000) },
+		{ id: "auto_init_2", type: "automation", title: "Humidifier (auto)", description: "Turned on — Humidity at 47% (threshold 50%)", severity: "info", timestamp: Math.floor((now - 3 * 60 * 1000) / 1000) },
+		{ id: "alert_init_1", type: "alert", title: "Temperature High", description: "30.4°C (target 26.0°C)", severity: "warning", timestamp: Math.floor((now - 10 * 60 * 1000) / 1000) },
+		{ id: "alert_init_2", type: "alert", title: "Humidity High", description: "84% (target 60%)", severity: "critical", timestamp: Math.floor((now - 5 * 60 * 1000) / 1000) },
+		{ id: "alert_init_3", type: "alert", title: "VPD High", description: "1.75 kPa (target 1.0 kPa)", severity: "warning", timestamp: Math.floor((now - 2 * 60 * 1000) / 1000) },
 	];
-	for (const event of events) {
-		sendTo(ws, event);
-	}
 }
 
 function scheduleRandomEvents(): void {
@@ -444,11 +408,11 @@ function scheduleRandomEvents(): void {
 		const roll = Math.random();
 		if (roll < 0.5) {
 			const event = generateMockAutomationEvent();
-			broadcast({ type: "automation_trigger", data: event });
+			broadcast({ type: "event", data: { ...event, eventType: "automation" } });
 			console.log(`[Mock] Automation event: ${event.title}`);
 		} else {
 			const event = generateMockDeviceEvent();
-			broadcast({ type: "device_event", data: event });
+			broadcast({ type: "event", data: { ...event, eventType: "device" } });
 			console.log(`[Mock] Device event: ${event.title}`);
 		}
 		scheduleRandomEvents();
@@ -490,6 +454,22 @@ function handleMessage(ws: WebSocket, raw: string): void {
 	switch (type) {
 		case "ping":
 			sendTo(ws, { type: "pong", data: { timestamp: Date.now() } });
+			break;
+
+		case "get_init":
+			sendTo(ws, { type: "sensor_config", data: SENSORS });
+			sendTo(ws, { type: "devices", data: DEVICES });
+			sendTo(ws, { type: "device_modes", data: DEVICE_MODES });
+			DAY_NIGHT_CONFIG.isDaytime = new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 20;
+			sendTo(ws, { type: "daynight_config", data: DAY_NIGHT_CONFIG });
+			sendTo(ws, { type: "climate_config", data: CLIMATE_CONFIG });
+			updateEnergyState();
+			sendTo(ws, { type: "energy", data: energyState });
+			sendTo(ws, { type: "ppfd_calibration", data: { factor: 1.0 } });
+			break;
+
+		case "get_events":
+			sendTo(ws, { type: "events", data: getInitialEvents() });
 			break;
 
 		case "get_sensors":
@@ -775,13 +755,6 @@ setInterval(() => {
 
 wss.on("connection", (ws) => {
 	console.log("[Mock] Client connected");
-
-	sendTo(ws, { type: "sensor_config", data: SENSORS });
-	sendTo(ws, { type: "devices", data: DEVICES });
-	sendTo(ws, { type: "device_modes", data: DEVICE_MODES });
-	sendTo(ws, { type: "daynight_config", data: { ...DAY_NIGHT_CONFIG, isDaytime: new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 20 } });
-	sendInitialAlerts(ws);
-	sendInitialEvents(ws);
 
 	ws.on("message", (raw) => handleMessage(ws, raw.toString()));
 	ws.on("close", () => console.log("[Mock] Client disconnected"));

@@ -98,6 +98,4 @@ export function initDeviceWebSocket(): void {
 			pendingDevices.delete(device.id);
 		}
 	});
-
-	websocket.send("get_devices");
 }

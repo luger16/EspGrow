@@ -24,6 +24,8 @@
 		initDeviceModesWebSocket();
 		initClimateWebSocket();
 		initEnergyWebSocket();
+		websocket.send("get_init");
+		websocket.send("get_events");
 		return () => websocket.disconnect();
 	});
 
@@ -32,14 +34,8 @@
 			for (const key of Object.keys(sensorHistory)) {
 				delete sensorHistory[key];
 			}
-			websocket.send("get_sensors");
-			websocket.send("get_devices");
-			websocket.send("get_device_modes");
-			websocket.send("get_daynight_config");
-			websocket.send("get_climate_config");
+			websocket.send("get_init");
 			websocket.send("get_events");
-			websocket.send("get_energy");
-			websocket.send("get_ppfd_calibration");
 		}
 	});
 </script>

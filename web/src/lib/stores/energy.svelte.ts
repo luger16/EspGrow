@@ -40,6 +40,4 @@ export function initEnergyWebSocket(): void {
 			});
 		}
 	});
-
-	websocket.send("get_energy");
 }

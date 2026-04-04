@@ -18,4 +18,6 @@ void sendTo(uint32_t clientId, const String& message);
 void onMessage(MessageCallback callback);
 bool hasClients();
 
+size_t getDeferredCount();
+
 }

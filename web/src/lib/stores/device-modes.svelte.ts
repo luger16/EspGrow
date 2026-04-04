@@ -67,7 +67,4 @@ export function initDeviceModesWebSocket(): void {
 		if (typeof cfg.useSchedule === "boolean") dayNightConfig.useSchedule = cfg.useSchedule;
 		if (typeof cfg.isDaytime === "boolean") dayNightConfig.isDaytime = cfg.isDaytime;
 	});
-
-	websocket.send("get_device_modes");
-	websocket.send("get_daynight_config");
 }

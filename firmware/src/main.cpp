@@ -234,6 +234,21 @@ namespace {
             serializeJson(response, out);
             sendMessage(out, clientId);
         }
+        else if (strcmp(type, "get_init") == 0) {
+            sendSensors(clientId);
+            sendDevices(clientId);
+            sendDeviceModes(clientId);
+            sendDayNightConfig(clientId);
+            sendClimateConfig(clientId);
+            sendEnergy(clientId);
+            
+            JsonDocument ppfdResp;
+            ppfdResp["type"] = "ppfd_calibration";
+            ppfdResp["data"]["factor"] = Sensors::getPpfdCalibrationFactor();
+            String ppfdOut;
+            serializeJson(ppfdResp, ppfdOut);
+            sendMessage(ppfdOut, clientId);
+        }
         else if (strcmp(type, "get_device_modes") == 0) {
             sendDeviceModes(clientId);
             sendDayNightConfig(clientId);

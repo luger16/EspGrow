@@ -26,6 +26,8 @@ namespace {
     static constexpr size_t MAX_WS_CLIENTS = 4;
     static constexpr unsigned long CLEANUP_INTERVAL_MS = 2000;
     static constexpr unsigned long PING_INTERVAL_MS = 30000;
+    static constexpr size_t MAX_INCOMING_PER_LOOP = 2;
+    static constexpr size_t DEFERRED_QUEUE_SIZE = 16;
     
     unsigned long lastCleanup = 0;
     unsigned long lastPing = 0;
@@ -40,6 +42,55 @@ namespace {
     volatile size_t queueTail = 0;
     MessageSlot messageQueue[MSG_QUEUE_SIZE];
     portMUX_TYPE queueMux = portMUX_INITIALIZER_UNLOCKED;
+
+    struct DeferredMessage {
+        String message;
+        uint32_t clientId;
+        bool isBroadcast;
+    };
+    
+    size_t deferredHead = 0;
+    size_t deferredTail = 0;
+    DeferredMessage deferredQueue[DEFERRED_QUEUE_SIZE];
+
+    bool enqueueDeferred(uint32_t clientId, const String& message, bool isBroadcast) {
+        size_t next = (deferredHead + 1) % DEFERRED_QUEUE_SIZE;
+        if (next == deferredTail) {
+            Serial.println("[WS] Deferred queue full, dropping");
+            return false;
+        }
+        deferredQueue[deferredHead].message = message;
+        deferredQueue[deferredHead].clientId = clientId;
+        deferredQueue[deferredHead].isBroadcast = isBroadcast;
+        deferredHead = next;
+        return true;
+    }
+
+    void flushDeferred() {
+        size_t attempts = 0;
+        while (deferredTail != deferredHead && attempts < 4) {
+            DeferredMessage& msg = deferredQueue[deferredTail];
+            
+            if (msg.isBroadcast) {
+                ws->textAll(msg.message);
+                msg.message = String();
+                deferredTail = (deferredTail + 1) % DEFERRED_QUEUE_SIZE;
+            } else {
+                AsyncWebSocketClient* client = ws->client(msg.clientId);
+                if (!client || client->status() != WS_CONNECTED) {
+                    msg.message = String();
+                    deferredTail = (deferredTail + 1) % DEFERRED_QUEUE_SIZE;
+                } else if (client->canSend()) {
+                    client->text(msg.message);
+                    msg.message = String();
+                    deferredTail = (deferredTail + 1) % DEFERRED_QUEUE_SIZE;
+                } else {
+                    break;
+                }
+            }
+            attempts++;
+        }
+    }
 
     bool isPrivateIP(AsyncWebSocketClient* client) {
         IPAddress ip = client->remoteIP();
@@ -383,7 +434,10 @@ void loop() {
         }
     }
     
-    while (queueTail != queueHead) {
+    flushDeferred();
+    
+    size_t processed = 0;
+    while (queueTail != queueHead && processed < MAX_INCOMING_PER_LOOP) {
         portENTER_CRITICAL(&queueMux);
         String message(messageQueue[queueTail].data);
         uint32_t clientId = messageQueue[queueTail].clientId;
@@ -393,20 +447,37 @@ void loop() {
         if (messageCallback) {
             messageCallback(clientId, message);
         }
+        processed++;
     }
 }
 
 void broadcast(const String& message) {
-    if (ws && ws->count() > 0) {
+    if (!ws || ws->count() == 0) return;
+    
+    bool allCanSend = true;
+    for (auto& client : ws->getClients()) {
+        if (client.status() == WS_CONNECTED && !client.canSend()) {
+            allCanSend = false;
+            break;
+        }
+    }
+    
+    if (allCanSend) {
         ws->textAll(message);
+    } else {
+        enqueueDeferred(0, message, true);
     }
 }
 
 void sendTo(uint32_t clientId, const String& message) {
     if (!ws) return;
     AsyncWebSocketClient* client = ws->client(clientId);
-    if (client && client->status() == WS_CONNECTED && client->canSend()) {
+    if (!client || client->status() != WS_CONNECTED) return;
+    
+    if (client->canSend()) {
         client->text(message);
+    } else {
+        enqueueDeferred(clientId, message, false);
     }
 }
 
@@ -416,6 +487,11 @@ void onMessage(MessageCallback callback) {
 
 bool hasClients() {
     return ws && ws->count() > 0;
+}
+
+size_t getDeferredCount() {
+    if (deferredHead >= deferredTail) return deferredHead - deferredTail;
+    return DEFERRED_QUEUE_SIZE - deferredTail + deferredHead;
 }
 
 }

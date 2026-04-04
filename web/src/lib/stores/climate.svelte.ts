@@ -449,9 +449,6 @@ export function initClimateWebSocket(): void {
 		}
 	});
 
-	websocket.send("get_climate_config");
-	websocket.send("get_events");
-
 	websocket.on("sensors", () => {
 		accumulateDli();
 	});
