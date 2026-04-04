@@ -44,8 +44,19 @@ namespace {
 
     void scheduleReboot(unsigned long delayMs = 1500) {
         emitStatus(Status::Rebooting);
-        delay(delayMs);
-        ESP.restart();
+        // Reboot in a separate task so the async web server can flush
+        // the HTTP response and WebSocket frames before we restart.
+        xTaskCreate(
+            [](void* p) {
+                vTaskDelay(pdMS_TO_TICKS((unsigned long)(uintptr_t)p));
+                ESP.restart();
+            },
+            "ota_reboot",
+            2048,
+            (void*)(uintptr_t)delayMs,
+            1,
+            NULL
+        );
     }
 
     bool isGitHubUrl(const String& url) {
