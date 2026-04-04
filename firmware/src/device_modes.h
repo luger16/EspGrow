@@ -3,7 +3,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <map>
-#include <functional>
 
 namespace DeviceModes {
 
@@ -53,11 +52,8 @@ struct DayNightConfig {
     bool useSchedule;
 };
 
-using DeviceStateCallback = std::function<void(const char* deviceId, bool on)>;
-
 void init();
 void loop(const std::map<String, float>& sensorReadings);
-void setDeviceStateCallback(DeviceStateCallback cb);
 
 bool setMode(JsonDocument& doc);
 bool removeMode(const char* deviceId);

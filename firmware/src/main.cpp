@@ -200,7 +200,6 @@ namespace {
         
         bool recheckOffline = (pollCycle % OFFLINE_RECHECK_INTERVAL == 0);
         pollCycle++;
-        bool changed = false;
         
         for (size_t i = 0; i < count; i++) {
             Devices::Device* device = Devices::getDeviceByIndex(i);
@@ -208,30 +207,7 @@ namespace {
             
             if (!device->isOnline && !recheckOffline) continue;
             
-            auto result = DeviceController::queryState(device->controlMethod, device->ipAddress);
-            
-            if (result.reachable) {
-                if (!device->isOnline) {
-                    Devices::setDeviceOnline(device->id, true);
-                    changed = true;
-                    Serial.printf("[Poll] %s came online\n", device->name);
-                }
-                if (device->isOn != result.isOn) {
-                    Devices::setDeviceState(device->id, result.isOn);
-                    changed = true;
-                    Serial.printf("[Poll] %s state: %s\n", device->name, result.isOn ? "ON" : "OFF");
-                }
-            } else {
-                if (device->isOnline) {
-                    Devices::setDeviceOnline(device->id, false);
-                    changed = true;
-                    Serial.printf("[Poll] %s went offline\n", device->name);
-                }
-            }
-        }
-        
-        if (changed) {
-            sendDevices();
+            DeviceController::queryAsync(device->controlMethod, device->ipAddress);
         }
     }
 
@@ -312,36 +288,11 @@ namespace {
             const char* target = payload["target"];
             bool on = payload["on"];
             
-            auto result = DeviceController::control(
+            DeviceController::controlAsync(
                 method ? method : "",
                 target ? target : "",
                 on
             );
-            
-            Devices::Device* device = Devices::findDeviceByTarget(
-                method ? method : "", target ? target : "");
-            
-            if (device) {
-                if (result.reachable) {
-                    Devices::setDeviceState(device->id, result.isOn);
-                    Devices::setDeviceOnline(device->id, true);
-                } else {
-                    Devices::setDeviceOnline(device->id, false);
-                }
-            }
-            
-            JsonDocument response;
-            response["type"] = "device_status";
-            JsonObject respData = response["data"].to<JsonObject>();
-            respData["target"] = target;
-            respData["on"] = result.reachable ? result.isOn : on;
-            respData["success"] = result.reachable;
-            if (device) {
-                respData["deviceId"] = device->id;
-            }
-            String out;
-            serializeJson(response, out);
-            WebSocketServer::broadcast(out);
         }
         else if (strcmp(type, "set_device_mode") == 0) {
             JsonDocument modeDoc;
@@ -628,6 +579,43 @@ void setup() {
     
     WiFiManager::init();
     DeviceController::init();
+    DeviceController::onResult([](const DeviceController::AsyncResult& ar) {
+        Devices::Device* device = Devices::findDeviceByTarget(ar.method, ar.target);
+        if (!device) return;
+
+        bool changed = false;
+
+        if (ar.result.reachable) {
+            if (!device->isOnline) {
+                Devices::setDeviceOnline(device->id, true);
+                changed = true;
+                Serial.printf("[DeviceCtrl] %s came online\n", device->name);
+            }
+            if (device->isOn != ar.result.isOn) {
+                Devices::setDeviceState(device->id, ar.result.isOn);
+                changed = true;
+            }
+        } else {
+            if (device->isOnline) {
+                Devices::setDeviceOnline(device->id, false);
+                changed = true;
+                Serial.printf("[DeviceCtrl] %s went offline\n", device->name);
+            }
+        }
+
+        if (ar.wasControl || changed) {
+            JsonDocument response;
+            response["type"] = "device_status";
+            JsonObject respData = response["data"].to<JsonObject>();
+            respData["deviceId"] = device->id;
+            respData["target"] = ar.target;
+            respData["on"] = ar.result.reachable ? ar.result.isOn : ar.requestedState;
+            respData["success"] = ar.result.reachable;
+            String out;
+            serializeJson(response, out);
+            WebSocketServer::broadcast(out);
+        }
+    });
     Sensors::init();
     Devices::init();
     SensorConfig::init();
@@ -636,17 +624,6 @@ void setup() {
     EnergyTracker::init();
     ClimateConfig::init();
     EventLog::init();
-    DeviceModes::setDeviceStateCallback([](const char* deviceId, bool on) {
-        JsonDocument response;
-        response["type"] = "device_status";
-        JsonObject respData = response["data"].to<JsonObject>();
-        respData["deviceId"] = deviceId;
-        respData["on"] = on;
-        respData["success"] = true;
-        String out;
-        serializeJson(response, out);
-        WebSocketServer::broadcast(out);
-    });
     
     WebSocketServer::onMessage(handleMessage);
     
@@ -658,6 +635,7 @@ void loop() {
     static bool wasConnected = false;
     
     WiFiManager::loop();
+    DeviceController::loop();
     
     bool connected = WiFiManager::isConnected();
     

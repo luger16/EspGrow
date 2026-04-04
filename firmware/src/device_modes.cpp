@@ -20,7 +20,6 @@ namespace {
     std::vector<DeviceModeConfig> configs;
     DayNightConfig dayNightConfig;
     bool currentDaytime = true;
-    DeviceStateCallback onDeviceStateChange = nullptr;
 
     unsigned long lastEvaluation = 0;
 
@@ -48,7 +47,7 @@ namespace {
 
         if (device->isOn == on && device->isOnline) return;
 
-        // Throttle control attempts for offline devices to avoid blocking the main loop
+        // Throttle control attempts for offline devices to avoid flooding the job queue
         if (!device->isOnline) {
             String key(cfg.deviceId);
             unsigned long now = millis();
@@ -57,17 +56,10 @@ namespace {
             last = now;
         }
 
-        auto result = DeviceController::control(
-            device->controlMethod, device->ipAddress, on);
-
-        Devices::setDeviceOnline(cfg.deviceId, result.reachable);
-
-        if (result.reachable) {
-            Devices::setDeviceState(cfg.deviceId, result.isOn);
-            lastControlAttempt.erase(String(cfg.deviceId));
-            if (onDeviceStateChange) {
-                onDeviceStateChange(cfg.deviceId, result.isOn);
-            }
+        if (DeviceController::controlAsync(device->controlMethod, device->ipAddress, on)) {
+            Serial.printf("[DeviceModes] Queued %s -> %s\n", cfg.deviceId, on ? "ON" : "OFF");
+        } else {
+            Serial.printf("[DeviceModes] Queue full, skipping %s\n", cfg.deviceId);
         }
     }
 
@@ -385,10 +377,6 @@ void loop(const std::map<String, float>& sensorReadings) {
                 break;
         }
     }
-}
-
-void setDeviceStateCallback(DeviceStateCallback cb) {
-    onDeviceStateChange = cb;
 }
 
 bool setMode(JsonDocument& doc) {
