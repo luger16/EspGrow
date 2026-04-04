@@ -24,14 +24,13 @@ namespace {
 
     unsigned long lastPersist = 0;
     unsigned long lastEval = 0;
-    unsigned long eventIdCounter = 0;
     bool dirty = false;
 
     struct AlertCooldown {
-        char sensorType[16];
+        char sensorId[24];
         unsigned long lastAlert;
     };
-    static constexpr size_t MAX_COOLDOWNS = 8;
+    static constexpr size_t MAX_COOLDOWNS = 16;
     AlertCooldown cooldowns[MAX_COOLDOWNS];
     size_t cooldownCount = 0;
 
@@ -63,25 +62,25 @@ namespace {
         return NAN;
     }
 
-    bool isOnCooldown(const char* sensorType) {
+    bool isOnCooldown(const char* sensorId) {
         unsigned long now = millis();
         for (size_t i = 0; i < cooldownCount; i++) {
-            if (strcmp(cooldowns[i].sensorType, sensorType) == 0) {
+            if (strcmp(cooldowns[i].sensorId, sensorId) == 0) {
                 return (now - cooldowns[i].lastAlert) < ALERT_COOLDOWN;
             }
         }
         return false;
     }
 
-    void setCooldown(const char* sensorType) {
+    void setCooldown(const char* sensorId) {
         for (size_t i = 0; i < cooldownCount; i++) {
-            if (strcmp(cooldowns[i].sensorType, sensorType) == 0) {
+            if (strcmp(cooldowns[i].sensorId, sensorId) == 0) {
                 cooldowns[i].lastAlert = millis();
                 return;
             }
         }
         if (cooldownCount < MAX_COOLDOWNS) {
-            strlcpy(cooldowns[cooldownCount].sensorType, sensorType, sizeof(cooldowns[0].sensorType));
+            strlcpy(cooldowns[cooldownCount].sensorId, sensorId, sizeof(cooldowns[0].sensorId));
             cooldowns[cooldownCount].lastAlert = millis();
             cooldownCount++;
         }
@@ -176,7 +175,7 @@ namespace {
             float max = target + margin * 2;
 
             if (value >= min && value <= max) continue;
-            if (isOnCooldown(cfg->type)) continue;
+            if (isOnCooldown(cfg->id)) continue;
 
             const char* severity = (value < target - margin * 3 || value > target + margin * 3)
                 ? "critical" : "warning";
@@ -201,7 +200,7 @@ namespace {
             }
 
             pushEvent("alert", title, desc, severity);
-            setCooldown(cfg->type);
+            setCooldown(cfg->id);
         }
     }
 }
@@ -250,7 +249,7 @@ void pushEvent(const char* type, const char* title, const char* description,
     uint32_t ts = (uint32_t)time(nullptr);
 
     Event e = {};
-    snprintf(e.id, sizeof(e.id), "ev_%lu_%lu", ts, ++eventIdCounter);
+    snprintf(e.id, sizeof(e.id), "ev_%lu_%lu", ts, millis());
     strlcpy(e.type, type, sizeof(e.type));
     strlcpy(e.title, title, sizeof(e.title));
     strlcpy(e.description, description, sizeof(e.description));
@@ -288,6 +287,15 @@ void getEventsJson(String& out) {
     }
 
     serializeJson(doc, out);
+}
+
+void clearEvents() {
+    eventHead = 0;
+    eventCount = 0;
+    dirty = true;
+    saveEvents();
+    dirty = false;
+    Serial.println("[EventLog] Events cleared");
 }
 
 }

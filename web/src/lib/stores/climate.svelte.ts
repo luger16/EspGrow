@@ -68,6 +68,12 @@ export function getUnseenAlertCount(): number {
 	return climateAlerts.filter((a) => a.timestamp.getTime() > lastSeenAlertTimestamp).length;
 }
 
+export function clearEvents(): void {
+	systemEvents.length = 0;
+	climateAlerts.length = 0;
+	websocket.send("clear_events");
+}
+
 const MAX_EVENTS = 100;
 
 function pushEvent(event: SystemEvent): void {
@@ -372,35 +378,23 @@ export function initClimateWebSocket(): void {
 			severity,
 			timestamp,
 		});
-
-		if (eventType === "alert") {
-			climateAlerts.unshift({
-				id: String(msg.id ?? crypto.randomUUID()),
-				sensorId: "",
-				sensorType: "temperature",
-				value: 0,
-				target: { min: 0, max: 0 },
-				severity: severity === "critical" ? "critical" : "warning",
-				timestamp,
-			});
-			if (climateAlerts.length > 100) {
-				climateAlerts.length = 100;
-			}
-		}
 	});
 
 	websocket.on("events", (data: unknown) => {
 		if (!Array.isArray(data)) return;
+		const existingIds = new Set(systemEvents.map((e) => e.id));
 		for (const item of data) {
 			if (!item || typeof item !== "object") continue;
 			const msg = item as Record<string, unknown>;
+			const id = String(msg.id ?? crypto.randomUUID());
+			if (existingIds.has(id)) continue;
 			const eventType = String(msg.type ?? "system") as SystemEventType;
 			const severity = String(msg.severity ?? "info") as "info" | "warning" | "critical";
 			const timestamp = typeof msg.timestamp === "number"
 				? new Date(msg.timestamp * 1000) : new Date();
 
 			systemEvents.push({
-				id: String(msg.id ?? crypto.randomUUID()),
+				id,
 				type: eventType,
 				title: String(msg.title ?? ""),
 				description: String(msg.description ?? ""),

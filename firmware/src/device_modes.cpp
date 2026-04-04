@@ -39,10 +39,6 @@ namespace {
     std::map<String, unsigned long> lastControlAttempt;
     const unsigned long OFFLINE_RETRY_INTERVAL = 30000;
 
-    void broadcastEvent(const char* type, const char* title, const char* description) {
-        EventLog::pushEvent(type, title, description);
-    }
-
     void applyDeviceState(const DeviceModeConfig& cfg, bool on) {
         Devices::Device* device = Devices::getDevice(cfg.deviceId);
         if (!device) return;
@@ -172,7 +168,7 @@ namespace {
             } else {
                 snprintf(desc, sizeof(desc), "Turned on by automation");
             }
-            broadcastEvent("automation", title, desc);
+            EventLog::pushEvent("automation", title, desc);
         } else if (!anyTriggerMet && wasTriggered) {
             Serial.printf("[DeviceModes] AUTO cleared for %s\n", cfg.deviceId);
             applyDeviceState(cfg, false);
@@ -189,7 +185,7 @@ namespace {
             } else {
                 snprintf(desc, sizeof(desc), "Turned off by automation");
             }
-            broadcastEvent("automation", title, desc);
+            EventLog::pushEvent("automation", title, desc);
         }
     }
 

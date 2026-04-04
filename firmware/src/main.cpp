@@ -304,6 +304,9 @@ namespace {
         else if (strcmp(type, "get_events") == 0) {
             sendEvents(clientId);
         }
+        else if (strcmp(type, "clear_events") == 0) {
+            EventLog::clearEvents();
+        }
         else if (strcmp(type, "get_system_info") == 0) {
             JsonDocument response;
             response["type"] = "system_info";

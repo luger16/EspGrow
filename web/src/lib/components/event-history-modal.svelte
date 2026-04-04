@@ -1,12 +1,13 @@
 <script lang="ts">
 	import * as Dialog from "$lib/components/ui/dialog/index.js";
-	import { systemEvents, markEventsSeen, markAlertsSeen } from "$lib/stores/climate.svelte";
-	import { formatTimeFromDate } from "$lib/stores/settings.svelte";
+	import { Button } from "$lib/components/ui/button/index.js";
+	import { systemEvents, markEventsSeen, markAlertsSeen, clearEvents } from "$lib/stores/climate.svelte";
 	import { cn } from "$lib/utils";
 	import TriangleAlert from "@lucide/svelte/icons/triangle-alert";
 	import Zap from "@lucide/svelte/icons/zap";
 	import Power from "@lucide/svelte/icons/power";
 	import Info from "@lucide/svelte/icons/info";
+	import Trash2 from "@lucide/svelte/icons/trash-2";
 	import type { SystemEventType } from "$lib/types";
 
 	let {
@@ -17,12 +18,39 @@
 		onOpenChange?: (open: boolean) => void;
 	} = $props();
 
+	let now = $state(Date.now());
+
 	$effect(() => {
 		if (open) {
 			markEventsSeen();
 			markAlertsSeen();
+			now = Date.now();
+			const interval = setInterval(() => { now = Date.now(); }, 30000);
+			return () => clearInterval(interval);
 		}
 	});
+
+	function formatRelativeTime(date: Date, currentTime: number): string {
+		const diffMs = currentTime - date.getTime();
+		const diffSec = Math.floor(diffMs / 1000);
+
+		if (diffSec < 60) return "just now";
+
+		const diffMin = Math.floor(diffSec / 60);
+		if (diffMin < 60) return `${diffMin}m ago`;
+
+		const diffHr = Math.floor(diffMin / 60);
+		if (diffHr < 24) return `${diffHr}h ago`;
+
+		const diffDays = Math.floor(diffHr / 24);
+		if (diffDays < 7) return `${diffDays}d ago`;
+
+		const h = date.getHours();
+		const m = String(date.getMinutes()).padStart(2, "0");
+		const day = date.getDate();
+		const month = date.toLocaleString("default", { month: "short" });
+		return `${day} ${month} ${String(h).padStart(2, "0")}:${m}`;
+	}
 
 	const recentEvents = $derived(systemEvents.slice(0, 50));
 
@@ -52,12 +80,20 @@
 	<Dialog.Content class="w-full max-w-[calc(100%-1rem)] gap-0 overflow-hidden p-0 sm:max-w-lg" showCloseButton={false}>
 		<div class="flex items-center justify-between gap-2 px-4 pt-4 pb-3 sm:px-6 sm:pt-6">
 			<Dialog.Title class="text-lg font-semibold leading-tight">Event History</Dialog.Title>
-			<Dialog.Close
-				class="ring-offset-background focus:ring-ring rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
-			>
-				<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-				<span class="sr-only">Close</span>
-			</Dialog.Close>
+			<div class="flex items-center gap-1">
+				{#if recentEvents.length > 0}
+					<Button variant="ghost" size="icon" class="size-7" onclick={clearEvents}>
+						<Trash2 class="size-3.5 text-muted-foreground" />
+						<span class="sr-only">Clear events</span>
+					</Button>
+				{/if}
+				<Dialog.Close
+					class="ring-offset-background focus:ring-ring rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none"
+				>
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+					<span class="sr-only">Close</span>
+				</Dialog.Close>
+			</div>
 		</div>
 
 		{#if recentEvents.length === 0}
@@ -84,8 +120,8 @@
 									)}>
 										{event.type === "alert" ? event.severity : EVENT_LABELS[event.type]}
 									</span>
-									<span class="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
-										{formatTimeFromDate(event.timestamp)}
+									<span class="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground" title={event.timestamp.toLocaleString()}>
+										{formatRelativeTime(event.timestamp, now)}
 									</span>
 								</div>
 								<p class="mt-0.5 text-xs text-muted-foreground">
