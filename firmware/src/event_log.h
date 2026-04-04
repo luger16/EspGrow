@@ -24,4 +24,7 @@ void pushEvent(const char* type, const char* title, const char* description,
 
 void getEventsJson(String& out);
 
+// Persist events to LittleFS immediately (e.g. before reboot).
+void flush();
+
 }

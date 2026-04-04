@@ -263,6 +263,13 @@ void pushEvent(const char* type, const char* title, const char* description,
     Serial.printf("[EventLog] %s: %s — %s\n", type, title, description);
 }
 
+void flush() {
+    if (dirty) {
+        saveEvents();
+        dirty = false;
+    }
+}
+
 void getEventsJson(String& out) {
     JsonDocument doc;
     JsonArray arr = doc.to<JsonArray>();

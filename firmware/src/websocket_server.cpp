@@ -343,6 +343,7 @@ void init() {
     OtaManager::begin(server, [](const OtaManager::StatusEvent& event) {
         if (event.status == OtaManager::Status::Success) {
             EventLog::pushEvent("system", "OTA update completed", "Firmware updated successfully");
+            EventLog::flush();
         } else if (event.status == OtaManager::Status::Error) {
             char desc[128];
             snprintf(desc, sizeof(desc), "%s", event.error.length() > 0 ? event.error.c_str() : "Unknown error");
