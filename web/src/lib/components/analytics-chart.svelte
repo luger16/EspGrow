@@ -106,19 +106,20 @@
 		const sIds = sensorIds.split(",").filter(Boolean);
 		const dIds = onlineDeviceIds.split(",").filter(Boolean);
 		const allIds = [...sIds, ...dIds];
+		const range = timeRange;
 		if (allIds.length === 0) return;
 
 		const STAGGER_MS = 200;
 		const timeouts: ReturnType<typeof setTimeout>[] = [];
 		for (let i = 0; i < allIds.length; i++) {
 			const id = allIds[i];
-			timeouts.push(setTimeout(() => requestHistory(id, timeRange), i * STAGGER_MS));
+			timeouts.push(setTimeout(() => requestHistory(id, range), i * STAGGER_MS));
 		}
 
 		const interval = setInterval(() => {
 			for (let i = 0; i < allIds.length; i++) {
 				const id = allIds[i];
-				timeouts.push(setTimeout(() => requestHistory(id, timeRange, true), i * STAGGER_MS));
+				timeouts.push(setTimeout(() => requestHistory(id, range, true), i * STAGGER_MS));
 			}
 		}, 2 * 60 * 1000);
 
