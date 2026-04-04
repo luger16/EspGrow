@@ -394,7 +394,7 @@
 			No sensors or devices configured
 		</div>
 	{:else}
-		<div class="flex gap-4">
+		<div class="flex flex-col gap-4 sm:flex-row">
 			<div class="min-w-0 flex-1">
 				{#if !hasData}
 					<div class="text-muted-foreground flex h-64 w-full items-center justify-center rounded-lg border border-dashed text-sm sm:h-80">
@@ -421,6 +421,7 @@
 									xScale={scaleUtc()}
 									{series}
 									yDomain={yDomain}
+									padding={{ top: 8, right: 12, bottom: 28, left: 40 }}
 									props={{
 										spline: { curve: curveMonotoneX, class: "stroke-2" },
 										xAxis: {
@@ -515,9 +516,9 @@
 					{/if}
 				</div>
 
-				<div class="flex w-40 shrink-0 flex-col gap-1.5">
+				<div class="flex max-h-40 shrink-0 flex-col gap-1.5 overflow-y-auto sm:max-h-80 sm:w-40">
 					{#if sensors.length > 0}
-						<span class="text-muted-foreground px-1 text-xs">Sensors</span>
+						<span class="text-muted-foreground w-full px-1 text-xs">Sensors</span>
 					{/if}
 					{#each sensors as sensor, i (sensor.id)}
 						<button
@@ -541,7 +542,7 @@
 						</button>
 					{/each}
 					{#if devices.filter(d => d.isOnline !== false).length > 0}
-						<span class="text-muted-foreground mt-2 px-1 text-xs">Devices</span>
+						<span class="text-muted-foreground mt-2 w-full px-1 text-xs">Devices</span>
 						{#each devices.filter(d => d.isOnline !== false) as device (device.id)}
 							<button
 								onclick={() => toggleDeviceVisibility(device.id)}
