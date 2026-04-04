@@ -26,6 +26,7 @@ namespace {
     std::vector<DeviceEnergy> energies;
     unsigned long lastPollTime = 0;
     unsigned long lastPersistTime = 0;
+    String lastBroadcastJson;
 
     DeviceEnergy* findEnergy(const char* deviceId) {
         for (auto& e : energies) {
@@ -242,6 +243,14 @@ void resetAllEnergy() {
     }
     Serial.println("[Energy] Reset all energy counters");
     saveEnergies();
+}
+
+bool hasChanged() {
+    String current;
+    getEnergiesJson(current);
+    if (current == lastBroadcastJson) return false;
+    lastBroadcastJson = current;
+    return true;
 }
 
 }

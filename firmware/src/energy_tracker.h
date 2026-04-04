@@ -10,5 +10,6 @@ void loop();
 void getEnergiesJson(String& out);
 void resetEnergy(const char* deviceId);
 void resetAllEnergy();
+bool hasChanged();
 
 }

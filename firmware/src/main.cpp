@@ -726,8 +726,8 @@ void loop() {
         readAndRecordSensors();
         if (connected) {
             broadcastSensorData();
-            sendEnergy();
-            sendDli();
+            if (EnergyTracker::hasChanged()) sendEnergy();
+            if (DliTracker::hasChanged()) sendDli();
         }
     }
     

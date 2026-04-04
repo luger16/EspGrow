@@ -9,5 +9,6 @@ void loop();
 
 void getDliJson(String& out);
 void resetDli();
+bool hasChanged();
 
 }

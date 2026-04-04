@@ -19,6 +19,7 @@ namespace {
     bool wasDaytime = false;
     bool dirty = false;
     uint8_t lastDay = 0;
+    String lastBroadcastJson;
 
     uint8_t getCurrentDay() {
         time_t now = time(nullptr);
@@ -125,6 +126,14 @@ void resetDli() {
     saveDli();
     dirty = false;
     Serial.println("[DLI] Reset");
+}
+
+bool hasChanged() {
+    String current;
+    getDliJson(current);
+    if (current == lastBroadcastJson) return false;
+    lastBroadcastJson = current;
+    return true;
 }
 
 }
