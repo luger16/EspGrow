@@ -8,6 +8,7 @@ namespace DeviceController {
     struct QueryResult {
         bool reachable = false;
         bool isOn = false;
+        float watts = NAN;
     };
 
     struct AsyncResult {

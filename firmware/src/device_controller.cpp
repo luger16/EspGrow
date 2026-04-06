@@ -125,14 +125,16 @@ namespace {
 
     QueryResult queryTasmota(const String& ip) {
         QueryResult result;
-        auto resp = httpGet("http://" + ip + "/cm?cmnd=Power", QUERY_TIMEOUT_MS);
+        auto resp = httpGet("http://" + ip + "/cm?cmnd=Status%200", QUERY_TIMEOUT_MS);
         
         if (resp.ok) {
             result.reachable = true;
-            const char* power = resp.doc["POWER"];
+            const char* power = resp.doc["StatusSTS"]["POWER"];
             if (power) {
                 result.isOn = (strcmp(power, "ON") == 0);
             }
+            float watts = resp.doc["StatusSNS"]["ENERGY"]["Power"] | NAN;
+            if (!isnan(watts)) result.watts = watts;
         } else {
             Serial.printf("[DeviceCtrl] Tasmota query %s failed\n", ip.c_str());
         }
@@ -147,6 +149,8 @@ namespace {
         if (resp.ok) {
             result.reachable = true;
             result.isOn = resp.doc["ison"] | false;
+            float watts = resp.doc["power"] | NAN;
+            if (!isnan(watts)) result.watts = watts;
         } else {
             Serial.printf("[DeviceCtrl] Shelly Gen1 query %s failed\n", ip.c_str());
         }
@@ -161,6 +165,8 @@ namespace {
         if (resp.ok) {
             result.reachable = true;
             result.isOn = resp.doc["output"] | false;
+            float watts = resp.doc["apower"] | NAN;
+            if (!isnan(watts)) result.watts = watts;
         } else {
             Serial.printf("[DeviceCtrl] Shelly Gen2 query %s failed\n", ip.c_str());
         }

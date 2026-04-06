@@ -25,6 +25,8 @@ namespace {
     const unsigned long DEVICE_POLL_INTERVAL = 30000;
     unsigned int pollCycle = 0;
     const unsigned int OFFLINE_RECHECK_INTERVAL = 3;
+    const int OFFLINE_THRESHOLD = 3;
+    std::map<String, int> deviceFailCount;
     std::map<String, float> cachedSensorReadings;
     bool sensorReadingsDirty = false;
 
@@ -627,8 +629,10 @@ void setup() {
         if (!device) return;
 
         bool changed = false;
+        String devId(device->id);
 
         if (ar.result.reachable) {
+            deviceFailCount[devId] = 0;
             if (!device->isOnline) {
                 Devices::setDeviceOnline(device->id, true);
                 changed = true;
@@ -643,15 +647,21 @@ void setup() {
                 changed = true;
             }
         } else {
-            if (device->isOnline) {
+            int& fails = deviceFailCount[devId];
+            fails++;
+            if (device->isOnline && fails >= OFFLINE_THRESHOLD) {
                 Devices::setDeviceOnline(device->id, false);
                 changed = true;
-                Serial.printf("[DeviceCtrl] %s went offline\n", device->name);
+                Serial.printf("[DeviceCtrl] %s went offline after %d failures\n", device->name, fails);
 
                 char desc[128];
                 snprintf(desc, sizeof(desc), "%s is unreachable", device->name);
                 EventLog::pushEvent("system", "Device offline", desc, "warning");
             }
+        }
+
+        if (ar.result.reachable && !isnan(ar.result.watts) && device->hasEnergyMonitoring) {
+            EnergyTracker::updateWatts(device->id, ar.result.watts);
         }
 
         if (ar.wasControl || changed) {

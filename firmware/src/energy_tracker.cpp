@@ -1,8 +1,6 @@
 #include "energy_tracker.h"
 #include "devices.h"
-#include "wifi_manager.h"
 #include "storage.h"
-#include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <vector>
 #include <time.h>
@@ -11,20 +9,17 @@ namespace EnergyTracker {
 
 namespace {
     const char* ENERGY_PATH = "/energy.json";
-    const unsigned long POLL_INTERVAL = 10000;       // 10 seconds
     const unsigned long PERSIST_INTERVAL = 300000;   // 5 minutes
-    static constexpr int ENERGY_TIMEOUT_MS = 500;
 
     struct DeviceEnergy {
         char deviceId[24];
         float watts = 0.0f;
         double kWh = 0.0;
         uint32_t resetTimestamp = 0;      // Unix timestamp at last reset
-        unsigned long lastPollTime = 0;   // millis() at last successful poll
+        unsigned long lastUpdateTime = 0; // millis() at last watts update
     };
 
     std::vector<DeviceEnergy> energies;
-    unsigned long lastPollTime = 0;
     unsigned long lastPersistTime = 0;
     String lastBroadcastJson;
 
@@ -44,84 +39,6 @@ namespace {
         entry.resetTimestamp = (uint32_t)time(nullptr);
         energies.push_back(entry);
         return energies.back();
-    }
-
-    float pollWattsTasmota(const String& ip) {
-        HTTPClient http;
-        String url = "http://" + ip + "/cm?cmnd=Status%2010";
-
-        http.begin(url);
-        http.setTimeout(ENERGY_TIMEOUT_MS);
-
-        int code = http.GET();
-        if (code != 200) {
-            http.end();
-            return NAN;
-        }
-
-        String body = http.getString();
-        http.end();
-
-        JsonDocument doc;
-        if (deserializeJson(doc, body)) return NAN;
-
-        return doc["StatusSNS"]["ENERGY"]["Power"] | NAN;
-    }
-
-    float pollWattsShellyGen1(const String& ip) {
-        HTTPClient http;
-        String url = "http://" + ip + "/meter/0";
-
-        http.begin(url);
-        http.setTimeout(ENERGY_TIMEOUT_MS);
-
-        int code = http.GET();
-        if (code != 200) {
-            http.end();
-            return NAN;
-        }
-
-        String body = http.getString();
-        http.end();
-
-        JsonDocument doc;
-        if (deserializeJson(doc, body)) return NAN;
-
-        return doc["power"] | NAN;
-    }
-
-    float pollWattsShellyGen2(const String& ip) {
-        HTTPClient http;
-        String url = "http://" + ip + "/rpc/Switch.GetStatus?id=0";
-
-        http.begin(url);
-        http.setTimeout(ENERGY_TIMEOUT_MS);
-
-        int code = http.GET();
-        if (code != 200) {
-            http.end();
-            return NAN;
-        }
-
-        String body = http.getString();
-        http.end();
-
-        JsonDocument doc;
-        if (deserializeJson(doc, body)) return NAN;
-
-        return doc["apower"] | NAN;
-    }
-
-    float pollWatts(const Devices::Device& device) {
-        String ip(device.ipAddress);
-        if (strcmp(device.controlMethod, "tasmota") == 0) {
-            return pollWattsTasmota(ip);
-        } else if (strcmp(device.controlMethod, "shelly_gen1") == 0) {
-            return pollWattsShellyGen1(ip);
-        } else if (strcmp(device.controlMethod, "shelly_gen2") == 0) {
-            return pollWattsShellyGen2(ip);
-        }
-        return NAN;
     }
 
     void saveEnergies() {
@@ -168,40 +85,25 @@ void init() {
 void loop() {
     unsigned long now = millis();
 
-    if (now - lastPollTime >= POLL_INTERVAL) {
-        lastPollTime = now;
-
-        size_t count = Devices::getDeviceCount();
-        for (size_t i = 0; i < count; i++) {
-            Devices::Device* device = Devices::getDeviceByIndex(i);
-            if (!device || !device->hasEnergyMonitoring) continue;
-
-            float watts = pollWatts(*device);
-            if (isnan(watts)) {
-                DeviceEnergy& entry = getOrCreateEnergy(device->id);
-                entry.watts = 0.0f;
-                continue;
-            }
-
-            DeviceEnergy& entry = getOrCreateEnergy(device->id);
-            
-            if (entry.lastPollTime > 0) {
-                unsigned long elapsed = now - entry.lastPollTime;
-                // kWh = watts / 1000 * (ms / 3600000) = watts * ms / 3600000000
-                entry.kWh += (double)entry.watts * (double)elapsed / 3600000000.0;
-            }
-
-            entry.watts = watts;
-            entry.lastPollTime = now;
-        }
-    }
-
     if (now - lastPersistTime >= PERSIST_INTERVAL) {
         lastPersistTime = now;
         if (!energies.empty()) {
             saveEnergies();
         }
     }
+}
+
+void updateWatts(const char* deviceId, float watts) {
+    DeviceEnergy& entry = getOrCreateEnergy(deviceId);
+    unsigned long now = millis();
+
+    if (entry.lastUpdateTime > 0 && !isnan(entry.watts) && entry.watts > 0) {
+        unsigned long elapsed = now - entry.lastUpdateTime;
+        entry.kWh += (double)entry.watts * (double)elapsed / 3600000000.0;
+    }
+
+    entry.watts = isnan(watts) ? 0.0f : watts;
+    entry.lastUpdateTime = now;
 }
 
 void getEnergiesJson(String& out) {
