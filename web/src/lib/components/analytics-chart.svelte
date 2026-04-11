@@ -9,8 +9,9 @@
 	import { curveMonotoneX, curveStepAfter } from "d3-shape";
 	import DownloadIcon from "@lucide/svelte/icons/download";
 	import type { Sensor, DeviceType } from "$lib/types";
-	import { sensors, sensorReadings, requestHistory, getSensorHistory } from "$lib/stores/sensors.svelte";
+	import { sensors, sensorReadings, requestHistory, getSensorHistory, historyVersion } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
+	import { websocket } from "$lib/stores/websocket.svelte";
 	import { settings, convertTemperature, formatTimeFromDate } from "$lib/stores/settings.svelte";
 	import { formatUnit, cn } from "$lib/utils";
 
@@ -97,28 +98,42 @@
 		hiddenDevices = newSet;
 	}
 
-	const sensorIds = $derived(sensors.map((s) => s.id).join(","));
-	const onlineDeviceIds = $derived(
-		devices.filter((d) => d.isOnline !== false).map((d) => d.id).join(",")
-	);
+	const allRequestIds = $derived(() => {
+		const sIds = sensors.map((s) => s.id);
+		const dIds = devices.filter((d) => d.isOnline !== false).map((d) => d.id);
+		return [...sIds, ...dIds];
+	});
 
 	$effect(() => {
-		const sIds = sensorIds.split(",").filter(Boolean);
-		const dIds = onlineDeviceIds.split(",").filter(Boolean);
-		const allIds = [...sIds, ...dIds];
+		const ids = allRequestIds();
 		const range = timeRange;
-		if (allIds.length === 0) return;
+		const version = historyVersion.value;
+		const connCount = websocket.connectCount;
+		if (ids.length === 0) return;
+
+		const force = version > 0 || connCount > 1;
 
 		const STAGGER_MS = 200;
 		const timeouts: ReturnType<typeof setTimeout>[] = [];
-		for (let i = 0; i < allIds.length; i++) {
-			const id = allIds[i];
-			timeouts.push(setTimeout(() => requestHistory(id, range), i * STAGGER_MS));
+		for (let i = 0; i < ids.length; i++) {
+			const id = ids[i];
+			timeouts.push(setTimeout(() => requestHistory(id, range, force), i * STAGGER_MS));
 		}
 
+		return () => {
+			for (const t of timeouts) clearTimeout(t);
+		};
+	});
+
+	$effect(() => {
+		const range = timeRange;
+		const STAGGER_MS = 200;
+		const timeouts: ReturnType<typeof setTimeout>[] = [];
+
 		const interval = setInterval(() => {
-			for (let i = 0; i < allIds.length; i++) {
-				const id = allIds[i];
+			const currentIds = allRequestIds();
+			for (let i = 0; i < currentIds.length; i++) {
+				const id = currentIds[i];
 				timeouts.push(setTimeout(() => requestHistory(id, range, true), i * STAGGER_MS));
 			}
 		}, 2 * 60 * 1000);
@@ -141,37 +156,23 @@
 		if (visibleSensors.length === 0 && visibleDevices.length === 0) return [];
 
 		const threshold = gapThresholds[timeRange];
-		const gapTimestamps = new Set<number>();
-
-		for (const sensor of visibleSensors) {
-			const history = getSensorHistory(sensor.id, timeRange);
-			if (history.length < 2) continue;
-			for (let i = 1; i < history.length; i++) {
-				const timeDiff = history[i].date.getTime() - history[i - 1].date.getTime();
-				if (timeDiff > threshold) {
-					const gapMid = Math.floor((history[i - 1].date.getTime() + history[i].date.getTime()) / 2);
-					gapTimestamps.add(gapMid);
-				}
-			}
-		}
-
-		for (const device of visibleDevices) {
-			const history = getSensorHistory(device.id, timeRange);
-			if (history.length < 2) continue;
-			for (let i = 1; i < history.length; i++) {
-				const timeDiff = history[i].date.getTime() - history[i - 1].date.getTime();
-				if (timeDiff > threshold) {
-					const gapMid = Math.floor((history[i - 1].date.getTime() + history[i].date.getTime()) / 2);
-					gapTimestamps.add(gapMid);
-				}
-			}
-		}
-
 		const timestampMap = new Map<number, Record<string, { normalized: number; raw: number } | null>>();
 
 		for (const sensor of visibleSensors) {
 			const history = getSensorHistory(sensor.id, timeRange);
 			const [normMin, normMax] = normalizationRanges[sensor.type] ?? [0, 100];
+			if (history.length < 2) continue;
+			for (let i = 1; i < history.length; i++) {
+				const timeDiff = history[i].date.getTime() - history[i - 1].date.getTime();
+				if (timeDiff > threshold) {
+					const gapMid = Math.floor((history[i - 1].date.getTime() + history[i].date.getTime()) / 2);
+					if (!timestampMap.has(gapMid)) {
+						timestampMap.set(gapMid, {});
+					}
+					timestampMap.get(gapMid)![sensor.id] = null;
+				}
+			}
+
 			for (const point of history) {
 				const ts = point.date.getTime();
 				if (!timestampMap.has(ts)) {
@@ -192,6 +193,19 @@
 		for (const device of visibleDevices) {
 			const history = getSensorHistory(device.id, timeRange);
 			const [normMin, normMax] = normalizationRanges["device"];
+			if (history.length >= 2) {
+				for (let i = 1; i < history.length; i++) {
+					const timeDiff = history[i].date.getTime() - history[i - 1].date.getTime();
+					if (timeDiff > threshold) {
+						const gapMid = Math.floor((history[i - 1].date.getTime() + history[i].date.getTime()) / 2);
+						if (!timestampMap.has(gapMid)) {
+							timestampMap.set(gapMid, {});
+						}
+						timestampMap.get(gapMid)![device.id] = null;
+					}
+				}
+			}
+
 			for (const point of history) {
 				const ts = point.date.getTime();
 				if (!timestampMap.has(ts)) {
@@ -205,15 +219,56 @@
 			}
 		}
 
-		for (const gapTs of gapTimestamps) {
-			const gapEntry: Record<string, null> = {};
-			for (const sensor of visibleSensors) {
-				gapEntry[sensor.id] = null;
+		const latestHistoricalTs = timestampMap.size > 0 ? Math.max(...timestampMap.keys()) : null;
+		const nowTs = Date.now();
+		const liveEntry: Record<string, { normalized: number; raw: number } | null> = {};
+		let hasLive = false;
+
+		for (const sensor of visibleSensors) {
+			const reading = sensorReadings[sensor.id];
+			if (!reading) continue;
+			const [normMin, normMax] = normalizationRanges[sensor.type] ?? [0, 100];
+			const rawValue =
+				sensor.type === "temperature" || sensor.type === "dewpoint"
+					? convertTemperature(reading.value, settings.temperatureUnit)
+					: reading.value;
+			const normalized = ((rawValue - normMin) / (normMax - normMin)) * 100;
+			liveEntry[sensor.id] = {
+				normalized: Math.max(0, Math.min(100, normalized)),
+				raw: rawValue,
+			};
+			hasLive = true;
+		}
+
+		for (const device of visibleDevices) {
+			const [normMin, normMax] = normalizationRanges["device"];
+			const value = device.isOn ? 1.0 : 0.0;
+			const normalized = ((value - normMin) / (normMax - normMin)) * 100;
+			liveEntry[device.id] = {
+				normalized: Math.max(0, Math.min(100, normalized)),
+				raw: value,
+			};
+			hasLive = true;
+		}
+
+		if (hasLive) {
+			if (latestHistoricalTs !== null && nowTs - latestHistoricalTs > threshold) {
+				const liveGapTs = Math.floor((latestHistoricalTs + nowTs) / 2);
+				if (!timestampMap.has(liveGapTs)) {
+					timestampMap.set(liveGapTs, {});
+				}
+				const liveGapEntry = timestampMap.get(liveGapTs)!;
+				for (const sensor of visibleSensors) {
+					if (sensorReadings[sensor.id]) {
+						liveGapEntry[sensor.id] = null;
+					}
+				}
+				for (const device of visibleDevices) {
+					liveGapEntry[device.id] = null;
+				}
 			}
-			for (const device of visibleDevices) {
-				gapEntry[device.id] = null;
-			}
-			timestampMap.set(gapTs, gapEntry);
+
+			timestampMap.set(nowTs, liveEntry);
 		}
 
 		return Array.from(timestampMap.entries()).sort((a, b) => a[0] - b[0]);
@@ -299,13 +354,13 @@
 	});
 
 	function downloadCsv(): void {
-		const allSensors = sensors;
-		const allDevices = devices.filter(d => d.isOnline !== false);
-		if (allSensors.length === 0 && allDevices.length === 0) return;
+		const exportSensors = visibleSensors;
+		const exportDevices = visibleDevices;
+		if (exportSensors.length === 0 && exportDevices.length === 0) return;
 
 		const timestampMap = new Map<number, Record<string, number | string | null>>();
 
-		for (const sensor of allSensors) {
+		for (const sensor of exportSensors) {
 			const history = getSensorHistory(sensor.id, timeRange);
 			for (const point of history) {
 				const ts = point.date.getTime();
@@ -320,7 +375,7 @@
 			}
 		}
 
-		for (const device of allDevices) {
+		for (const device of exportDevices) {
 			const history = getSensorHistory(device.id, timeRange);
 			for (const point of history) {
 				const ts = point.date.getTime();
@@ -336,23 +391,23 @@
 		const sorted = Array.from(timestampMap.entries()).sort((a, b) => a[0] - b[0]);
 
 		const tempUnit = settings.temperatureUnit === "fahrenheit" ? "°F" : "°C";
-		const sensorHeaders = allSensors.map((sensor) => {
+		const sensorHeaders = exportSensors.map((sensor) => {
 			if (sensor.type === "temperature" || sensor.type === "dewpoint") {
 				return `${sensor.name} (${tempUnit})`;
 			}
 			return `${sensor.name} (${sensor.unit})`;
 		});
-		const deviceHeaders = allDevices.map((device) => `${device.name} (ON/OFF)`);
+		const deviceHeaders = exportDevices.map((device) => `${device.name} (ON/OFF)`);
 
 		const header = ["Timestamp", ...sensorHeaders, ...deviceHeaders].join(",");
 
 		const rows = sorted.map(([ts, values]) => {
 			const date = new Date(ts).toISOString();
-			const sensorValues = allSensors.map((sensor) => {
+			const sensorValues = exportSensors.map((sensor) => {
 				const val = values[sensor.id];
 				return val !== null && val !== undefined ? String(val) : "";
 			});
-			const deviceValues = allDevices.map((device) => {
+			const deviceValues = exportDevices.map((device) => {
 				const val = values[device.id];
 				return val !== null && val !== undefined ? String(val) : "";
 			});
