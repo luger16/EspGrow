@@ -4,6 +4,7 @@ import { websocket } from "./websocket.svelte";
 export const sensors = $state<Sensor[]>([]);
 export const sensorReadings = $state<Record<string, SensorReading>>({});
 export const sensorHistory = $state<Record<string, Record<string, HistoricalReading[]>>>({});
+export let historyVersion = $state(0);
 export const spectralData = $state<{ current: SpectralData | null }>({ current: null });
 
 interface PpfdCalibration {
@@ -129,6 +130,13 @@ export function initSensorWebSocket(): void {
 export function requestHistory(sensorId: string, range: HistoryRange, force = false): void {
 	if (!force && sensorHistory[sensorId]?.[range]?.length) return;
 	websocket.send("get_history", { sensorId, range });
+}
+
+export function clearSensorHistory(): void {
+	for (const key of Object.keys(sensorHistory)) {
+		delete sensorHistory[key];
+	}
+	historyVersion++;
 }
 
 export function getSensorHistory(sensorId: string, range: HistoryRange = "7d"): HistoricalReading[] {

@@ -9,7 +9,7 @@
 	import { Label } from "$lib/components/ui/label/index.js";
 	import { Progress } from "$lib/components/ui/progress/index.js";
 
-	import { sensors, ppfdCalibration, sensorHistory } from "$lib/stores/sensors.svelte";
+	import { sensors, ppfdCalibration, clearSensorHistory } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
 	import { settings, updateSettings, resetSettings, applyTheme, type Theme, type TemperatureUnit, type TimeFormat } from "$lib/stores/settings.svelte";
 	import { systemInfo, initSystemInfoWebSocket } from "$lib/stores/system.svelte";
@@ -295,9 +295,7 @@
 		const unsub = websocket.on("clear_history", () => {
 			unsub();
 			clearingHistory = false;
-			for (const key of Object.keys(sensorHistory)) {
-				delete sensorHistory[key];
-			}
+			clearSensorHistory();
 			toast.success("History cleared");
 		});
 
