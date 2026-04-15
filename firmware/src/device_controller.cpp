@@ -12,7 +12,8 @@ static constexpr int CONTROL_TIMEOUT_MS = 2000;
 static constexpr int QUERY_TIMEOUT_MS = 1000;
 static constexpr int CONNECT_TIMEOUT_MS = 1000;
 
-static constexpr size_t JOB_QUEUE_SIZE = 8;
+static constexpr size_t CONTROL_QUEUE_SIZE = 8;
+static constexpr size_t QUERY_QUEUE_SIZE = 8;
 static constexpr size_t RESULT_QUEUE_SIZE = 8;
 static constexpr size_t WORKER_STACK_SIZE = 4096;
 static constexpr UBaseType_t WORKER_PRIORITY = 1;
@@ -27,7 +28,8 @@ namespace {
         bool on;
     };
 
-    QueueHandle_t jobQueue = nullptr;
+    QueueHandle_t controlQueue = nullptr;
+    QueueHandle_t queryQueue = nullptr;
     QueueHandle_t resultQueue = nullptr;
     TaskHandle_t workerTask = nullptr;
     ResultCallback resultCallback = nullptr;
@@ -190,7 +192,12 @@ namespace {
     void workerTaskFn(void* param) {
         Job job;
         for (;;) {
-            if (xQueueReceive(jobQueue, &job, portMAX_DELAY) == pdTRUE) {
+            if (xQueueReceive(controlQueue, &job, 0) != pdTRUE) {
+                if (xQueueReceive(queryQueue, &job, pdMS_TO_TICKS(100)) != pdTRUE) {
+                    continue;
+                }
+            }
+
                 QueryResult qr;
                 if (job.isControl) {
                     qr = doControl(String(job.method), String(job.target), job.on);
@@ -206,14 +213,16 @@ namespace {
                 ar.requestedState = job.on;
 
                 xQueueSend(resultQueue, &ar, pdMS_TO_TICKS(100));
-            }
         }
     }
 }
 
 void init() {
-    if (!jobQueue) {
-        jobQueue = xQueueCreate(JOB_QUEUE_SIZE, sizeof(Job));
+    if (!controlQueue) {
+        controlQueue = xQueueCreate(CONTROL_QUEUE_SIZE, sizeof(Job));
+    }
+    if (!queryQueue) {
+        queryQueue = xQueueCreate(QUERY_QUEUE_SIZE, sizeof(Job));
     }
     if (!resultQueue) {
         resultQueue = xQueueCreate(RESULT_QUEUE_SIZE, sizeof(AsyncResult));
@@ -240,28 +249,28 @@ void onResult(ResultCallback cb) {
 }
 
 bool controlAsync(const String& method, const String& target, bool on) {
-    if (!jobQueue) return false;
+    if (!controlQueue) return false;
     Job job = {};
     strlcpy(job.method, method.c_str(), sizeof(job.method));
     strlcpy(job.target, target.c_str(), sizeof(job.target));
     job.isControl = true;
     job.on = on;
-    return xQueueSend(jobQueue, &job, 0) == pdTRUE;
+    return xQueueSend(controlQueue, &job, 0) == pdTRUE;
 }
 
 bool queryAsync(const String& method, const String& target) {
-    if (!jobQueue) return false;
+    if (!queryQueue) return false;
     Job job = {};
     strlcpy(job.method, method.c_str(), sizeof(job.method));
     strlcpy(job.target, target.c_str(), sizeof(job.target));
     job.isControl = false;
     job.on = false;
-    return xQueueSend(jobQueue, &job, 0) == pdTRUE;
+    return xQueueSend(queryQueue, &job, 0) == pdTRUE;
 }
 
 bool busy() {
-    if (!jobQueue) return false;
-    return uxQueueMessagesWaiting(jobQueue) > 0;
+    if (!controlQueue || !queryQueue) return false;
+    return uxQueueMessagesWaiting(controlQueue) > 0 || uxQueueMessagesWaiting(queryQueue) > 0;
 }
 
 }

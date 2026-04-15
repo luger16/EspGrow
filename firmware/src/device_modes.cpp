@@ -33,31 +33,73 @@ namespace {
 
     struct AutoState {
         bool triggered = false;
+        bool pending = false;
+        bool pendingState = false;
+        char reportSensorType[16] = "";
+        float reportValue = NAN;
+        float reportThreshold = NAN;
     };
     std::map<String, AutoState> autoStates;
 
     std::map<String, unsigned long> lastControlAttempt;
     const unsigned long OFFLINE_RETRY_INTERVAL = 30000;
 
-    void applyDeviceState(const DeviceModeConfig& cfg, bool on) {
-        Devices::Device* device = Devices::getDevice(cfg.deviceId);
-        if (!device) return;
+    enum ApplyResult {
+        APPLY_QUEUED,
+        APPLY_ALREADY_STATE,
+        APPLY_THROTTLED,
+        APPLY_QUEUE_FULL,
+        APPLY_NO_DEVICE,
+    };
 
-        if (device->isOn == on && device->isOnline) return;
+    DeviceModeConfig* findConfig(const char* deviceId) {
+        for (auto& cfg : configs) {
+            if (strcmp(cfg.deviceId, deviceId) == 0) {
+                return &cfg;
+            }
+        }
+        return nullptr;
+    }
+
+    void pushAutoEvent(const DeviceModeConfig& cfg, const AutoState& state, bool on) {
+        Devices::Device* device = Devices::getDevice(cfg.deviceId);
+        const char* name = device ? device->name : cfg.deviceId;
+        char title[48];
+        snprintf(title, sizeof(title), "%s (auto)", name);
+        char desc[128];
+        if (state.reportSensorType[0] != '\0' && !std::isnan(state.reportValue) && !std::isnan(state.reportThreshold)) {
+            snprintf(desc, sizeof(desc), "%s — %s at %.1f (threshold %.1f)",
+                on ? "Turned on" : "Turned off",
+                state.reportSensorType,
+                state.reportValue,
+                state.reportThreshold);
+        } else {
+            snprintf(desc, sizeof(desc), "%s by automation", on ? "Turned on" : "Turned off");
+        }
+        EventLog::pushEvent("automation", title, desc);
+    }
+
+    ApplyResult applyDeviceState(const DeviceModeConfig& cfg, bool on, bool force = false) {
+        Devices::Device* device = Devices::getDevice(cfg.deviceId);
+        if (!device) return APPLY_NO_DEVICE;
+
+        if (!force && device->isOn == on && device->isOnline) return APPLY_ALREADY_STATE;
 
         // Throttle control attempts for offline devices to avoid flooding the job queue
         if (!device->isOnline) {
             String key(cfg.deviceId);
             unsigned long now = millis();
             unsigned long& last = lastControlAttempt[key];
-            if (now - last < OFFLINE_RETRY_INTERVAL && last != 0) return;
+            if (now - last < OFFLINE_RETRY_INTERVAL && last != 0) return APPLY_THROTTLED;
             last = now;
         }
 
         if (DeviceController::controlAsync(device->controlMethod, device->ipAddress, on)) {
             Serial.printf("[DeviceModes] Queued %s -> %s\n", cfg.deviceId, on ? "ON" : "OFF");
+            return APPLY_QUEUED;
         } else {
             Serial.printf("[DeviceModes] Queue full, skipping %s\n", cfg.deviceId);
+            return APPLY_QUEUE_FULL;
         }
     }
 
@@ -110,7 +152,8 @@ namespace {
         if (cfg.triggerCount == 0) return;
 
         String key(cfg.deviceId);
-        bool wasTriggered = autoStates[key].triggered;
+        AutoState& state = autoStates[key];
+        bool wasTriggered = state.triggered;
         bool anyTriggerMet = false;
         const char* reportSensorType = nullptr;
         float reportValue = NAN;
@@ -152,40 +195,22 @@ namespace {
             }
         }
 
-        if (anyTriggerMet && !wasTriggered) {
-            Serial.printf("[DeviceModes] AUTO triggered for %s\n", cfg.deviceId);
-            applyDeviceState(cfg, true);
-            autoStates[key].triggered = true;
+        if (state.pending) return;
+        if (anyTriggerMet == wasTriggered) return;
 
-            Devices::Device* device = Devices::getDevice(cfg.deviceId);
-            const char* name = device ? device->name : cfg.deviceId;
-            char title[48];
-            snprintf(title, sizeof(title), "%s (auto)", name);
-            char desc[128];
+        ApplyResult result = applyDeviceState(cfg, anyTriggerMet, true);
+        if (result == APPLY_QUEUED) {
+            state.pending = true;
+            state.pendingState = anyTriggerMet;
             if (reportSensorType) {
-                snprintf(desc, sizeof(desc), "Turned on — %s at %.1f (threshold %.1f)",
-                    reportSensorType, reportValue, reportThreshold);
+                strlcpy(state.reportSensorType, reportSensorType, sizeof(state.reportSensorType));
             } else {
-                snprintf(desc, sizeof(desc), "Turned on by automation");
+                state.reportSensorType[0] = '\0';
             }
-            EventLog::pushEvent("automation", title, desc);
-        } else if (!anyTriggerMet && wasTriggered) {
-            Serial.printf("[DeviceModes] AUTO cleared for %s\n", cfg.deviceId);
-            applyDeviceState(cfg, false);
-            autoStates[key].triggered = false;
-
-            Devices::Device* device = Devices::getDevice(cfg.deviceId);
-            const char* name = device ? device->name : cfg.deviceId;
-            char title[48];
-            snprintf(title, sizeof(title), "%s (auto)", name);
-            char desc[128];
-            if (reportSensorType) {
-                snprintf(desc, sizeof(desc), "Turned off — %s at %.1f (threshold %.1f)",
-                    reportSensorType, reportValue, reportThreshold);
-            } else {
-                snprintf(desc, sizeof(desc), "Turned off by automation");
-            }
-            EventLog::pushEvent("automation", title, desc);
+            state.reportValue = reportValue;
+            state.reportThreshold = reportThreshold;
+        } else if (result == APPLY_ALREADY_STATE) {
+            state.triggered = anyTriggerMet;
         }
     }
 
@@ -378,6 +403,20 @@ void loop(const std::map<String, float>& sensorReadings) {
                 break;
         }
     }
+}
+
+void onDeviceControlResult(const char* deviceId, bool success, bool requestedState, bool actualState) {
+    DeviceModeConfig* cfg = findConfig(deviceId);
+    if (!cfg || cfg->mode != MODE_AUTO) return;
+
+    AutoState& state = autoStates[String(deviceId)];
+    if (!state.pending || state.pendingState != requestedState) return;
+
+    state.pending = false;
+    if (!success || actualState != requestedState) return;
+
+    state.triggered = requestedState;
+    pushAutoEvent(*cfg, state, requestedState);
 }
 
 bool setMode(JsonDocument& doc) {

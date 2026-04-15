@@ -664,6 +664,10 @@ void setup() {
             EnergyTracker::updateWatts(device->id, ar.result.watts);
         }
 
+        if (ar.wasControl) {
+            DeviceModes::onDeviceControlResult(device->id, ar.result.reachable, ar.requestedState, ar.result.isOn);
+        }
+
         if (ar.wasControl || changed) {
             JsonDocument response;
             response["type"] = "device_status";

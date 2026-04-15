@@ -54,6 +54,7 @@ struct DayNightConfig {
 
 void init();
 void loop(const std::map<String, float>& sensorReadings);
+void onDeviceControlResult(const char* deviceId, bool success, bool requestedState, bool actualState);
 
 bool setMode(JsonDocument& doc);
 bool removeMode(const char* deviceId);
