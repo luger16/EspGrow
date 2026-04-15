@@ -4,6 +4,7 @@
 	import { Badge } from "$lib/components/ui/badge/index.js";
 	import { deviceModes } from "$lib/stores/device-modes.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
+	import { sensors } from "$lib/stores/sensors.svelte";
 	import { deviceIcons } from "$lib/icons";
 	import type { Device, DeviceMode } from "$lib/types";
 
@@ -44,7 +45,10 @@
 				if (triggers.length === 0) return "No triggers configured";
 				const descriptions = triggers.map((t) => {
 					const direction = t.triggerAbove ? ">" : "<";
-					return `${t.sensorType} ${direction} ${t.dayThreshold}/${t.nightThreshold}`;
+					const sensorName = sensors.find((sensor) => sensor.id === t.sensorId)?.name
+						?? t.sensorId
+						?? (t.sensorType ? `Missing ${t.sensorType} sensor` : "Unknown sensor");
+					return `${sensorName} ${direction} ${t.dayThreshold}/${t.nightThreshold}`;
 				});
 				return descriptions.join(" or ");
 			}

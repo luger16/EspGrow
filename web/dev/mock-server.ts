@@ -149,7 +149,7 @@ interface DeviceModeConfig {
 	deviceId: string;
 	mode: "off" | "on" | "auto" | "cycle" | "schedule";
 	triggers: Array<{
-		sensorType: string;
+		sensorId: string;
 		dayThreshold: number;
 		nightThreshold: number;
 		deadzone: number;
@@ -164,7 +164,7 @@ const DEVICE_MODES: DeviceModeConfig[] = [
 		deviceId: "fan_exhaust",
 		mode: "auto",
 		triggers: [
-			{ sensorType: "temperature", dayThreshold: 28, nightThreshold: 25, deadzone: 1, triggerAbove: true },
+			{ sensorId: "sht4x_temp", dayThreshold: 28, nightThreshold: 25, deadzone: 1, triggerAbove: true },
 		],
 		cycle: { onDurationSec: 60, offDurationSec: 60, dayOnly: false },
 		schedule: { startTime: "06:00", endTime: "22:00" },
@@ -173,7 +173,7 @@ const DEVICE_MODES: DeviceModeConfig[] = [
 		deviceId: "humidifier",
 		mode: "auto",
 		triggers: [
-			{ sensorType: "humidity", dayThreshold: 50, nightThreshold: 55, deadzone: 5, triggerAbove: false },
+			{ sensorId: "sht4x_hum", dayThreshold: 50, nightThreshold: 55, deadzone: 5, triggerAbove: false },
 		],
 		cycle: { onDurationSec: 60, offDurationSec: 60, dayOnly: false },
 		schedule: { startTime: "06:00", endTime: "22:00" },

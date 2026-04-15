@@ -35,7 +35,7 @@ namespace {
         bool triggered = false;
         bool pending = false;
         bool pendingState = false;
-        char reportSensorType[16] = "";
+        char reportSensorName[32] = "";
         float reportValue = NAN;
         float reportThreshold = NAN;
     };
@@ -61,16 +61,52 @@ namespace {
         return nullptr;
     }
 
+    const char* findFirstSensorIdByType(const char* sensorType) {
+        size_t count = 0;
+        const char** sensorIds = SensorConfig::getSensorIds(count);
+        for (size_t i = 0; i < count; i++) {
+            SensorConfig::Sensor* sensor = SensorConfig::getSensor(sensorIds[i]);
+            if (sensor && strcmp(sensor->type, sensorType) == 0) {
+                return sensor->id;
+            }
+        }
+        return "";
+    }
+
+    const char* getSensorLabel(const char* sensorId) {
+        SensorConfig::Sensor* sensor = SensorConfig::getSensor(sensorId);
+        return sensor ? sensor->name : sensorId;
+    }
+
+    void syncTriggerSensorType(AutoTrigger& trigger) {
+        if (trigger.sensorId[0] == '\0') return;
+        SensorConfig::Sensor* sensor = SensorConfig::getSensor(trigger.sensorId);
+        if (sensor) {
+            strlcpy(trigger.sensorType, sensor->type, sizeof(trigger.sensorType));
+        }
+    }
+
+    void resolveLegacyTrigger(AutoTrigger& trigger) {
+        if (trigger.sensorId[0] != '\0') {
+            syncTriggerSensorType(trigger);
+            return;
+        }
+
+        if (trigger.sensorType[0] == '\0') return;
+        strlcpy(trigger.sensorId, findFirstSensorIdByType(trigger.sensorType), sizeof(trigger.sensorId));
+        syncTriggerSensorType(trigger);
+    }
+
     void pushAutoEvent(const DeviceModeConfig& cfg, const AutoState& state, bool on) {
         Devices::Device* device = Devices::getDevice(cfg.deviceId);
         const char* name = device ? device->name : cfg.deviceId;
         char title[48];
         snprintf(title, sizeof(title), "%s (auto)", name);
         char desc[128];
-        if (state.reportSensorType[0] != '\0' && !std::isnan(state.reportValue) && !std::isnan(state.reportThreshold)) {
+        if (state.reportSensorName[0] != '\0' && !std::isnan(state.reportValue) && !std::isnan(state.reportThreshold)) {
             snprintf(desc, sizeof(desc), "%s — %s at %.1f (threshold %.1f)",
                 on ? "Turned on" : "Turned off",
-                state.reportSensorType,
+                state.reportSensorName,
                 state.reportValue,
                 state.reportThreshold);
         } else {
@@ -103,14 +139,10 @@ namespace {
         }
     }
 
-    float getSensorValue(const char* sensorType, const std::map<String, float>& readings) {
-        for (const auto& pair : readings) {
-            SensorConfig::Sensor* cfg = SensorConfig::getSensor(pair.first.c_str());
-            if (cfg && strcmp(cfg->type, sensorType) == 0) {
-                return pair.second;
-            }
-        }
-        return NAN;
+    float getSensorValue(const char* sensorId, const std::map<String, float>& readings) {
+        auto it = readings.find(String(sensorId));
+        if (it == readings.end()) return NAN;
+        return it->second;
     }
 
     void updateDayNight(const std::map<String, float>& readings) {
@@ -155,19 +187,20 @@ namespace {
         AutoState& state = autoStates[key];
         bool wasTriggered = state.triggered;
         bool anyTriggerMet = false;
-        const char* reportSensorType = nullptr;
+        const char* reportSensorId = nullptr;
         float reportValue = NAN;
         float reportThreshold = NAN;
 
         for (uint8_t i = 0; i < cfg.triggerCount; i++) {
-            const AutoTrigger& trigger = cfg.triggers[i];
-            float value = getSensorValue(trigger.sensorType, readings);
+            AutoTrigger& trigger = cfg.triggers[i];
+            resolveLegacyTrigger(trigger);
+            float value = getSensorValue(trigger.sensorId, readings);
             if (std::isnan(value)) continue;
 
             float threshold = currentDaytime ? trigger.dayThreshold : trigger.nightThreshold;
 
-            if (!reportSensorType) {
-                reportSensorType = trigger.sensorType;
+            if (!reportSensorId) {
+                reportSensorId = trigger.sensorId;
                 reportValue = value;
                 reportThreshold = threshold;
             }
@@ -189,7 +222,7 @@ namespace {
 
             if (met) {
                 anyTriggerMet = true;
-                reportSensorType = trigger.sensorType;
+                reportSensorId = trigger.sensorId;
                 reportValue = value;
                 reportThreshold = threshold;
             }
@@ -202,10 +235,10 @@ namespace {
         if (result == APPLY_QUEUED) {
             state.pending = true;
             state.pendingState = anyTriggerMet;
-            if (reportSensorType) {
-                strlcpy(state.reportSensorType, reportSensorType, sizeof(state.reportSensorType));
+            if (reportSensorId) {
+                strlcpy(state.reportSensorName, getSensorLabel(reportSensorId), sizeof(state.reportSensorName));
             } else {
-                state.reportSensorType[0] = '\0';
+                state.reportSensorName[0] = '\0';
             }
             state.reportValue = reportValue;
             state.reportThreshold = reportThreshold;
@@ -264,7 +297,8 @@ namespace {
                 JsonArray triggers = obj["triggers"].to<JsonArray>();
                 for (uint8_t i = 0; i < cfg.triggerCount; i++) {
                     JsonObject t = triggers.add<JsonObject>();
-                    t["sensorType"] = cfg.triggers[i].sensorType;
+                    t["sensorId"] = cfg.triggers[i].sensorId;
+                    if (cfg.triggers[i].sensorType[0] != '\0') t["sensorType"] = cfg.triggers[i].sensorType;
                     t["dayThreshold"] = cfg.triggers[i].dayThreshold;
                     t["nightThreshold"] = cfg.triggers[i].nightThreshold;
                     t["deadzone"] = cfg.triggers[i].deadzone;
@@ -310,7 +344,10 @@ namespace {
                 for (JsonObject t : triggers) {
                     if (cfg.triggerCount >= MAX_TRIGGERS) break;
                     AutoTrigger& trigger = cfg.triggers[cfg.triggerCount];
+                    const char* sensorId = t["sensorId"] | "";
+                    strlcpy(trigger.sensorId, sensorId, sizeof(trigger.sensorId));
                     strlcpy(trigger.sensorType, t["sensorType"] | "", sizeof(trigger.sensorType));
+                    resolveLegacyTrigger(trigger);
                     trigger.dayThreshold = t["dayThreshold"] | 0.0f;
                     trigger.nightThreshold = t["nightThreshold"] | 0.0f;
                     trigger.deadzone = t["deadzone"] | 0.5f;
@@ -436,7 +473,10 @@ bool setMode(JsonDocument& doc) {
         for (JsonObject t : triggers) {
             if (cfg.triggerCount >= MAX_TRIGGERS) break;
             AutoTrigger& trigger = cfg.triggers[cfg.triggerCount];
+            const char* sensorId = t["sensorId"] | "";
+            strlcpy(trigger.sensorId, sensorId, sizeof(trigger.sensorId));
             strlcpy(trigger.sensorType, t["sensorType"] | "", sizeof(trigger.sensorType));
+            resolveLegacyTrigger(trigger);
             trigger.dayThreshold = t["dayThreshold"] | 0.0f;
             trigger.nightThreshold = t["nightThreshold"] | 0.0f;
             trigger.deadzone = t["deadzone"] | 0.5f;
@@ -506,7 +546,8 @@ void getModesJson(String& out) {
             JsonArray triggers = obj["triggers"].to<JsonArray>();
             for (uint8_t i = 0; i < cfg.triggerCount; i++) {
                 JsonObject t = triggers.add<JsonObject>();
-                t["sensorType"] = cfg.triggers[i].sensorType;
+                t["sensorId"] = cfg.triggers[i].sensorId;
+                if (cfg.triggers[i].sensorType[0] != '\0') t["sensorType"] = cfg.triggers[i].sensorType;
                 t["dayThreshold"] = cfg.triggers[i].dayThreshold;
                 t["nightThreshold"] = cfg.triggers[i].nightThreshold;
                 t["deadzone"] = cfg.triggers[i].deadzone;

@@ -36,11 +36,13 @@
 		{ value: "schedule", label: "Schedule" },
 	];
 
-	const sensorTypeOptions = $derived(
-		[...new Set(sensors.filter((s) => ["temperature", "humidity", "co2", "vpd"].includes(s.type)).map((s) => s.type))].map((t) => ({
-			value: t,
-			label: t.charAt(0).toUpperCase() + t.slice(1),
-		})),
+	const triggerSensorOptions = $derived(
+		sensors
+			.filter((s) => ["temperature", "humidity", "co2", "vpd"].includes(s.type))
+			.map((sensor) => ({
+				value: sensor.id,
+				label: `${sensor.name} (${sensor.type})`,
+			})),
 	);
 
 	$effect(() => {
@@ -69,7 +71,7 @@
 	function addTrigger(): void {
 		if (triggers.length >= 3) return;
 		triggers.push({
-			sensorType: sensorTypeOptions[0]?.value ?? "temperature",
+			sensorId: triggerSensorOptions[0]?.value ?? "",
 			dayThreshold: 25,
 			nightThreshold: 22,
 			deadzone: 1,
@@ -98,6 +100,14 @@
 		};
 		setDeviceMode(config);
 		onOpenChange(false);
+	}
+
+	function getTriggerSensorLabel(trigger: AutoTrigger): string {
+		const selected = triggerSensorOptions.find((option) => option.value === trigger.sensorId);
+		if (selected) return selected.label;
+		if (trigger.sensorId) return trigger.sensorId;
+		if (trigger.sensorType) return `Missing ${trigger.sensorType} sensor`;
+		return "Unknown sensor";
 	}
 
 	function handleRemove(): void {
@@ -147,17 +157,17 @@
 								</Button>
 							</div>
 							<div class="grid gap-3">
-								<div class="grid gap-1.5">
-									<Label class="text-xs">Sensor Type</Label>
-									<Select.Root type="single" value={trigger.sensorType} onValueChange={(v) => v && (trigger.sensorType = v)}>
-										<Select.Trigger class="h-8 text-xs">
-											<span>{sensorTypeOptions.find((o) => o.value === trigger.sensorType)?.label ?? trigger.sensorType}</span>
-										</Select.Trigger>
-										<Select.Content>
-											{#each sensorTypeOptions as option (option.value)}
-												<Select.Item value={option.value}>{option.label}</Select.Item>
-											{/each}
-										</Select.Content>
+							<div class="grid gap-1.5">
+								<Label class="text-xs">Sensor</Label>
+								<Select.Root type="single" value={trigger.sensorId} onValueChange={(v) => v && (trigger.sensorId = v)}>
+									<Select.Trigger class="h-8 text-xs">
+										<span>{getTriggerSensorLabel(trigger)}</span>
+									</Select.Trigger>
+									<Select.Content>
+										{#each triggerSensorOptions as option (option.value)}
+											<Select.Item value={option.value}>{option.label}</Select.Item>
+										{/each}
+									</Select.Content>
 									</Select.Root>
 								</div>
 								<div class="flex items-center gap-2">

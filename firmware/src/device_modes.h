@@ -15,6 +15,7 @@ enum Mode : uint8_t {
 };
 
 struct AutoTrigger {
+    char sensorId[24];
     char sensorType[16];
     float dayThreshold;
     float nightThreshold;

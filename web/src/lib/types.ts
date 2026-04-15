@@ -42,7 +42,8 @@ export interface Device {
 export type DeviceMode = "off" | "on" | "auto" | "cycle" | "schedule";
 
 export interface AutoTrigger {
-	sensorType: string;
+	sensorId: string;
+	sensorType?: string;
 	dayThreshold: number;
 	nightThreshold: number;
 	deadzone: number;
