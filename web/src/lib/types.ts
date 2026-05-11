@@ -37,6 +37,7 @@ export interface Device {
 	isOnline?: boolean;
 	controlMode: DeviceControlMode;
 	hasEnergyMonitoring?: boolean;
+	timestamp?: Date;
 }
 
 export type DeviceMode = "off" | "on" | "auto" | "cycle" | "schedule";

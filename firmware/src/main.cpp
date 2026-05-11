@@ -19,6 +19,13 @@
 #include <map>
 
 namespace {
+    constexpr uint32_t MIN_VALID_EPOCH = 1600000000;
+
+    struct CachedSensorReading {
+        float value;
+        uint32_t timestamp;
+    };
+
     unsigned long lastBroadcast = 0;
     unsigned long lastDevicePoll = 0;
     const unsigned long BROADCAST_INTERVAL = 5000;
@@ -27,7 +34,8 @@ namespace {
     const unsigned int OFFLINE_RECHECK_INTERVAL = 3;
     const int OFFLINE_THRESHOLD = 3;
     std::map<String, int> deviceFailCount;
-    std::map<String, float> cachedSensorReadings;
+    std::map<String, float> currentSensorReadings;
+    std::map<String, CachedSensorReading> cachedSensorReadings;
     bool sensorReadingsDirty = false;
 
     void sendMessage(const String& message, uint32_t clientId = 0) {
@@ -532,6 +540,8 @@ namespace {
 
     void readAndRecordSensors() {
         Sensors::read();
+        uint32_t readingTimestamp = (uint32_t)time(nullptr);
+        bool hasValidTimestamp = readingTimestamp >= MIN_VALID_EPOCH;
 
         size_t sensorCount;
         const char** sensorIds = SensorConfig::getSensorIds(sensorCount);
@@ -544,7 +554,10 @@ namespace {
             if (!isnan(value)) {
                 anyValid = true;
                 History::record(sensorIds[i], value);
-                cachedSensorReadings[String(sensorIds[i])] = value;
+                currentSensorReadings[String(sensorIds[i])] = value;
+                if (hasValidTimestamp) {
+                    cachedSensorReadings[String(sensorIds[i])] = { value, readingTimestamp };
+                }
             }
         }
 
@@ -571,18 +584,21 @@ namespace {
         
         bool anyValid = false;
         
-        for (size_t i = 0; i < sensorCount; i++) {
-            auto it = cachedSensorReadings.find(String(sensorIds[i]));
-            if (it == cachedSensorReadings.end()) continue;
+		for (size_t i = 0; i < sensorCount; i++) {
+			auto it = cachedSensorReadings.find(String(sensorIds[i]));
+			if (it == cachedSensorReadings.end()) continue;
             
             anyValid = true;
-            float value = it->second;
-            
+            float value = it->second.value;
+
             JsonObject entry = data.add<JsonObject>();
             entry["id"] = sensorIds[i];
             SensorConfig::Sensor* cfg = SensorConfig::getSensor(sensorIds[i]);
             if (cfg) entry["type"] = cfg->type;
             entry["value"] = value;
+            if (it->second.timestamp >= MIN_VALID_EPOCH) {
+                entry["timestamp"] = it->second.timestamp;
+            }
 
             if (cfg && strcmp(cfg->hardwareType, "as7341") == 0) {
                 uint16_t channels[8];
@@ -668,15 +684,19 @@ void setup() {
             DeviceModes::onDeviceControlResult(device->id, ar.result.reachable, ar.requestedState, ar.result.isOn);
         }
 
-        if (ar.wasControl || changed) {
-            JsonDocument response;
-            response["type"] = "device_status";
-            JsonObject respData = response["data"].to<JsonObject>();
-            respData["deviceId"] = device->id;
-            respData["target"] = ar.target;
-            respData["on"] = ar.result.reachable ? ar.result.isOn : ar.requestedState;
-            respData["success"] = ar.result.reachable;
-            String out;
+		if (ar.wasControl || changed) {
+			JsonDocument response;
+			response["type"] = "device_status";
+			JsonObject respData = response["data"].to<JsonObject>();
+			respData["deviceId"] = device->id;
+			respData["target"] = ar.target;
+			respData["on"] = ar.result.reachable ? ar.result.isOn : ar.requestedState;
+			respData["success"] = ar.result.reachable;
+			uint32_t statusTimestamp = (uint32_t)time(nullptr);
+			if (statusTimestamp >= MIN_VALID_EPOCH) {
+				respData["timestamp"] = statusTimestamp;
+			}
+			String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
         }
@@ -747,8 +767,8 @@ void loop() {
     
     if (sensorReadingsDirty) {
         sensorReadingsDirty = false;
-        DeviceModes::loop(cachedSensorReadings);
-        EventLog::loop(cachedSensorReadings);
+        DeviceModes::loop(currentSensorReadings);
+        EventLog::loop(currentSensorReadings);
     }
     
     wasConnected = connected;

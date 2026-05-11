@@ -19,6 +19,13 @@ export const ppfdCalibration = $state<PpfdCalibration>({
 	error: null,
 });
 
+function parseTimestamp(value: unknown): Date {
+	if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+		return new Date(value * 1000);
+	}
+	return new Date();
+}
+
 type HistoryRange = "6h" | "24h" | "7d";
 
 function decodeBase64(base64: string): Uint8Array {
@@ -53,11 +60,11 @@ function decodeHistoryPoints(data: Uint8Array): HistoricalReading[] {
 	return points;
 }
 
-export function updateSensorReading(sensorId: string, value: number): void {
+export function updateSensorReading(sensorId: string, value: number, timestamp?: unknown): void {
 	sensorReadings[sensorId] = {
 		sensorId,
 		value: Math.round(value * 10) / 10,
-		timestamp: new Date(),
+		timestamp: parseTimestamp(timestamp),
 	};
 }
 
@@ -81,7 +88,7 @@ export function initSensorWebSocket(): void {
 				typeof reading.id === "string" &&
 				typeof reading.value === "number"
 			) {
-				updateSensorReading(reading.id, reading.value);
+				updateSensorReading(reading.id, reading.value, "timestamp" in reading ? reading.timestamp : undefined);
 
 				if (Array.isArray(reading.channels)) {
 					spectralData.current = {

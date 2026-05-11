@@ -9,6 +9,8 @@
 namespace History {
 
 namespace {
+    constexpr uint32_t MIN_VALID_EPOCH = 1600000000;
+
     struct CircularBuffer {
         HistoryPoint* points;
         size_t capacity;
@@ -185,14 +187,14 @@ void loop() {
 }
 
 void record(const char* sensorId, float value, RecordMode mode) {
-    if (!WiFiManager::isTimeSynced()) return;
-    
+    uint32_t now = (uint32_t)time(nullptr);
+    if (now < MIN_VALID_EPOCH) return;
+
     if (histories.find(sensorId) == histories.end()) {
         initSensorHistory(sensorId);
     }
     
     SensorHistory& sh = histories[sensorId];
-    uint32_t now = (uint32_t)time(nullptr);
     
     for (int i = 0; i < 3; i++) {
         SensorAccumulator& acc = sh.accumulators[i];

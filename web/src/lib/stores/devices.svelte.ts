@@ -1,6 +1,13 @@
 import type { Device } from "$lib/types";
 import { websocket } from "./websocket.svelte";
 
+function parseTimestamp(value: unknown): Date | undefined {
+	if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+		return new Date(value * 1000);
+	}
+	return undefined;
+}
+
 export const devices = $state<Device[]>([]);
 export const pendingDevices = $state<Set<string>>(new Set());
 
@@ -68,7 +75,7 @@ export function initDeviceWebSocket(): void {
 	websocket.on("devices", (data: unknown) => {
 		if (!Array.isArray(data)) return;
 		const items = data.filter(
-			(item): item is Device =>
+			(item): item is Device & { timestamp?: unknown } =>
 				item && typeof item === "object" && typeof item.id === "string" && typeof item.name === "string"
 		);
 		devices.length = 0;
@@ -78,6 +85,7 @@ export function initDeviceWebSocket(): void {
 				isOn: d.isOn ?? false,
 				isOnline: d.isOnline ?? true,
 				hasEnergyMonitoring: d.hasEnergyMonitoring ?? false,
+				timestamp: parseTimestamp(d.timestamp),
 			});
 		});
 	});
@@ -95,6 +103,7 @@ export function initDeviceWebSocket(): void {
 		if (device) {
 			device.isOnline = msg.success as boolean;
 			if (msg.success) device.isOn = msg.on;
+			device.timestamp = parseTimestamp(msg.timestamp) ?? new Date();
 			pendingDevices.delete(device.id);
 		}
 	});

@@ -220,20 +220,23 @@
 		}
 
 		const latestHistoricalTs = timestampMap.size > 0 ? Math.max(...timestampMap.keys()) : null;
-		const nowTs = Date.now();
-		const liveEntry: Record<string, { normalized: number; raw: number } | null> = {};
+		const liveEntries = new Map<number, Record<string, { normalized: number; raw: number } | null>>();
 		let hasLive = false;
 
 		for (const sensor of visibleSensors) {
 			const reading = sensorReadings[sensor.id];
 			if (!reading) continue;
+			const liveTs = reading.timestamp.getTime();
 			const [normMin, normMax] = normalizationRanges[sensor.type] ?? [0, 100];
 			const rawValue =
 				sensor.type === "temperature" || sensor.type === "dewpoint"
 					? convertTemperature(reading.value, settings.temperatureUnit)
 					: reading.value;
 			const normalized = ((rawValue - normMin) / (normMax - normMin)) * 100;
-			liveEntry[sensor.id] = {
+			if (!liveEntries.has(liveTs)) {
+				liveEntries.set(liveTs, {});
+			}
+			liveEntries.get(liveTs)![sensor.id] = {
 				normalized: Math.max(0, Math.min(100, normalized)),
 				raw: rawValue,
 			};
@@ -241,10 +244,15 @@
 		}
 
 		for (const device of visibleDevices) {
+			const liveTs = device.timestamp?.getTime();
+			if (!liveTs) continue;
 			const [normMin, normMax] = normalizationRanges["device"];
 			const value = device.isOn ? 1.0 : 0.0;
 			const normalized = ((value - normMin) / (normMax - normMin)) * 100;
-			liveEntry[device.id] = {
+			if (!liveEntries.has(liveTs)) {
+				liveEntries.set(liveTs, {});
+			}
+			liveEntries.get(liveTs)![device.id] = {
 				normalized: Math.max(0, Math.min(100, normalized)),
 				raw: value,
 			};
@@ -252,8 +260,10 @@
 		}
 
 		if (hasLive) {
-			if (latestHistoricalTs !== null && nowTs - latestHistoricalTs > threshold) {
-				const liveGapTs = Math.floor((latestHistoricalTs + nowTs) / 2);
+			const liveTimestamps = Array.from(liveEntries.keys());
+			const latestLiveTs = liveTimestamps.length > 0 ? Math.max(...liveTimestamps) : null;
+			if (latestHistoricalTs !== null && latestLiveTs !== null && latestLiveTs - latestHistoricalTs > threshold) {
+				const liveGapTs = Math.floor((latestHistoricalTs + latestLiveTs) / 2);
 				if (!timestampMap.has(liveGapTs)) {
 					timestampMap.set(liveGapTs, {});
 				}
@@ -264,11 +274,16 @@
 					}
 				}
 				for (const device of visibleDevices) {
-					liveGapEntry[device.id] = null;
+					if (device.timestamp) {
+						liveGapEntry[device.id] = null;
+					}
 				}
 			}
 
-			timestampMap.set(nowTs, liveEntry);
+			for (const [ts, entry] of liveEntries) {
+				const existing = timestampMap.get(ts);
+				timestampMap.set(ts, { ...(existing ?? {}), ...entry });
+			}
 		}
 
 		return Array.from(timestampMap.entries()).sort((a, b) => a[0] - b[0]);
