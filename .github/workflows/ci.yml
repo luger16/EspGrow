@@ -24,6 +24,8 @@ jobs:
       - run: npm run format:check
       - run: npm run test
       - run: npm run build
+      - name: Verify generated firmware contract is up to date
+        run: git diff --exit-code ../firmware/src/contract.h
 
   firmware:
     name: Firmware (compile c3 + xiao-s3)
