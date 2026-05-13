@@ -13,6 +13,7 @@
 #include "climate_config.h"
 #include "event_log.h"
 #include "ota_manager.h"
+#include "contract.h"
 #include <ArduinoJson.h>
 #include <ESPmDNS.h>
 #include <WiFi.h>
@@ -236,70 +237,77 @@ namespace {
         // Extract payload from "data" key (new protocol), fallback to top-level (legacy)
         JsonObject payload = doc["data"].is<JsonObject>() ? doc["data"].as<JsonObject>() : doc.as<JsonObject>();
 
-        // Request-response: reply only to requesting client
-        if (strcmp(type, "ping") == 0) {
+        WsContract::ClientMessage msg;
+        if (!WsContract::tryParseClientMessage(type, msg)) return;
+
+        switch (msg) {
+        case WsContract::ClientMessage::Ping: {
             JsonDocument response;
             response["type"] = "pong";
             response["data"]["timestamp"] = millis();
             String out;
             serializeJson(response, out);
             sendMessage(out, clientId);
+            break;
         }
-        else if (strcmp(type, "get_init") == 0) {
+        case WsContract::ClientMessage::GetInit: {
             sendSensors(clientId);
             sendDevices(clientId);
             sendDeviceModes(clientId);
             sendClimateConfig(clientId);
             sendEnergy(clientId);
             sendDli(clientId);
-            
+
             JsonDocument ppfdResp;
             ppfdResp["type"] = "ppfd_calibration";
             ppfdResp["data"]["factor"] = Sensors::getPpfdCalibrationFactor();
             String ppfdOut;
             serializeJson(ppfdResp, ppfdOut);
             sendMessage(ppfdOut, clientId);
+            break;
         }
-        else if (strcmp(type, "get_device_modes") == 0) {
+        case WsContract::ClientMessage::GetDeviceModes:
             sendDeviceModes(clientId);
-        }
-        else if (strcmp(type, "get_devices") == 0) {
+            break;
+        case WsContract::ClientMessage::GetDevices:
             sendDevices(clientId);
-        }
-        else if (strcmp(type, "get_sensors") == 0) {
+            break;
+        case WsContract::ClientMessage::GetSensors:
             sendSensors(clientId);
-        }
-        else if (strcmp(type, "get_history") == 0) {
+            break;
+        case WsContract::ClientMessage::GetHistory: {
             const char* sensorId = payload["sensorId"];
             const char* range = payload["range"];
             if (sensorId && range) {
                 sendHistory(sensorId, range, clientId);
             }
+            break;
         }
-        else if (strcmp(type, "get_ppfd_calibration") == 0) {
+        case WsContract::ClientMessage::GetPpfdCalibration: {
             JsonDocument response;
             response["type"] = "ppfd_calibration";
             response["data"]["factor"] = Sensors::getPpfdCalibrationFactor();
             String out;
             serializeJson(response, out);
             sendMessage(out, clientId);
+            break;
         }
-        else if (strcmp(type, "get_energy") == 0) {
+        case WsContract::ClientMessage::GetEnergy:
             sendEnergy(clientId);
-        }
-        else if (strcmp(type, "get_dli") == 0) {
+            break;
+        case WsContract::ClientMessage::GetDli:
             sendDli(clientId);
-        }
-        else if (strcmp(type, "get_climate_config") == 0) {
+            break;
+        case WsContract::ClientMessage::GetClimateConfig:
             sendClimateConfig(clientId);
-        }
-        else if (strcmp(type, "get_events") == 0) {
+            break;
+        case WsContract::ClientMessage::GetEvents:
             sendEvents(clientId);
-        }
-        else if (strcmp(type, "clear_events") == 0) {
+            break;
+        case WsContract::ClientMessage::ClearEvents:
             EventLog::clearEvents();
-        }
-        else if (strcmp(type, "get_system_info") == 0) {
+            break;
+        case WsContract::ClientMessage::GetSystemInfo: {
             JsonDocument response;
             response["type"] = "system_info";
             JsonObject respData = response["data"].to<JsonObject>();
@@ -312,40 +320,43 @@ namespace {
             String out;
             serializeJson(response, out);
             sendMessage(out, clientId);
+            break;
         }
-        // Mutations: broadcast state changes to all clients
-        else if (strcmp(type, "device_control") == 0) {
+        case WsContract::ClientMessage::DeviceControl: {
             const char* method = payload["method"];
             const char* target = payload["target"];
             bool on = payload["on"];
-            
+
             DeviceController::controlAsync(
                 method ? method : "",
                 target ? target : "",
                 on
             );
+            break;
         }
-        else if (strcmp(type, "set_device_mode") == 0) {
+        case WsContract::ClientMessage::SetDeviceMode: {
             JsonDocument modeDoc;
             modeDoc["deviceId"] = payload["deviceId"];
             modeDoc["mode"] = payload["mode"];
             if (payload["triggers"].is<JsonArray>()) modeDoc["triggers"] = payload["triggers"];
             if (payload["cycle"].is<JsonObject>()) modeDoc["cycle"] = payload["cycle"];
             if (payload["schedule"].is<JsonObject>()) modeDoc["schedule"] = payload["schedule"];
-            
+
             DeviceModes::setMode(modeDoc);
             sendDeviceModes();
             sendDevices();
+            break;
         }
-        else if (strcmp(type, "delete_device_mode") == 0) {
+        case WsContract::ClientMessage::DeleteDeviceMode: {
             const char* deviceId = payload["deviceId"];
             if (deviceId) {
                 DeviceModes::removeMode(deviceId);
                 sendDeviceModes();
                 sendDevices();
             }
+            break;
         }
-        else if (strcmp(type, "add_device") == 0) {
+        case WsContract::ClientMessage::AddDevice: {
             JsonDocument deviceDoc;
             deviceDoc["id"] = payload["id"];
             deviceDoc["name"] = payload["name"];
@@ -354,11 +365,12 @@ namespace {
             deviceDoc["ipAddress"] = payload["ipAddress"];
             deviceDoc["controlMode"] = payload["controlMode"];
             deviceDoc["hasEnergyMonitoring"] = payload["hasEnergyMonitoring"] | false;
-            
+
             Devices::addDevice(deviceDoc);
             sendDevices();
+            break;
         }
-        else if (strcmp(type, "update_device") == 0) {
+        case WsContract::ClientMessage::UpdateDevice: {
             const char* deviceId = payload["id"];
             JsonDocument updates;
             if (payload["name"].is<const char*>()) updates["name"] = payload["name"];
@@ -366,18 +378,20 @@ namespace {
             if (payload["controlMethod"].is<const char*>()) updates["controlMethod"] = payload["controlMethod"];
             if (payload["ipAddress"].is<const char*>()) updates["ipAddress"] = payload["ipAddress"];
             if (payload["hasEnergyMonitoring"].is<bool>()) updates["hasEnergyMonitoring"] = payload["hasEnergyMonitoring"];
-            
+
             Devices::updateDevice(deviceId, updates);
             sendDevices();
+            break;
         }
-        else if (strcmp(type, "remove_device") == 0) {
+        case WsContract::ClientMessage::RemoveDevice: {
             const char* deviceId = payload["id"];
             DeviceModes::removeModeForDevice(deviceId);
             Devices::removeDevice(deviceId);
             sendDevices();
             sendDeviceModes();
+            break;
         }
-        else if (strcmp(type, "add_sensor") == 0) {
+        case WsContract::ClientMessage::AddSensor: {
             JsonDocument sensorDoc;
             sensorDoc["id"] = payload["id"];
             sensorDoc["name"] = payload["name"];
@@ -388,11 +402,12 @@ namespace {
             sensorDoc["tempSourceId"] = payload["tempSourceId"];
             sensorDoc["humSourceId"] = payload["humSourceId"];
             if (payload["leafTempOffset"].is<float>()) sensorDoc["leafTempOffset"] = payload["leafTempOffset"];
-            
+
             SensorConfig::addSensor(sensorDoc);
             sendSensors();
+            break;
         }
-        else if (strcmp(type, "update_sensor") == 0) {
+        case WsContract::ClientMessage::UpdateSensor: {
             const char* sensorId = payload["id"];
             JsonDocument updates;
             if (payload["name"].is<const char*>()) updates["name"] = payload["name"];
@@ -403,23 +418,25 @@ namespace {
             if (payload["tempSourceId"].is<const char*>()) updates["tempSourceId"] = payload["tempSourceId"];
             if (payload["humSourceId"].is<const char*>()) updates["humSourceId"] = payload["humSourceId"];
             if (payload["leafTempOffset"].is<float>()) updates["leafTempOffset"] = payload["leafTempOffset"];
-            
+
             SensorConfig::updateSensor(sensorId, updates);
             sendSensors();
+            break;
         }
-        else if (strcmp(type, "remove_sensor") == 0) {
+        case WsContract::ClientMessage::RemoveSensor: {
             const char* sensorId = payload["id"];
             SensorConfig::removeSensor(sensorId);
             sendSensors();
+            break;
         }
-        else if (strcmp(type, "calibrate_ppfd") == 0) {
+        case WsContract::ClientMessage::CalibratePpfd: {
             float knownPpfd = payload["knownPpfd"] | 0.0f;
             float rawPpfd = Sensors::getRawPpfd();
-            
+
             if (knownPpfd > 0 && !isnan(rawPpfd) && rawPpfd > 0) {
                 float factor = knownPpfd / rawPpfd;
                 Sensors::setPpfdCalibrationFactor(factor);
-                
+
                 JsonDocument response;
                 response["type"] = "ppfd_calibration";
                 JsonObject respData = response["data"].to<JsonObject>();
@@ -433,14 +450,15 @@ namespace {
                 response["type"] = "ppfd_calibration";
                 JsonObject respData = response["data"].to<JsonObject>();
                 respData["success"] = false;
-                respData["error"] = isnan(rawPpfd) || rawPpfd <= 0 
+                respData["error"] = isnan(rawPpfd) || rawPpfd <= 0
                     ? "no_reading" : "invalid_value";
                 String out;
                 serializeJson(response, out);
                 WebSocketServer::broadcast(out);
             }
+            break;
         }
-        else if (strcmp(type, "reset_energy") == 0) {
+        case WsContract::ClientMessage::ResetEnergy: {
             const char* deviceId = payload["deviceId"];
             if (deviceId) {
                 EnergyTracker::resetEnergy(deviceId);
@@ -448,14 +466,15 @@ namespace {
                 EnergyTracker::resetAllEnergy();
             }
             sendEnergy();
+            break;
         }
-        else if (strcmp(type, "reset_dli") == 0) {
+        case WsContract::ClientMessage::ResetDli:
             DliTracker::resetDli();
             sendDli();
-        }
-        else if (strcmp(type, "reset_ppfd_calibration") == 0) {
+            break;
+        case WsContract::ClientMessage::ResetPpfdCalibration: {
             Sensors::setPpfdCalibrationFactor(1.0f);
-            
+
             JsonDocument response;
             response["type"] = "ppfd_calibration";
             JsonObject respData = response["data"].to<JsonObject>();
@@ -464,31 +483,35 @@ namespace {
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
+            break;
         }
-        else if (strcmp(type, "set_climate_phase") == 0) {
+        case WsContract::ClientMessage::SetClimatePhase: {
             const char* phase = payload["phase"];
             const char* startDate = payload["phaseStartDate"];
             if (phase) {
                 ClimateConfig::setPhase(phase, startDate);
                 sendClimateConfig();
             }
+            break;
         }
-        else if (strcmp(type, "set_climate_targets") == 0) {
+        case WsContract::ClientMessage::SetClimateTargets: {
             const char* phase = payload["phase"];
             if (phase && payload["targets"].is<JsonObject>()) {
                 JsonObject targets = payload["targets"].as<JsonObject>();
                 ClimateConfig::setTargets(phase, targets);
                 sendClimateConfig();
             }
+            break;
         }
-        else if (strcmp(type, "reset_climate_targets") == 0) {
+        case WsContract::ClientMessage::ResetClimateTargets: {
             const char* phase = payload["phase"];
             if (phase) {
                 ClimateConfig::resetTargets(phase);
                 sendClimateConfig();
             }
+            break;
         }
-        else if (strcmp(type, "clear_history") == 0) {
+        case WsContract::ClientMessage::ClearHistory: {
             History::clearAll();
             JsonDocument response;
             response["type"] = "clear_history";
@@ -496,8 +519,9 @@ namespace {
             String out;
             serializeJson(response, out);
             WebSocketServer::broadcast(out);
+            break;
         }
-        else if (strcmp(type, "restart") == 0) {
+        case WsContract::ClientMessage::Restart: {
             JsonDocument response;
             response["type"] = "restart";
             response["data"]["success"] = true;
@@ -506,6 +530,8 @@ namespace {
             WebSocketServer::broadcast(out);
             delay(500);
             ESP.restart();
+            break;
+        }
         }
     }
 
