@@ -12,6 +12,9 @@ static constexpr int CONTROL_TIMEOUT_MS = 2000;
 static constexpr int QUERY_TIMEOUT_MS = 1000;
 static constexpr int CONNECT_TIMEOUT_MS = 1000;
 
+static constexpr int CONTROL_MAX_ATTEMPTS = 3;
+static constexpr int CONTROL_BACKOFF_MS[CONTROL_MAX_ATTEMPTS - 1] = {200, 500};
+
 static constexpr size_t CONTROL_QUEUE_SIZE = 8;
 static constexpr size_t QUERY_QUEUE_SIZE = 8;
 static constexpr size_t RESULT_QUEUE_SIZE = 8;
@@ -113,16 +116,27 @@ namespace {
     }
 
     QueryResult doControl(const String& method, const String& target, bool on) {
-        if (method == "tasmota") {
-            return setTasmota(target, on);
-        } else if (method == "shelly_gen1") {
-            return setShellyGen1(target, on);
-        } else if (method == "shelly_gen2") {
-            return setShellyGen2(target, on);
+        auto dispatch = [&]() -> QueryResult {
+            if (method == "tasmota") return setTasmota(target, on);
+            if (method == "shelly_gen1") return setShellyGen1(target, on);
+            if (method == "shelly_gen2") return setShellyGen2(target, on);
+            Serial.printf("[DeviceCtrl] Unknown method: %s\n", method.c_str());
+            return QueryResult{};
+        };
+
+        QueryResult result;
+        for (int attempt = 0; attempt < CONTROL_MAX_ATTEMPTS; ++attempt) {
+            result = dispatch();
+            if (result.reachable) return result;
+            if (attempt < CONTROL_MAX_ATTEMPTS - 1) {
+                int delayMs = CONTROL_BACKOFF_MS[attempt];
+                Serial.printf("[DeviceCtrl] Retry %d/%d in %dms (%s %s)\n",
+                    attempt + 2, CONTROL_MAX_ATTEMPTS, delayMs,
+                    method.c_str(), target.c_str());
+                vTaskDelay(pdMS_TO_TICKS(delayMs));
+            }
         }
-        
-        Serial.printf("[DeviceCtrl] Unknown method: %s\n", method.c_str());
-        return QueryResult{};
+        return result;
     }
 
     QueryResult queryTasmota(const String& ip) {
