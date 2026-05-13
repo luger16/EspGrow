@@ -6,6 +6,8 @@
 	"scripts": {
 		"dev": "vite dev",
 		"dev:mock": "npx tsx dev/mock-server.ts & VITE_MOCK_WS=8081 vite dev --open --host; kill %1 2>/dev/null",
+		"gen:contract": "node scripts/gen-contract.mjs",
+		"prebuild": "npm run gen:contract",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
@@ -48,5 +50,8 @@
 		"vite": "^7.3.1",
 		"vitest": "^2.1.0",
 		"ws": "^8.19.0"
+	},
+	"dependencies": {
+		"valibot": "^1.4.0"
 	}
 }
