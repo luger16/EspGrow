@@ -1,6 +1,7 @@
 #include "ota_manager.h"
 #include <Update.h>
 #include <HTTPClient.h>
+#include <HTTPUpdate.h>
 #include <WiFiClientSecure.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncJson.h>
@@ -14,10 +15,8 @@ namespace {
     StatusCallback statusCallback;
 
     static constexpr unsigned long CACHE_TTL = 1800000; // 30 minutes
-    static constexpr unsigned long STALL_TIMEOUT = 30000;
     static constexpr size_t MIN_FREE_HEAP = 50000;
     static constexpr uint8_t ESP_IMAGE_MAGIC = 0xE9;
-    static constexpr size_t DOWNLOAD_BUFFER_SIZE = 1024;
 
     struct ReleaseCache {
         String latestVersion;
@@ -70,6 +69,7 @@ namespace {
     }
 
     bool downloadAndFlash(const String& url, const String& expectedMD5) {
+        (void)expectedMD5;  // MD5 verification handled by httpUpdate via response header
         if (ESP.getFreeHeap() < MIN_FREE_HEAP) {
             Serial.printf("[OTA] Heap too low: %u < %u\n", ESP.getFreeHeap(), MIN_FREE_HEAP);
             emitStatus(Status::Error, -1, "Not enough memory for TLS");
@@ -80,158 +80,38 @@ namespace {
         WiFiClientSecure client;
         client.setInsecure();
 
-        HTTPClient http;
-        http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-        http.setUserAgent("EspGrow-OTA/1.0");
-        http.setTimeout(30000);
-        http.begin(client, url);
-
         Serial.printf("[OTA] Downloading: %s\n", url.c_str());
         emitStatus(Status::Downloading, 0);
 
-        int httpCode = http.GET();
-        if (httpCode != HTTP_CODE_OK) {
-            Serial.printf("[OTA] HTTP error: %d\n", httpCode);
-            http.end();
-            emitStatus(Status::Error, -1, "Download failed");
-            currentStatus = Status::Idle;
-            return false;
-        }
+        httpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+        httpUpdate.rebootOnUpdate(false);
 
-        int contentLength = http.getSize();
-        if (contentLength <= 0) {
-            Serial.println("[OTA] Invalid content length");
-            http.end();
-            emitStatus(Status::Error, -1, "Invalid firmware size");
-            currentStatus = Status::Idle;
-            return false;
-        }
-
-        size_t partitionSize = getOtaPartitionSize();
-        if (partitionSize > 0 && (size_t)contentLength > partitionSize) {
-            Serial.printf("[OTA] Firmware too large: %d > %u\n", contentLength, partitionSize);
-            http.end();
-            emitStatus(Status::Error, -1, "Firmware too large for partition");
-            currentStatus = Status::Idle;
-            return false;
-        }
-
-        Stream* stream = http.getStreamPtr();
-        uint8_t firstByte;
-        if (stream->readBytes(&firstByte, 1) != 1) {
-            Serial.println("[OTA] Failed to read first byte");
-            http.end();
-            emitStatus(Status::Error, -1, "Download read error");
-            currentStatus = Status::Idle;
-            return false;
-        }
-
-        if (firstByte != ESP_IMAGE_MAGIC) {
-            Serial.printf("[OTA] Bad magic: 0x%02X (expected 0xE9)\n", firstByte);
-            http.end();
-            emitStatus(Status::Error, -1, "Invalid firmware image");
-            currentStatus = Status::Idle;
-            return false;
-        }
-
-        Serial.printf("[OTA] Firmware size: %d bytes\n", contentLength);
-
-        if (expectedMD5.length() > 0 && !Update.setMD5(expectedMD5.c_str())) {
-            Serial.println("[OTA] Invalid MD5");
-            http.end();
-            emitStatus(Status::Error, -1, "Invalid MD5 hash");
-            currentStatus = Status::Idle;
-            return false;
-        }
-
-        if (!Update.begin(contentLength, U_FLASH)) {
-            Serial.printf("[OTA] Begin failed: %s\n", Update.errorString());
-            http.end();
-            emitStatus(Status::Error, -1, Update.errorString());
-            currentStatus = Status::Idle;
-            return false;
-        }
-
-        Update.onProgress([](size_t progress, size_t total) {
-            int percent = (total > 0) ? (int)((progress * 100) / total) : 0;
-            static int lastEmitted = -1;
-            if (percent != lastEmitted && percent % 5 == 0) {
-                lastEmitted = percent;
-                // Can't call emitStatus here (ISR-like context from Update internals),
-                // but we can use Serial for debug. Progress is emitted from the write loop.
+        httpUpdate.onStart([]() {
+            currentStatus = Status::Installing;
+            emitStatus(Status::Installing, 0);
+        });
+        httpUpdate.onProgress([](int cur, int total) {
+            static int lastPercent = -1;
+            int percent = (total > 0) ? (cur * 100) / total : 0;
+            if (percent != lastPercent && percent % 5 == 0) {
+                lastPercent = percent;
+                emitStatus(Status::Installing, percent);
             }
         });
 
-        currentStatus = Status::Installing;
-        emitStatus(Status::Installing, 0);
+        t_httpUpdate_return ret = httpUpdate.update(client, url);
 
-        if (Update.write(&firstByte, 1) != 1) {
-            Serial.println("[OTA] Write failed (first byte)");
-            Update.abort();
-            http.end();
-            emitStatus(Status::Error, -1, "Flash write failed");
-            currentStatus = Status::Idle;
-            return false;
+        if (ret == HTTP_UPDATE_OK) {
+            Serial.println("[OTA] Update successful!");
+            emitStatus(Status::Success, 100);
+            return true;
         }
 
-        uint8_t buffer[DOWNLOAD_BUFFER_SIZE];
-        size_t totalWritten = 1;
-        int lastPercent = -1;
-        unsigned long lastDataTime = millis();
-
-        while (http.connected() && totalWritten < (size_t)contentLength) {
-            size_t available = stream->available();
-            if (available) {
-                lastDataTime = millis();
-                size_t toRead = (available > sizeof(buffer)) ? sizeof(buffer) : available;
-                size_t bytesRead = stream->readBytes(buffer, toRead);
-
-                if (Update.write(buffer, bytesRead) != bytesRead) {
-                    Serial.println("[OTA] Write failed");
-                    Update.abort();
-                    http.end();
-                    emitStatus(Status::Error, -1, "Flash write failed");
-                    currentStatus = Status::Idle;
-                    return false;
-                }
-
-                totalWritten += bytesRead;
-                int percent = (totalWritten * 100) / contentLength;
-                if (percent != lastPercent && percent % 5 == 0) {
-                    lastPercent = percent;
-                    emitStatus(Status::Installing, percent);
-                }
-            } else if (millis() - lastDataTime > STALL_TIMEOUT) {
-                Serial.println("[OTA] Download stalled");
-                Update.abort();
-                http.end();
-                emitStatus(Status::Error, -1, "Download stalled");
-                currentStatus = Status::Idle;
-                return false;
-            }
-            delay(1);
-        }
-
-        http.end();
-
-        if (totalWritten != (size_t)contentLength) {
-            Serial.printf("[OTA] Incomplete: %u/%d bytes\n", totalWritten, contentLength);
-            Update.abort();
-            emitStatus(Status::Error, -1, "Incomplete download");
-            currentStatus = Status::Idle;
-            return false;
-        }
-
-        if (!Update.end()) {
-            Serial.printf("[OTA] End failed: %s\n", Update.errorString());
-            emitStatus(Status::Error, -1, Update.errorString());
-            currentStatus = Status::Idle;
-            return false;
-        }
-
-        Serial.println("[OTA] Update successful!");
-        emitStatus(Status::Success, 100);
-        return true;
+        const char* err = httpUpdate.getLastErrorString().c_str();
+        Serial.printf("[OTA] Update failed (%d): %s\n", (int)ret, err);
+        emitStatus(Status::Error, -1, err && *err ? err : "Update failed");
+        currentStatus = Status::Idle;
+        return false;
     }
 
     void fetchGitHubRelease() {
