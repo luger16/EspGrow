@@ -13,6 +13,7 @@
 		sensors,
 		sensorReadings,
 		requestHistory,
+		isHistoryStale,
 		getSensorHistory,
 		historyVersion,
 	} from "$lib/stores/sensors.svelte";
@@ -129,7 +130,7 @@
 		const interval = setInterval(() => {
 			if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 			for (const id of allRequestIds()) {
-				requestHistory(id, range, true);
+				if (isHistoryStale(id, range)) requestHistory(id, range, true);
 			}
 		}, REFRESH_MS);
 

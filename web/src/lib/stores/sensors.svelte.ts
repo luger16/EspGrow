@@ -193,6 +193,19 @@ export function requestHistory(sensorId: string, range: HistoryRange, force = fa
 	websocket.send("get_history", { sensorId, range });
 }
 
+const STALE_AFTER_MS: Record<HistoryRange, number> = {
+	"6h": 120 * 1000,
+	"24h": 600 * 1000,
+	"7d": 3600 * 1000,
+};
+
+export function isHistoryStale(sensorId: string, range: HistoryRange): boolean {
+	const points = sensorHistory[sensorId]?.[range];
+	if (!points?.length) return true;
+	const last = points[points.length - 1];
+	return Date.now() - last.date.getTime() > STALE_AFTER_MS[range];
+}
+
 export function clearSensorHistory(): void {
 	pendingHistory.clear();
 	for (const key of Object.keys(sensorHistory)) {
