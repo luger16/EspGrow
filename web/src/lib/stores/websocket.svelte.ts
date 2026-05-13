@@ -23,10 +23,13 @@ const RECONNECT_BASE = 3000;
 const RECONNECT_MAX = 10000;
 const HEARTBEAT_CHECK_MS = 5000;
 const HEARTBEAT_TIMEOUT_MS = 15000;
+const PENDING_QUEUE_MAX = 64;
 const handlers = new Map<string, MessageHandler[]>();
 let pendingMessages: Array<{ type: string; payload?: Record<string, unknown> }> = [];
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let lastMessageTime = 0;
+let visibilityListener: (() => void) | null = null;
+let storedUrl: string | undefined;
 
 function stopHeartbeat(): void {
 	if (heartbeatInterval) {
@@ -35,7 +38,7 @@ function stopHeartbeat(): void {
 	}
 }
 
-function startHeartbeat(url?: string): void {
+function startHeartbeat(): void {
 	stopHeartbeat();
 	heartbeatInterval = setInterval(() => {
 		if (ws?.readyState === WebSocket.OPEN && Date.now() - lastMessageTime > HEARTBEAT_TIMEOUT_MS) {
@@ -58,6 +61,7 @@ export function connect(url?: string): void {
 	if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
 
 	shouldReconnect = true;
+	storedUrl = url;
 	const wsUrl = url || getWebSocketUrl();
 	if (!wsUrl) return;
 
@@ -73,7 +77,7 @@ export function connect(url?: string): void {
 		state.connectCount++;
 		reconnectDelay = RECONNECT_BASE;
 		lastMessageTime = Date.now();
-		startHeartbeat(url);
+		startHeartbeat();
 		for (const msg of pendingMessages) {
 			const frame: Record<string, unknown> = { type: msg.type };
 			if (msg.payload && Object.keys(msg.payload).length > 0) {
@@ -88,8 +92,8 @@ export function connect(url?: string): void {
 		state.connected = false;
 		ws = null;
 		stopHeartbeat();
-		if (shouldReconnect) {
-			reconnectTimeout = setTimeout(() => connect(url), reconnectDelay);
+		if (shouldReconnect && !isHidden()) {
+			reconnectTimeout = setTimeout(() => connect(storedUrl), reconnectDelay);
 			reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX);
 		}
 	};
@@ -131,6 +135,7 @@ export function connect(url?: string): void {
 export function disconnect(): void {
 	shouldReconnect = false;
 	stopHeartbeat();
+	teardownVisibility();
 	if (reconnectTimeout) {
 		clearTimeout(reconnectTimeout);
 		reconnectTimeout = null;
@@ -142,6 +147,43 @@ export function disconnect(): void {
 	state.connected = false;
 }
 
+function isHidden(): boolean {
+	return typeof document !== "undefined" && document.visibilityState === "hidden";
+}
+
+export function setupVisibility(): () => void {
+	if (typeof document === "undefined") return () => {};
+	teardownVisibility();
+	const handler = () => {
+		if (document.visibilityState === "hidden") {
+			stopHeartbeat();
+			if (reconnectTimeout) {
+				clearTimeout(reconnectTimeout);
+				reconnectTimeout = null;
+			}
+		} else {
+			lastMessageTime = Date.now();
+			if (ws?.readyState === WebSocket.OPEN) {
+				startHeartbeat();
+				send("ping");
+			} else {
+				reconnectDelay = RECONNECT_BASE;
+				connect(storedUrl);
+			}
+		}
+	};
+	document.addEventListener("visibilitychange", handler);
+	visibilityListener = () => document.removeEventListener("visibilitychange", handler);
+	return teardownVisibility;
+}
+
+function teardownVisibility(): void {
+	if (visibilityListener) {
+		visibilityListener();
+		visibilityListener = null;
+	}
+}
+
 export function send(type: string, payload?: Record<string, unknown>): void {
 	const frame: Record<string, unknown> = { type };
 	if (payload && Object.keys(payload).length > 0) {
@@ -151,6 +193,9 @@ export function send(type: string, payload?: Record<string, unknown>): void {
 		ws.send(JSON.stringify(frame));
 	} else {
 		pendingMessages.push({ type, payload });
+		if (pendingMessages.length > PENDING_QUEUE_MAX) {
+			pendingMessages.splice(0, pendingMessages.length - PENDING_QUEUE_MAX);
+		}
 	}
 }
 
@@ -183,4 +228,5 @@ export const websocket = {
 	disconnect,
 	send,
 	on,
+	setupVisibility,
 };

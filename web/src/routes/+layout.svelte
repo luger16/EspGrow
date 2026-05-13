@@ -19,6 +19,7 @@
 	onMount(() => {
 		initTheme();
 		websocket.connect();
+		const teardownVisibility = websocket.setupVisibility();
 		initSensorWebSocket();
 		initDeviceWebSocket();
 		initDeviceModesWebSocket();
@@ -26,7 +27,10 @@
 		initEnergyWebSocket();
 		websocket.send("get_init");
 		websocket.send("get_events");
-		return () => websocket.disconnect();
+		return () => {
+			teardownVisibility();
+			websocket.disconnect();
+		};
 	});
 
 	$effect(() => {
