@@ -7,6 +7,46 @@ export const sensorHistory = $state<Record<string, Record<string, HistoricalRead
 export const historyVersion = $state({ value: 0 });
 export const spectralData = $state<{ current: SpectralData | null }>({ current: null });
 
+const pendingReadings = new Map<string, SensorReading>();
+const pendingHistory = new Map<string, HistoricalReading[]>();
+let pendingSpectral: SpectralData | null = null;
+let flushHandle: number | null = null;
+
+function scheduleFlush(): void {
+	if (flushHandle !== null) return;
+	if (typeof requestAnimationFrame === "undefined") {
+		flushHandle = setTimeout(flush, 16) as unknown as number;
+		return;
+	}
+	flushHandle = requestAnimationFrame(flush);
+}
+
+function flush(): void {
+	flushHandle = null;
+	if (pendingReadings.size > 0) {
+		for (const [id, reading] of pendingReadings) {
+			sensorReadings[id] = reading;
+		}
+		pendingReadings.clear();
+	}
+	if (pendingHistory.size > 0) {
+		for (const [key, points] of pendingHistory) {
+			const sep = key.indexOf("|");
+			const sensorId = key.slice(0, sep);
+			const range = key.slice(sep + 1);
+			if (!sensorHistory[sensorId]) {
+				sensorHistory[sensorId] = {};
+			}
+			sensorHistory[sensorId][range] = points;
+		}
+		pendingHistory.clear();
+	}
+	if (pendingSpectral) {
+		spectralData.current = pendingSpectral;
+		pendingSpectral = null;
+	}
+}
+
 interface PpfdCalibration {
 	factor: number;
 	loading: boolean;
@@ -61,11 +101,12 @@ function decodeHistoryPoints(data: Uint8Array): HistoricalReading[] {
 }
 
 export function updateSensorReading(sensorId: string, value: number, timestamp?: unknown): void {
-	sensorReadings[sensorId] = {
+	pendingReadings.set(sensorId, {
 		sensorId,
 		value: Math.round(value * 10) / 10,
 		timestamp: parseTimestamp(timestamp),
-	};
+	});
+	scheduleFlush();
 }
 
 export function initSensorWebSocket(): void {
@@ -99,10 +140,11 @@ export function initSensorWebSocket(): void {
 				);
 
 				if (Array.isArray(reading.channels)) {
-					spectralData.current = {
+					pendingSpectral = {
 						channels: reading.channels as number[],
 						timestamp: now,
 					};
+					scheduleFlush();
 				}
 			}
 		}
@@ -126,10 +168,8 @@ export function initSensorWebSocket(): void {
 		}
 		const points = decodeHistoryPoints(bytes);
 
-		if (!sensorHistory[msg.sensorId]) {
-			sensorHistory[msg.sensorId] = {};
-		}
-		sensorHistory[msg.sensorId][msg.range as HistoryRange] = points;
+		pendingHistory.set(`${msg.sensorId}|${msg.range}`, points);
+		scheduleFlush();
 	});
 
 	websocket.on("ppfd_calibration", (data: unknown) => {
@@ -154,6 +194,7 @@ export function requestHistory(sensorId: string, range: HistoryRange, force = fa
 }
 
 export function clearSensorHistory(): void {
+	pendingHistory.clear();
 	for (const key of Object.keys(sensorHistory)) {
 		delete sensorHistory[key];
 	}
