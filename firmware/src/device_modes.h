@@ -45,14 +45,6 @@ struct DeviceModeConfig {
     ScheduleConfig schedule;
 };
 
-struct DayNightConfig {
-    char dayStartTime[6];   // HH:MM
-    char nightStartTime[6]; // HH:MM
-    float lightThreshold;
-    float lightDeadzone;
-    bool useSchedule;
-};
-
 void init();
 void loop(const std::map<String, float>& sensorReadings);
 void onDeviceControlResult(const char* deviceId, bool success, bool requestedState, bool actualState);
@@ -65,8 +57,6 @@ void getModesJson(String& out);
 const char* getDeviceMode(const char* deviceId);
 
 bool isDaytime();
-void getDayNightConfigJson(String& out);
-bool setDayNightConfig(JsonDocument& doc);
 
 const char* modeToString(Mode mode);
 Mode stringToMode(const char* str);

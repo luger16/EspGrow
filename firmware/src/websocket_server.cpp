@@ -173,24 +173,20 @@ void init() {
         JsonDocument doc;
         JsonDocument sub;
 
-        const char* files[] = {"/devices.json", "/device_modes.json", "/daynight.json", "/sensors.json", "/energy.json", "/climate.json"};
-        const char* keys[] = {"devices", "device_modes", "daynight", "sensors", "energy", "climate"};
-        
-        for (int i = 0; i < 6; i++) {
+        const char* files[] = {"/devices.json", "/device_modes.json", "/sensors.json", "/energy.json", "/climate.json"};
+        const char* keys[] = {"devices", "device_modes", "sensors", "energy", "climate"};
+
+        for (int i = 0; i < 5; i++) {
             sub.clear();
             if (Storage::readJson(files[i], sub)) {
-                // daynight.json and climate.json are objects, others are arrays
-                if (i == 2 || i == 5) {
+                // climate.json is an object, others are arrays
+                if (i == 4) {
                     doc[keys[i]] = sub.as<JsonObject>();
                 } else {
                     doc[keys[i]] = sub.as<JsonArray>();
                 }
             } else {
-                if (i == 2) {
-                    doc[keys[i]] = JsonObject();
-                } else {
-                    doc[keys[i]] = JsonArray();
-                }
+                doc[keys[i]] = JsonArray();
             }
         }
 
@@ -226,12 +222,6 @@ void init() {
         sub.clear();
         sub.set(obj["device_modes"]);
         success &= Storage::writeJson("/device_modes.json", sub);
-
-        if (obj["daynight"].is<JsonObject>()) {
-            sub.clear();
-            sub.set(obj["daynight"]);
-            success &= Storage::writeJson("/daynight.json", sub);
-        }
 
         sub.clear();
         sub.set(obj["sensors"]);
@@ -280,18 +270,6 @@ void init() {
             DeviceModes::getModesJson(jsonStr);
             deserializeJson(dataDoc, jsonStr);
             broadcastDoc["data"] = dataDoc.as<JsonArray>();
-            serializeJson(broadcastDoc, output);
-            broadcast(output);
-            
-            broadcastDoc.clear();
-            dataDoc.clear();
-            jsonStr.clear();
-            output.clear();
-            
-            broadcastDoc["type"] = "daynight_config";
-            DeviceModes::getDayNightConfigJson(jsonStr);
-            deserializeJson(dataDoc, jsonStr);
-            broadcastDoc["data"] = dataDoc.as<JsonObject>();
             serializeJson(broadcastDoc, output);
             broadcast(output);
             

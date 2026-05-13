@@ -414,7 +414,6 @@
 					<p class="text-sm font-medium">Climate Settings</p>
 					<p class="text-xs text-muted-foreground">
 						{climateConfig.activePhase.charAt(0).toUpperCase() + climateConfig.activePhase.slice(1)} phase
-						· {climateConfig.dayNightMode === "auto" ? "Auto" : "Manual"} day/night
 					</p>
 				</div>
 				<ChevronRightIcon class="size-4 text-muted-foreground" />

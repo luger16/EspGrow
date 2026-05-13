@@ -70,14 +70,6 @@ export interface DeviceModeConfig {
 	schedule?: ScheduleConfig;
 }
 
-export interface DayNightConfig {
-	dayStartTime: string;
-	nightStartTime: string;
-	lightThreshold: number;
-	useSchedule: boolean;
-	isDaytime?: boolean;
-}
-
 export interface SystemInfo {
 	uptime: number;
 	freeHeap: number;
@@ -104,9 +96,6 @@ export interface PhaseTargets {
 export interface ClimateConfig {
 	activePhase: ClimatePhase;
 	phases: Record<ClimatePhase, PhaseTargets>;
-	dayNightMode: "auto" | "manual";
-	manualSchedule?: { dayStart: string; nightStart: string };
-	lightThreshold: number;
 	phaseStartDate?: string;
 }
 
@@ -118,14 +107,6 @@ export interface ClimateAlert {
 	target: { min: number; max: number };
 	severity: "warning" | "critical";
 	timestamp: Date;
-}
-
-export interface ClimateStatus {
-	isDay: boolean;
-	healthScore: number;
-	sensorStatuses: Record<string, SensorStatus>;
-	currentTargets: PhaseTargets;
-	latestAlert?: ClimateAlert;
 }
 
 // System events (unified event history)

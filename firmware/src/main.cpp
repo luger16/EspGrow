@@ -62,22 +62,6 @@ namespace {
         sendMessage(out, clientId);
     }
 
-    void sendDayNightConfig(uint32_t clientId = 0) {
-        JsonDocument doc;
-        doc["type"] = "daynight_config";
-        
-        String configJson;
-        DeviceModes::getDayNightConfigJson(configJson);
-        
-        JsonDocument dataDoc;
-        deserializeJson(dataDoc, configJson);
-        doc["data"] = dataDoc;
-        
-        String out;
-        serializeJson(doc, out);
-        sendMessage(out, clientId);
-    }
-
     void sendDevices(uint32_t clientId = 0) {
         Devices::computeControlModes();
         
@@ -265,7 +249,6 @@ namespace {
             sendSensors(clientId);
             sendDevices(clientId);
             sendDeviceModes(clientId);
-            sendDayNightConfig(clientId);
             sendClimateConfig(clientId);
             sendEnergy(clientId);
             sendDli(clientId);
@@ -279,7 +262,6 @@ namespace {
         }
         else if (strcmp(type, "get_device_modes") == 0) {
             sendDeviceModes(clientId);
-            sendDayNightConfig(clientId);
         }
         else if (strcmp(type, "get_devices") == 0) {
             sendDevices(clientId);
@@ -362,17 +344,6 @@ namespace {
                 sendDeviceModes();
                 sendDevices();
             }
-        }
-        else if (strcmp(type, "set_daynight_config") == 0) {
-            JsonDocument configDoc;
-            if (payload["useSchedule"].is<bool>()) configDoc["useSchedule"] = payload["useSchedule"];
-            if (payload["dayStartTime"].is<const char*>()) configDoc["dayStartTime"] = payload["dayStartTime"];
-            if (payload["nightStartTime"].is<const char*>()) configDoc["nightStartTime"] = payload["nightStartTime"];
-            if (payload["lightThreshold"].is<float>()) configDoc["lightThreshold"] = payload["lightThreshold"];
-            if (payload["lightHysteresis"].is<float>()) configDoc["lightHysteresis"] = payload["lightHysteresis"];
-            
-            DeviceModes::setDayNightConfig(configDoc);
-            sendDayNightConfig();
         }
         else if (strcmp(type, "add_device") == 0) {
             JsonDocument deviceDoc;

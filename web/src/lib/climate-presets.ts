@@ -36,6 +36,4 @@ export const DEFAULT_PHASE_TARGETS: Record<ClimatePhase, PhaseTargets> = PHASE_T
 export const DEFAULT_CLIMATE_CONFIG: ClimateConfig = {
 	activePhase: "veg",
 	phases: PHASE_TARGETS,
-	dayNightMode: "auto",
-	lightThreshold: 50,
 };

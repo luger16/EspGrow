@@ -173,10 +173,6 @@ void getConfigJson(String& out) {
         p["dli"] = t.dli;
     }
 
-    // Include dayNightMode info — web needs this
-    doc["dayNightMode"] = "auto";
-    doc["lightThreshold"] = 50;
-
     serializeJson(doc, out);
 }
 

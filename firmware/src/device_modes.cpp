@@ -13,12 +13,17 @@ namespace DeviceModes {
 
 namespace {
     const char* MODES_PATH = "/device_modes.json";
-    const char* DAYNIGHT_PATH = "/daynight.json";
     const unsigned long EVAL_INTERVAL = 2000;
     const unsigned long MIN_CYCLE_SEC = 5;
 
+    // Day/night detection — light-sensor first with hardcoded fallback schedule.
+    // Industry-standard hysteresis to prevent flapping at threshold.
+    constexpr float LIGHT_THRESHOLD = 10.0f;
+    constexpr float LIGHT_DEADZONE = 5.0f;
+    constexpr const char* DAY_START = "06:00";
+    constexpr const char* NIGHT_START = "22:00";
+
     std::vector<DeviceModeConfig> configs;
-    DayNightConfig dayNightConfig;
     bool currentDaytime = true;
     bool firstEvalDone = false;
 
@@ -146,12 +151,6 @@ namespace {
     }
 
     void updateDayNight(const std::map<String, float>& readings) {
-        if (dayNightConfig.useSchedule) {
-            currentDaytime = TimeUtils::isTimeInRange(
-                dayNightConfig.dayStartTime, dayNightConfig.nightStartTime);
-            return;
-        }
-
         float light = NAN;
         for (const auto& pair : readings) {
             SensorConfig::Sensor* cfg = SensorConfig::getSensor(pair.first.c_str());
@@ -162,18 +161,17 @@ namespace {
         }
 
         if (std::isnan(light)) {
-            currentDaytime = TimeUtils::isTimeInRange(
-                dayNightConfig.dayStartTime, dayNightConfig.nightStartTime);
+            currentDaytime = TimeUtils::isTimeInRange(DAY_START, NIGHT_START);
             return;
         }
 
         if (currentDaytime) {
-            if (light < dayNightConfig.lightThreshold - dayNightConfig.lightDeadzone) {
+            if (light < LIGHT_THRESHOLD - LIGHT_DEADZONE) {
                 currentDaytime = false;
                 Serial.println("[DeviceModes] Day -> Night (light sensor)");
             }
         } else {
-            if (light > dayNightConfig.lightThreshold + dayNightConfig.lightDeadzone) {
+            if (light > LIGHT_THRESHOLD + LIGHT_DEADZONE) {
                 currentDaytime = true;
                 Serial.println("[DeviceModes] Night -> Day (light sensor)");
             }
@@ -374,40 +372,9 @@ namespace {
 
         Serial.printf("[DeviceModes] Loaded %d mode configs\n", configs.size());
     }
-
-    void loadDayNightConfig() {
-        dayNightConfig.useSchedule = false;
-        strlcpy(dayNightConfig.dayStartTime, "06:00", sizeof(dayNightConfig.dayStartTime));
-        strlcpy(dayNightConfig.nightStartTime, "22:00", sizeof(dayNightConfig.nightStartTime));
-        dayNightConfig.lightThreshold = 10.0f;
-        dayNightConfig.lightDeadzone = 5.0f;
-
-        JsonDocument doc;
-        if (!Storage::readJson(DAYNIGHT_PATH, doc)) return;
-
-        if (doc["useSchedule"].is<bool>()) dayNightConfig.useSchedule = doc["useSchedule"];
-        if (doc["dayStartTime"].is<const char*>()) strlcpy(dayNightConfig.dayStartTime, doc["dayStartTime"], sizeof(dayNightConfig.dayStartTime));
-        if (doc["nightStartTime"].is<const char*>()) strlcpy(dayNightConfig.nightStartTime, doc["nightStartTime"], sizeof(dayNightConfig.nightStartTime));
-        if (doc["lightThreshold"].is<float>()) dayNightConfig.lightThreshold = doc["lightThreshold"];
-        if (doc["lightDeadzone"].is<float>()) dayNightConfig.lightDeadzone = doc["lightDeadzone"];
-
-        Serial.printf("[DeviceModes] Day/night config: %s, threshold=%.1f\n",
-            dayNightConfig.useSchedule ? "schedule" : "light", dayNightConfig.lightThreshold);
-    }
-
-    void saveDayNightConfig() {
-        JsonDocument doc;
-        doc["useSchedule"] = dayNightConfig.useSchedule;
-        doc["dayStartTime"] = dayNightConfig.dayStartTime;
-        doc["nightStartTime"] = dayNightConfig.nightStartTime;
-        doc["lightThreshold"] = dayNightConfig.lightThreshold;
-        doc["lightDeadzone"] = dayNightConfig.lightDeadzone;
-        Storage::writeJson(DAYNIGHT_PATH, doc);
-    }
 }
 
 void init() {
-    loadDayNightConfig();
     loadModes();
     Serial.println("[DeviceModes] Initialized");
 }
@@ -583,28 +550,6 @@ const char* getDeviceMode(const char* deviceId) {
 
 bool isDaytime() {
     return currentDaytime;
-}
-
-void getDayNightConfigJson(String& out) {
-    JsonDocument doc;
-    doc["useSchedule"] = dayNightConfig.useSchedule;
-    doc["dayStartTime"] = dayNightConfig.dayStartTime;
-    doc["nightStartTime"] = dayNightConfig.nightStartTime;
-    doc["lightThreshold"] = dayNightConfig.lightThreshold;
-    doc["lightDeadzone"] = dayNightConfig.lightDeadzone;
-    doc["isDaytime"] = currentDaytime;
-    serializeJson(doc, out);
-}
-
-bool setDayNightConfig(JsonDocument& doc) {
-    if (doc["useSchedule"].is<bool>()) dayNightConfig.useSchedule = doc["useSchedule"];
-    if (doc["dayStartTime"].is<const char*>()) strlcpy(dayNightConfig.dayStartTime, doc["dayStartTime"], sizeof(dayNightConfig.dayStartTime));
-    if (doc["nightStartTime"].is<const char*>()) strlcpy(dayNightConfig.nightStartTime, doc["nightStartTime"], sizeof(dayNightConfig.nightStartTime));
-    if (doc["lightThreshold"].is<float>()) dayNightConfig.lightThreshold = doc["lightThreshold"];
-    if (doc["lightDeadzone"].is<float>()) dayNightConfig.lightDeadzone = doc["lightDeadzone"];
-    saveDayNightConfig();
-    Serial.printf("[DeviceModes] Updated day/night config\n");
-    return true;
 }
 
 const char* modeToString(Mode mode) {

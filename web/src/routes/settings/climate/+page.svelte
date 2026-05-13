@@ -9,9 +9,6 @@
 	import {
 		climateConfig,
 		setActivePhase,
-		setDayNightMode,
-		setManualSchedule,
-		setLightThreshold,
 		updatePhaseTargets,
 		resetPhaseTargets,
 	} from "$lib/stores/climate.svelte";
@@ -27,11 +24,6 @@
 		{ value: "veg", label: "Vegetative" },
 		{ value: "flower", label: "Flower" },
 		{ value: "dry", label: "Drying" },
-	];
-
-	const dayNightOptions: { value: "auto" | "manual"; label: string }[] = [
-		{ value: "auto", label: "Auto (light sensor)" },
-		{ value: "manual", label: "Manual schedule" },
 	];
 
 	const hasAs7341 = $derived(sensors.some((s) => s.hardwareType === "as7341"));
@@ -196,76 +188,6 @@
 						onchange={(e) => updateDliTarget(Number((e.target as HTMLInputElement).value))}
 						class="h-7 w-20 text-xs"
 					/>
-				</div>
-			{/if}
-		</div>
-	</section>
-
-	<section>
-		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Day/Night Detection</h2>
-		<div class="divide-y divide-border rounded-lg border">
-			<div class="flex items-center justify-between p-3">
-				<Label>Mode</Label>
-				<Tabs.Root
-					value={climateConfig.dayNightMode}
-					onValueChange={(v) => v && setDayNightMode(v as "auto" | "manual")}
-				>
-					<Tabs.List class="h-7">
-						{#each dayNightOptions as option (option.value)}
-							<Tabs.Trigger value={option.value} class="px-2 text-xs">{option.label}</Tabs.Trigger>
-						{/each}
-					</Tabs.List>
-				</Tabs.Root>
-			</div>
-			{#if climateConfig.dayNightMode === "manual"}
-				<div class="flex items-center justify-between p-3">
-					<Label class="text-muted-foreground">Schedule</Label>
-					<div class="flex items-center gap-3">
-						<div class="flex items-center gap-1.5">
-							<SunIcon class="size-3.5 text-muted-foreground" />
-							<Input
-								type="time"
-								value={climateConfig.manualSchedule?.dayStart || "06:00"}
-								onchange={(e) => {
-									const target = e.target as HTMLInputElement;
-									const dayStart = target.value;
-									const nightStart = climateConfig.manualSchedule?.nightStart || "18:00";
-									setManualSchedule(dayStart, nightStart);
-								}}
-								class="h-7 w-24 text-xs"
-							/>
-						</div>
-						<div class="flex items-center gap-1.5">
-							<MoonIcon class="size-3.5 text-muted-foreground" />
-							<Input
-								type="time"
-								value={climateConfig.manualSchedule?.nightStart || "18:00"}
-								onchange={(e) => {
-									const target = e.target as HTMLInputElement;
-									const nightStart = target.value;
-									const dayStart = climateConfig.manualSchedule?.dayStart || "06:00";
-									setManualSchedule(dayStart, nightStart);
-								}}
-								class="h-7 w-24 text-xs"
-							/>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<div class="flex items-center justify-between p-3">
-					<Label class="text-muted-foreground">Threshold</Label>
-					<div class="flex items-center gap-2">
-						<Input
-							type="number"
-							value={climateConfig.lightThreshold}
-							onchange={(e) => {
-								const target = e.target as HTMLInputElement;
-								setLightThreshold(Number(target.value));
-							}}
-							class="h-7 w-20 text-xs"
-						/>
-						<span class="text-xs text-muted-foreground">PPFD</span>
-					</div>
 				</div>
 			{/if}
 		</div>
