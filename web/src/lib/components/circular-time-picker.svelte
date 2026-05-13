@@ -43,7 +43,7 @@
 
 	function degreesToMinutes(degrees: number): number {
 		const norm = ((degrees % 360) + 360) % 360;
-		return Math.round((norm / 360) * TOTAL_MINUTES / STEP_MINUTES) * STEP_MINUTES;
+		return Math.round(((norm / 360) * TOTAL_MINUTES) / STEP_MINUTES) * STEP_MINUTES;
 	}
 
 	function polarToCartesian(angleDeg: number, r: number): { x: number; y: number } {
@@ -206,7 +206,7 @@
 
 		event.preventDefault();
 		const current = handle === "start" ? startMinutes : endMinutes;
-		const next = ((current + delta) % TOTAL_MINUTES + TOTAL_MINUTES) % TOTAL_MINUTES;
+		const next = (((current + delta) % TOTAL_MINUTES) + TOTAL_MINUTES) % TOTAL_MINUTES;
 		const time = minutesToTime(next);
 
 		if (handle === "start") {
@@ -227,11 +227,13 @@
 		return { p1, p2, isMajor, hour: i };
 	});
 
-	let hourLabels = $derived([0, 6, 12, 18].map((h) => {
-		const deg = (h / 24) * 360;
-		const pos = polarToCartesian(deg, tickOuterRadius + (is12h ? 14 : 10));
-		return { hour: h, ...pos };
-	}));
+	let hourLabels = $derived(
+		[0, 6, 12, 18].map((h) => {
+			const deg = (h / 24) * 360;
+			const pos = polarToCartesian(deg, tickOuterRadius + (is12h ? 14 : 10));
+			return { hour: h, ...pos };
+		})
+	);
 </script>
 
 <div class="flex flex-col items-center gap-2">
@@ -240,7 +242,9 @@
 		viewBox="0 0 {size} {size}"
 		class="w-full max-w-[280px] touch-none select-none"
 		role="group"
-		aria-label="Schedule time range: {formatDisplayTime(startTime)} to {formatDisplayTime(endTime)}, active for {durationText}"
+		aria-label="Schedule time range: {formatDisplayTime(startTime)} to {formatDisplayTime(
+			endTime
+		)}, active for {durationText}"
 		onpointermove={handlePointerMove}
 		onpointerup={handlePointerUp}
 		onpointerleave={handlePointerUp}
@@ -251,14 +255,7 @@
 			</filter>
 		</defs>
 
-		<circle
-			cx={cx}
-			cy={cy}
-			r={radius}
-			fill="none"
-			class="stroke-muted"
-			stroke-width={trackWidth}
-		/>
+		<circle {cx} {cy} r={radius} fill="none" class="stroke-muted" stroke-width={trackWidth} />
 
 		<path
 			d={arcPath}
@@ -332,8 +329,14 @@
 			onpointerdown={(e) => handlePointerDown("start", e)}
 			onkeydown={(e) => handleKeyDown("start", e)}
 		/>
-		<g transform="translate({startPos.x - 4}, {startPos.y - 4.5}) scale(0.375)" class="pointer-events-none">
-			<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" class="fill-muted-foreground" />
+		<g
+			transform="translate({startPos.x - 4}, {startPos.y - 4.5}) scale(0.375)"
+			class="pointer-events-none"
+		>
+			<path
+				d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+				class="fill-muted-foreground"
+			/>
 		</g>
 
 		<circle
@@ -355,7 +358,10 @@
 			onpointerdown={(e) => handlePointerDown("end", e)}
 			onkeydown={(e) => handleKeyDown("end", e)}
 		/>
-		<g transform="translate({endPos.x - 4}, {endPos.y - 4.5}) scale(0.375)" class="pointer-events-none">
+		<g
+			transform="translate({endPos.x - 4}, {endPos.y - 4.5}) scale(0.375)"
+			class="pointer-events-none"
+		>
 			<rect width="18" height="18" x="3" y="3" rx="2" class="fill-muted-foreground" />
 		</g>
 	</svg>

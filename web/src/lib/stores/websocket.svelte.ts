@@ -100,7 +100,7 @@ export function connect(url?: string): void {
 		try {
 			const msg = JSON.parse(event.data);
 			if (typeof msg !== "object" || msg === null || !("type" in msg)) return;
-			
+
 			const type = (msg as { type: unknown }).type;
 			if (typeof type !== "string") return;
 

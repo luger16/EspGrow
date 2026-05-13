@@ -6,7 +6,15 @@
 	import * as Tabs from "$lib/components/ui/tabs/index.js";
 
 	import { sensors } from "$lib/stores/sensors.svelte";
-	import { climateConfig, setActivePhase, setDayNightMode, setManualSchedule, setLightThreshold, updatePhaseTargets, resetPhaseTargets } from "$lib/stores/climate.svelte";
+	import {
+		climateConfig,
+		setActivePhase,
+		setDayNightMode,
+		setManualSchedule,
+		setLightThreshold,
+		updatePhaseTargets,
+		resetPhaseTargets,
+	} from "$lib/stores/climate.svelte";
 	import { DEFAULT_PHASE_TARGETS } from "$lib/climate-presets";
 	import type { ClimatePhase } from "$lib/types";
 	import ArrowLeftIcon from "@lucide/svelte/icons/arrow-left";
@@ -30,9 +38,15 @@
 
 	const activeTargets = $derived(climateConfig.phases[climateConfig.activePhase]);
 	const defaultTargets = $derived(DEFAULT_PHASE_TARGETS[climateConfig.activePhase]);
-	const targetsModified = $derived(JSON.stringify(activeTargets) !== JSON.stringify(defaultTargets));
+	const targetsModified = $derived(
+		JSON.stringify(activeTargets) !== JSON.stringify(defaultTargets)
+	);
 
-	function updateTarget(key: "temp" | "humidity" | "vpd" | "co2", period: "day" | "night", value: number): void {
+	function updateTarget(
+		key: "temp" | "humidity" | "vpd" | "co2",
+		period: "day" | "night",
+		value: number
+	): void {
 		const phase = climateConfig.activePhase;
 		const targets = { ...climateConfig.phases[phase] };
 		targets[key] = { ...targets[key], [period]: value };
@@ -62,7 +76,12 @@
 				<Label>Phase</Label>
 				<div class="flex items-center gap-1.5">
 					{#if targetsModified}
-						<Button variant="ghost" size="sm" class="h-7 gap-1 px-2 text-xs text-muted-foreground" onclick={() => resetPhaseTargets(climateConfig.activePhase)}>
+						<Button
+							variant="ghost"
+							size="sm"
+							class="h-7 gap-1 px-2 text-xs text-muted-foreground"
+							onclick={() => resetPhaseTargets(climateConfig.activePhase)}
+						>
 							<RotateCcwIcon class="size-3" />
 							Reset
 						</Button>
@@ -73,7 +92,8 @@
 					>
 						<Tabs.List class="h-7">
 							{#each phaseOptions as option (option.value)}
-								<Tabs.Trigger value={option.value} class="px-2 text-xs">{option.label}</Tabs.Trigger>
+								<Tabs.Trigger value={option.value} class="px-2 text-xs">{option.label}</Tabs.Trigger
+								>
 							{/each}
 						</Tabs.List>
 					</Tabs.Root>
@@ -83,42 +103,99 @@
 				<Label class="text-muted-foreground">Temp (°C)</Label>
 				<div class="flex items-center gap-2">
 					<SunIcon class="size-3 text-muted-foreground" />
-					<Input type="number" value={activeTargets.temp.day} onchange={(e) => updateTarget("temp", "day", Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						value={activeTargets.temp.day}
+						onchange={(e) =>
+							updateTarget("temp", "day", Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 					<MoonIcon class="size-3 text-muted-foreground" />
-					<Input type="number" value={activeTargets.temp.night} onchange={(e) => updateTarget("temp", "night", Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						value={activeTargets.temp.night}
+						onchange={(e) =>
+							updateTarget("temp", "night", Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 				</div>
 			</div>
 			<div class="flex items-center justify-between p-3">
 				<Label class="text-muted-foreground">Humidity (%)</Label>
 				<div class="flex items-center gap-2">
 					<SunIcon class="size-3 text-muted-foreground" />
-					<Input type="number" value={activeTargets.humidity.day} onchange={(e) => updateTarget("humidity", "day", Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						value={activeTargets.humidity.day}
+						onchange={(e) =>
+							updateTarget("humidity", "day", Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 					<MoonIcon class="size-3 text-muted-foreground" />
-					<Input type="number" value={activeTargets.humidity.night} onchange={(e) => updateTarget("humidity", "night", Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						value={activeTargets.humidity.night}
+						onchange={(e) =>
+							updateTarget("humidity", "night", Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 				</div>
 			</div>
 			<div class="flex items-center justify-between p-3">
 				<Label class="text-muted-foreground">VPD (kPa)</Label>
 				<div class="flex items-center gap-2">
 					<SunIcon class="size-3 text-muted-foreground" />
-					<Input type="number" step="0.1" value={activeTargets.vpd.day} onchange={(e) => updateTarget("vpd", "day", Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						step="0.1"
+						value={activeTargets.vpd.day}
+						onchange={(e) =>
+							updateTarget("vpd", "day", Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 					<MoonIcon class="size-3 text-muted-foreground" />
-					<Input type="number" step="0.1" value={activeTargets.vpd.night} onchange={(e) => updateTarget("vpd", "night", Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						step="0.1"
+						value={activeTargets.vpd.night}
+						onchange={(e) =>
+							updateTarget("vpd", "night", Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 				</div>
 			</div>
 			<div class="flex items-center justify-between p-3">
 				<Label class="text-muted-foreground">CO₂ (ppm)</Label>
 				<div class="flex items-center gap-2">
 					<SunIcon class="size-3 text-muted-foreground" />
-					<Input type="number" step="50" value={activeTargets.co2.day} onchange={(e) => updateTarget("co2", "day", Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						step="50"
+						value={activeTargets.co2.day}
+						onchange={(e) =>
+							updateTarget("co2", "day", Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 					<MoonIcon class="size-3 text-muted-foreground" />
-					<Input type="number" step="50" value={activeTargets.co2.night} onchange={(e) => updateTarget("co2", "night", Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						step="50"
+						value={activeTargets.co2.night}
+						onchange={(e) =>
+							updateTarget("co2", "night", Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 				</div>
 			</div>
 			{#if hasAs7341}
 				<div class="flex items-center justify-between p-3">
 					<Label class="text-muted-foreground">DLI (mol/m²/d)</Label>
-					<Input type="number" value={activeTargets.dli} onchange={(e) => updateDliTarget(Number((e.target as HTMLInputElement).value))} class="h-7 w-20 text-xs" />
+					<Input
+						type="number"
+						value={activeTargets.dli}
+						onchange={(e) => updateDliTarget(Number((e.target as HTMLInputElement).value))}
+						class="h-7 w-20 text-xs"
+					/>
 				</div>
 			{/if}
 		</div>

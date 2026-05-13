@@ -17,7 +17,10 @@ export function setDeviceMode(config: DeviceModeConfig): void {
 		triggers: config.triggers ?? [],
 		cycle: config.cycle,
 		schedule: config.schedule
-			? { startTime: localToUtc(config.schedule.startTime), endTime: localToUtc(config.schedule.endTime) }
+			? {
+					startTime: localToUtc(config.schedule.startTime),
+					endTime: localToUtc(config.schedule.endTime),
+				}
 			: undefined,
 	});
 }
@@ -42,18 +45,23 @@ export function getDeviceMode(deviceId: string): DeviceModeConfig | undefined {
 export function initDeviceModesWebSocket(): void {
 	websocket.on("device_modes", (data: unknown) => {
 		if (!Array.isArray(data)) return;
-		const items = data.filter(
-			(item): item is DeviceModeConfig =>
-				item !== null &&
-				typeof item === "object" &&
-				typeof (item as Record<string, unknown>).deviceId === "string" &&
-				typeof (item as Record<string, unknown>).mode === "string",
-		).map((item) => ({
-			...item,
-			schedule: item.schedule
-				? { startTime: utcToLocal(item.schedule.startTime), endTime: utcToLocal(item.schedule.endTime) }
-				: item.schedule,
-		}));
+		const items = data
+			.filter(
+				(item): item is DeviceModeConfig =>
+					item !== null &&
+					typeof item === "object" &&
+					typeof (item as Record<string, unknown>).deviceId === "string" &&
+					typeof (item as Record<string, unknown>).mode === "string"
+			)
+			.map((item) => ({
+				...item,
+				schedule: item.schedule
+					? {
+							startTime: utcToLocal(item.schedule.startTime),
+							endTime: utcToLocal(item.schedule.endTime),
+						}
+					: item.schedule,
+			}));
 		deviceModes.length = 0;
 		deviceModes.push(...items);
 	});
@@ -61,8 +69,10 @@ export function initDeviceModesWebSocket(): void {
 	websocket.on("daynight_config", (data: unknown) => {
 		if (!data || typeof data !== "object") return;
 		const cfg = data as Record<string, unknown>;
-		if (typeof cfg.dayStartTime === "string") dayNightConfig.dayStartTime = utcToLocal(cfg.dayStartTime);
-		if (typeof cfg.nightStartTime === "string") dayNightConfig.nightStartTime = utcToLocal(cfg.nightStartTime);
+		if (typeof cfg.dayStartTime === "string")
+			dayNightConfig.dayStartTime = utcToLocal(cfg.dayStartTime);
+		if (typeof cfg.nightStartTime === "string")
+			dayNightConfig.nightStartTime = utcToLocal(cfg.nightStartTime);
 		if (typeof cfg.lightThreshold === "number") dayNightConfig.lightThreshold = cfg.lightThreshold;
 		if (typeof cfg.useSchedule === "boolean") dayNightConfig.useSchedule = cfg.useSchedule;
 		if (typeof cfg.isDaytime === "boolean") dayNightConfig.isDaytime = cfg.isDaytime;

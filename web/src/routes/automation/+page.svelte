@@ -26,7 +26,9 @@
 		return labels[mode];
 	}
 
-	function getModeBadgeVariant(mode: DeviceMode | undefined): "default" | "secondary" | "outline" | "destructive" {
+	function getModeBadgeVariant(
+		mode: DeviceMode | undefined
+	): "default" | "secondary" | "outline" | "destructive" {
 		if (!mode || mode === "off") return "outline";
 		return "secondary";
 	}
@@ -45,9 +47,10 @@
 				if (triggers.length === 0) return "No triggers configured";
 				const descriptions = triggers.map((t) => {
 					const direction = t.triggerAbove ? ">" : "<";
-					const sensorName = sensors.find((sensor) => sensor.id === t.sensorId)?.name
-						?? t.sensorId
-						?? (t.sensorType ? `Missing ${t.sensorType} sensor` : "Unknown sensor");
+					const sensorName =
+						sensors.find((sensor) => sensor.id === t.sensorId)?.name ??
+						t.sensorId ??
+						(t.sensorType ? `Missing ${t.sensorType} sensor` : "Unknown sensor");
 					return `${sensorName} ${direction} ${t.dayThreshold}/${t.nightThreshold}`;
 				});
 				return descriptions.join(" or ");
@@ -64,7 +67,6 @@
 				return "";
 		}
 	}
-
 </script>
 
 <PageHeader title="Automation" />
@@ -74,7 +76,9 @@
 			<h2 class="text-sm font-medium text-muted-foreground">Device Controls</h2>
 		</div>
 		{#if devices.length === 0}
-			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+			<div
+				class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center"
+			>
 				<p class="text-sm font-medium">No devices</p>
 				<p class="mt-1 text-xs text-muted-foreground">
 					Add devices in <a href="/settings" class="underline">Settings</a> first

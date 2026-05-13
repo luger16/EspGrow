@@ -25,7 +25,13 @@ const SENSORS: SensorConfig[] = [
 	{ id: "scd4x_co2", name: "CO₂", type: "co2", unit: "ppm", hardwareType: "scd4x" },
 	{ id: "as7341_ppfd", name: "Light (PPFD)", type: "light", unit: "PPFD", hardwareType: "as7341" },
 	{ id: "vpd_calc", name: "VPD", type: "vpd", unit: "kPa", hardwareType: "calculated" },
-	{ id: "dewpoint_calc", name: "Dew Point", type: "dewpoint", unit: "°C", hardwareType: "calculated" },
+	{
+		id: "dewpoint_calc",
+		name: "Dew Point",
+		type: "dewpoint",
+		unit: "°C",
+		hardwareType: "calculated",
+	},
 ];
 
 // --- Devices ---
@@ -43,9 +49,39 @@ interface DeviceConfig {
 }
 
 const DEVICES: DeviceConfig[] = [
-	{ id: "fan_exhaust", name: "Exhaust Fan", type: "fan", controlMethod: "shelly_gen2", ipAddress: "192.168.1.100", isOn: true, isOnline: true, controlMode: "automatic", hasEnergyMonitoring: true },
-	{ id: "light_main", name: "Grow Light", type: "light", controlMethod: "shelly_gen2", ipAddress: "192.168.1.101", isOn: true, isOnline: true, controlMode: "manual", hasEnergyMonitoring: true },
-	{ id: "humidifier", name: "Humidifier", type: "humidifier", controlMethod: "tasmota", ipAddress: "192.168.1.102", isOn: false, isOnline: false, controlMode: "automatic", hasEnergyMonitoring: true },
+	{
+		id: "fan_exhaust",
+		name: "Exhaust Fan",
+		type: "fan",
+		controlMethod: "shelly_gen2",
+		ipAddress: "192.168.1.100",
+		isOn: true,
+		isOnline: true,
+		controlMode: "automatic",
+		hasEnergyMonitoring: true,
+	},
+	{
+		id: "light_main",
+		name: "Grow Light",
+		type: "light",
+		controlMethod: "shelly_gen2",
+		ipAddress: "192.168.1.101",
+		isOn: true,
+		isOnline: true,
+		controlMode: "manual",
+		hasEnergyMonitoring: true,
+	},
+	{
+		id: "humidifier",
+		name: "Humidifier",
+		type: "humidifier",
+		controlMethod: "tasmota",
+		ipAddress: "192.168.1.102",
+		isOn: false,
+		isOnline: false,
+		controlMode: "automatic",
+		hasEnergyMonitoring: true,
+	},
 ];
 
 interface EnergyState {
@@ -164,7 +200,13 @@ const DEVICE_MODES: DeviceModeConfig[] = [
 		deviceId: "fan_exhaust",
 		mode: "auto",
 		triggers: [
-			{ sensorId: "sht4x_temp", dayThreshold: 28, nightThreshold: 25, deadzone: 1, triggerAbove: true },
+			{
+				sensorId: "sht4x_temp",
+				dayThreshold: 28,
+				nightThreshold: 25,
+				deadzone: 1,
+				triggerAbove: true,
+			},
 		],
 		cycle: { onDurationSec: 60, offDurationSec: 60, dayOnly: false },
 		schedule: { startTime: "06:00", endTime: "22:00" },
@@ -173,7 +215,13 @@ const DEVICE_MODES: DeviceModeConfig[] = [
 		deviceId: "humidifier",
 		mode: "auto",
 		triggers: [
-			{ sensorId: "sht4x_hum", dayThreshold: 50, nightThreshold: 55, deadzone: 5, triggerAbove: false },
+			{
+				sensorId: "sht4x_hum",
+				dayThreshold: 50,
+				nightThreshold: 55,
+				deadzone: 5,
+				triggerAbove: false,
+			},
 		],
 		cycle: { onDurationSec: 60, offDurationSec: 60, dayOnly: false },
 		schedule: { startTime: "06:00", endTime: "22:00" },
@@ -200,48 +248,50 @@ const DAY_NIGHT_CONFIG: DayNightConfig = {
 
 function generateRealisticValue(sensorId: string, timestamp: number): number {
 	const hour = new Date(timestamp * 1000).getUTCHours();
-	
+
 	switch (sensorId) {
-		case 'sht4x_temp': {
+		case "sht4x_temp": {
 			const base = 25;
 			const amplitude = 7;
-			const cycle = Math.sin((hour - 8) * Math.PI / 12);
+			const cycle = Math.sin(((hour - 8) * Math.PI) / 12);
 			const random = (Math.random() - 0.5) * 2;
 			return Math.round((base + cycle * amplitude + random * 0.5) * 10) / 10;
 		}
-		case 'sht4x_hum': {
+		case "sht4x_hum": {
 			const base = 65;
 			const amplitude = 20;
-			const cycle = -Math.sin((hour - 8) * Math.PI / 12);
+			const cycle = -Math.sin(((hour - 8) * Math.PI) / 12);
 			const random = (Math.random() - 0.5) * 4;
 			return Math.round(Math.max(30, Math.min(90, base + cycle * amplitude + random)) * 10) / 10;
 		}
-		case 'scd4x_co2': {
+		case "scd4x_co2": {
 			const base = 800;
 			const isDay = hour >= 8 && hour <= 20;
 			const cycle = isDay ? -200 : 200;
 			const random = (Math.random() - 0.5) * 60;
 			return Math.round(Math.max(400, Math.min(1800, base + cycle + random)) * 10) / 10;
 		}
-		case 'as7341_ppfd': {
+		case "as7341_ppfd": {
 			const isNight = hour < 6 || hour > 20;
 			if (isNight) return 0;
-			const intensity = Math.sin((hour - 6) * Math.PI / 14);
+			const intensity = Math.sin(((hour - 6) * Math.PI) / 14);
 			const base = intensity * 800;
 			const random = (Math.random() - 0.5) * 20;
 			return Math.round(Math.max(0, Math.min(900, base + random)) * 10) / 10;
 		}
-		case 'vpd_calc': {
+		case "vpd_calc": {
 			const base = 1.0;
 			const amplitude = 0.5;
-			const cycle = Math.sin((hour - 8) * Math.PI / 12);
+			const cycle = Math.sin(((hour - 8) * Math.PI) / 12);
 			const random = (Math.random() - 0.5) * 0.1;
-			return Math.round(Math.max(0.4, Math.min(2.0, base + cycle * amplitude + random)) * 100) / 100;
+			return (
+				Math.round(Math.max(0.4, Math.min(2.0, base + cycle * amplitude + random)) * 100) / 100
+			);
 		}
-		case 'dewpoint_calc': {
+		case "dewpoint_calc": {
 			const base = 14;
 			const amplitude = 5;
-			const cycle = -Math.sin((hour - 8) * Math.PI / 12);
+			const cycle = -Math.sin(((hour - 8) * Math.PI) / 12);
 			const random = (Math.random() - 0.5) * 0.5;
 			return Math.round(Math.max(5, Math.min(25, base + cycle * amplitude + random)) * 10) / 10;
 		}
@@ -271,7 +321,7 @@ function generateDeviceValue(deviceId: string, timestamp: number): number {
 			return temp > 27 ? 1 : 0;
 		}
 		case "light_main":
-			return (hour >= 6 && hour <= 20) ? 1 : 0;
+			return hour >= 6 && hour <= 20 ? 1 : 0;
 		case "humidifier": {
 			const hum = generateRealisticValue("sht4x_hum", timestamp);
 			return hum < 55 ? 1 : 0;
@@ -301,7 +351,9 @@ function generateHistory(id: string, range: string): Buffer {
 
 		if (timestamp >= gapStart && timestamp < gapEnd) continue;
 
-		const value = isDevice ? generateDeviceValue(id, timestamp) : generateRealisticValue(id, timestamp);
+		const value = isDevice
+			? generateDeviceValue(id, timestamp)
+			: generateRealisticValue(id, timestamp);
 
 		points.push({ timestamp, value });
 	}
@@ -353,13 +405,55 @@ let alertIdCounter = 0;
 
 function generateMockAlert(): Record<string, unknown> {
 	const scenarios = [
-		{ sensorId: "sht4x_temp", sensorType: "temperature", value: 31.2, target: { min: 24, max: 28 }, severity: "warning" },
-		{ sensorId: "sht4x_temp", sensorType: "temperature", value: 33.5, target: { min: 24, max: 28 }, severity: "critical" },
-		{ sensorId: "sht4x_hum", sensorType: "humidity", value: 82, target: { min: 55, max: 65 }, severity: "warning" },
-		{ sensorId: "sht4x_hum", sensorType: "humidity", value: 38, target: { min: 55, max: 65 }, severity: "warning" },
-		{ sensorId: "scd4x_co2", sensorType: "co2", value: 1650, target: { min: 800, max: 1200 }, severity: "warning" },
-		{ sensorId: "scd4x_co2", sensorType: "co2", value: 1900, target: { min: 800, max: 1200 }, severity: "critical" },
-		{ sensorId: "vpd_calc", sensorType: "vpd", value: 1.8, target: { min: 0.8, max: 1.2 }, severity: "warning" },
+		{
+			sensorId: "sht4x_temp",
+			sensorType: "temperature",
+			value: 31.2,
+			target: { min: 24, max: 28 },
+			severity: "warning",
+		},
+		{
+			sensorId: "sht4x_temp",
+			sensorType: "temperature",
+			value: 33.5,
+			target: { min: 24, max: 28 },
+			severity: "critical",
+		},
+		{
+			sensorId: "sht4x_hum",
+			sensorType: "humidity",
+			value: 82,
+			target: { min: 55, max: 65 },
+			severity: "warning",
+		},
+		{
+			sensorId: "sht4x_hum",
+			sensorType: "humidity",
+			value: 38,
+			target: { min: 55, max: 65 },
+			severity: "warning",
+		},
+		{
+			sensorId: "scd4x_co2",
+			sensorType: "co2",
+			value: 1650,
+			target: { min: 800, max: 1200 },
+			severity: "warning",
+		},
+		{
+			sensorId: "scd4x_co2",
+			sensorType: "co2",
+			value: 1900,
+			target: { min: 800, max: 1200 },
+			severity: "critical",
+		},
+		{
+			sensorId: "vpd_calc",
+			sensorType: "vpd",
+			value: 1.8,
+			target: { min: 0.8, max: 1.2 },
+			severity: "warning",
+		},
 	];
 
 	const scenario = scenarios[Math.floor(Math.random() * scenarios.length)];
@@ -374,12 +468,15 @@ function generateMockAlert(): Record<string, unknown> {
 
 // Send periodic random alerts
 function scheduleRandomAlert(): void {
-	setTimeout(() => {
-		const alert = generateMockAlert();
-		broadcast({ type: "alert", data: alert });
-		console.log(`[Mock] Alert broadcast: ${alert.sensorType} ${alert.severity}`);
-		scheduleRandomAlert();
-	}, 120_000 + Math.random() * 180_000);
+	setTimeout(
+		() => {
+			const alert = generateMockAlert();
+			broadcast({ type: "alert", data: alert });
+			console.log(`[Mock] Alert broadcast: ${alert.sensorType} ${alert.severity}`);
+			scheduleRandomAlert();
+		},
+		120_000 + Math.random() * 180_000
+	);
 }
 scheduleRandomAlert();
 
@@ -387,10 +484,38 @@ let eventIdCounter = 0;
 
 function generateMockAutomationEvent(): Record<string, unknown> {
 	const scenarios = [
-		{ device: "Exhaust Fan", action: "turned on", mode: "auto", sensor: "Temperature", value: "29.1°C", threshold: "28°C" },
-		{ device: "Exhaust Fan", action: "turned off", mode: "auto", sensor: "Temperature", value: "25.8°C", threshold: "26°C" },
-		{ device: "Humidifier", action: "turned on", mode: "auto", sensor: "Humidity", value: "48%", threshold: "50%" },
-		{ device: "Humidifier", action: "turned off", mode: "auto", sensor: "Humidity", value: "62%", threshold: "55%" },
+		{
+			device: "Exhaust Fan",
+			action: "turned on",
+			mode: "auto",
+			sensor: "Temperature",
+			value: "29.1°C",
+			threshold: "28°C",
+		},
+		{
+			device: "Exhaust Fan",
+			action: "turned off",
+			mode: "auto",
+			sensor: "Temperature",
+			value: "25.8°C",
+			threshold: "26°C",
+		},
+		{
+			device: "Humidifier",
+			action: "turned on",
+			mode: "auto",
+			sensor: "Humidity",
+			value: "48%",
+			threshold: "50%",
+		},
+		{
+			device: "Humidifier",
+			action: "turned off",
+			mode: "auto",
+			sensor: "Humidity",
+			value: "62%",
+			threshold: "55%",
+		},
 	];
 	const s = scenarios[Math.floor(Math.random() * scenarios.length)];
 	eventIdCounter++;
@@ -422,31 +547,90 @@ function generateMockDeviceEvent(): Record<string, unknown> {
 function getInitialEvents(): Record<string, unknown>[] {
 	const now = Date.now();
 	return [
-		{ id: "sys_init_1", type: "system", title: "ESP32 restarted", description: "Reason: Power on", severity: "info", timestamp: Math.floor((now - 60 * 60 * 1000) / 1000) },
-		{ id: "auto_init_1", type: "automation", title: "Exhaust Fan (auto)", description: "Turned on — Temperature at 29.3°C (threshold 28°C)", severity: "info", timestamp: Math.floor((now - 15 * 60 * 1000) / 1000) },
-		{ id: "dev_init_1", type: "device", title: "Grow Light", description: "Turned on manually", severity: "info", timestamp: Math.floor((now - 8 * 60 * 1000) / 1000) },
-		{ id: "auto_init_2", type: "automation", title: "Humidifier (auto)", description: "Turned on — Humidity at 47% (threshold 50%)", severity: "info", timestamp: Math.floor((now - 3 * 60 * 1000) / 1000) },
-		{ id: "alert_init_1", type: "alert", title: "Temperature High", description: "30.4°C (target 26.0°C)", severity: "warning", timestamp: Math.floor((now - 10 * 60 * 1000) / 1000) },
-		{ id: "alert_init_2", type: "alert", title: "Humidity High", description: "84% (target 60%)", severity: "critical", timestamp: Math.floor((now - 5 * 60 * 1000) / 1000) },
-		{ id: "alert_init_3", type: "alert", title: "VPD High", description: "1.75 kPa (target 1.0 kPa)", severity: "warning", timestamp: Math.floor((now - 2 * 60 * 1000) / 1000) },
-		{ id: "sys_init_2", type: "system", title: "WiFi reconnected", description: "Reconnected after 2 attempts — IP: 192.168.1.42", severity: "info", timestamp: Math.floor((now - 45 * 60 * 1000) / 1000) },
+		{
+			id: "sys_init_1",
+			type: "system",
+			title: "ESP32 restarted",
+			description: "Reason: Power on",
+			severity: "info",
+			timestamp: Math.floor((now - 60 * 60 * 1000) / 1000),
+		},
+		{
+			id: "auto_init_1",
+			type: "automation",
+			title: "Exhaust Fan (auto)",
+			description: "Turned on — Temperature at 29.3°C (threshold 28°C)",
+			severity: "info",
+			timestamp: Math.floor((now - 15 * 60 * 1000) / 1000),
+		},
+		{
+			id: "dev_init_1",
+			type: "device",
+			title: "Grow Light",
+			description: "Turned on manually",
+			severity: "info",
+			timestamp: Math.floor((now - 8 * 60 * 1000) / 1000),
+		},
+		{
+			id: "auto_init_2",
+			type: "automation",
+			title: "Humidifier (auto)",
+			description: "Turned on — Humidity at 47% (threshold 50%)",
+			severity: "info",
+			timestamp: Math.floor((now - 3 * 60 * 1000) / 1000),
+		},
+		{
+			id: "alert_init_1",
+			type: "alert",
+			title: "Temperature High",
+			description: "30.4°C (target 26.0°C)",
+			severity: "warning",
+			timestamp: Math.floor((now - 10 * 60 * 1000) / 1000),
+		},
+		{
+			id: "alert_init_2",
+			type: "alert",
+			title: "Humidity High",
+			description: "84% (target 60%)",
+			severity: "critical",
+			timestamp: Math.floor((now - 5 * 60 * 1000) / 1000),
+		},
+		{
+			id: "alert_init_3",
+			type: "alert",
+			title: "VPD High",
+			description: "1.75 kPa (target 1.0 kPa)",
+			severity: "warning",
+			timestamp: Math.floor((now - 2 * 60 * 1000) / 1000),
+		},
+		{
+			id: "sys_init_2",
+			type: "system",
+			title: "WiFi reconnected",
+			description: "Reconnected after 2 attempts — IP: 192.168.1.42",
+			severity: "info",
+			timestamp: Math.floor((now - 45 * 60 * 1000) / 1000),
+		},
 	];
 }
 
 function scheduleRandomEvents(): void {
-	setTimeout(() => {
-		const roll = Math.random();
-		if (roll < 0.5) {
-			const event = generateMockAutomationEvent();
-			broadcast({ type: "event", data: { ...event, eventType: "automation" } });
-			console.log(`[Mock] Automation event: ${event.title}`);
-		} else {
-			const event = generateMockDeviceEvent();
-			broadcast({ type: "event", data: { ...event, eventType: "device" } });
-			console.log(`[Mock] Device event: ${event.title}`);
-		}
-		scheduleRandomEvents();
-	}, 60_000 + Math.random() * 120_000);
+	setTimeout(
+		() => {
+			const roll = Math.random();
+			if (roll < 0.5) {
+				const event = generateMockAutomationEvent();
+				broadcast({ type: "event", data: { ...event, eventType: "automation" } });
+				console.log(`[Mock] Automation event: ${event.title}`);
+			} else {
+				const event = generateMockDeviceEvent();
+				broadcast({ type: "event", data: { ...event, eventType: "device" } });
+				console.log(`[Mock] Device event: ${event.title}`);
+			}
+			scheduleRandomEvents();
+		},
+		60_000 + Math.random() * 120_000
+	);
 }
 scheduleRandomEvents();
 
@@ -479,7 +663,10 @@ function handleMessage(ws: WebSocket, raw: string): void {
 
 	const type = msg.type as string;
 	// New protocol: payload lives under "data" key, fallback to top-level for legacy
-	const payload = (typeof msg.data === "object" && msg.data !== null ? msg.data : msg) as Record<string, unknown>;
+	const payload = (typeof msg.data === "object" && msg.data !== null ? msg.data : msg) as Record<
+		string,
+		unknown
+	>;
 
 	switch (type) {
 		case "ping":
@@ -555,7 +742,7 @@ function handleMessage(ws: WebSocket, raw: string): void {
 						success: true,
 					},
 				});
-			broadcast({ type: "devices", data: DEVICES });
+				broadcast({ type: "devices", data: DEVICES });
 			}
 			break;
 		}
@@ -567,8 +754,15 @@ function handleMessage(ws: WebSocket, raw: string): void {
 				deviceId,
 				mode: payload.mode as DeviceModeConfig["mode"],
 				triggers: (payload.triggers as DeviceModeConfig["triggers"]) ?? [],
-				cycle: (payload.cycle as DeviceModeConfig["cycle"]) ?? { onDurationSec: 60, offDurationSec: 60, dayOnly: false },
-				schedule: (payload.schedule as DeviceModeConfig["schedule"]) ?? { startTime: "06:00", endTime: "22:00" },
+				cycle: (payload.cycle as DeviceModeConfig["cycle"]) ?? {
+					onDurationSec: 60,
+					offDurationSec: 60,
+					dayOnly: false,
+				},
+				schedule: (payload.schedule as DeviceModeConfig["schedule"]) ?? {
+					startTime: "06:00",
+					endTime: "22:00",
+				},
 			};
 			if (idx !== -1) {
 				DEVICE_MODES[idx] = config;
@@ -588,10 +782,14 @@ function handleMessage(ws: WebSocket, raw: string): void {
 		}
 
 		case "set_daynight_config": {
-			if (typeof payload.useSchedule === "boolean") DAY_NIGHT_CONFIG.useSchedule = payload.useSchedule;
-			if (typeof payload.dayStartTime === "string") DAY_NIGHT_CONFIG.dayStartTime = payload.dayStartTime as string;
-			if (typeof payload.nightStartTime === "string") DAY_NIGHT_CONFIG.nightStartTime = payload.nightStartTime as string;
-			if (typeof payload.lightThreshold === "number") DAY_NIGHT_CONFIG.lightThreshold = payload.lightThreshold as number;
+			if (typeof payload.useSchedule === "boolean")
+				DAY_NIGHT_CONFIG.useSchedule = payload.useSchedule;
+			if (typeof payload.dayStartTime === "string")
+				DAY_NIGHT_CONFIG.dayStartTime = payload.dayStartTime as string;
+			if (typeof payload.nightStartTime === "string")
+				DAY_NIGHT_CONFIG.nightStartTime = payload.nightStartTime as string;
+			if (typeof payload.lightThreshold === "number")
+				DAY_NIGHT_CONFIG.lightThreshold = payload.lightThreshold as number;
 			DAY_NIGHT_CONFIG.isDaytime = new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 20;
 			broadcast({ type: "daynight_config", data: DAY_NIGHT_CONFIG });
 			break;
@@ -622,7 +820,8 @@ function handleMessage(ws: WebSocket, raw: string): void {
 				if (payload.deviceType) device.type = payload.deviceType as string;
 				if (payload.controlMethod) device.controlMethod = payload.controlMethod as string;
 				if (payload.ipAddress) device.ipAddress = payload.ipAddress as string;
-				if (typeof payload.hasEnergyMonitoring === "boolean") device.hasEnergyMonitoring = payload.hasEnergyMonitoring;
+				if (typeof payload.hasEnergyMonitoring === "boolean")
+					device.hasEnergyMonitoring = payload.hasEnergyMonitoring;
 			}
 			syncEnergyDevices();
 			broadcast({ type: "devices", data: DEVICES });
@@ -771,7 +970,12 @@ setInterval(() => {
 	if (temp !== undefined && hum !== undefined) {
 		const svp = 0.6108 * Math.exp((17.27 * temp) / (temp + 237.3));
 		values["vpd_calc"] = Math.round(svp * (1 - hum / 100) * 100) / 100;
-		values["dewpoint_calc"] = Math.round((237.3 * (Math.log(hum / 100) + (17.27 * temp) / (temp + 237.3))) / (17.27 - (Math.log(hum / 100) + (17.27 * temp) / (temp + 237.3))) * 10) / 10;
+		values["dewpoint_calc"] =
+			Math.round(
+				((237.3 * (Math.log(hum / 100) + (17.27 * temp) / (temp + 237.3))) /
+					(17.27 - (Math.log(hum / 100) + (17.27 * temp) / (temp + 237.3)))) *
+					10
+			) / 10;
 	}
 
 	const data = SENSORS.map((s) => {

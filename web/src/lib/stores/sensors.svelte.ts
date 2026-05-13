@@ -40,15 +40,15 @@ function decodeBase64(base64: string): Uint8Array {
 function decodeHistoryPoints(data: Uint8Array): HistoricalReading[] {
 	const pointSize = 8;
 	const points: HistoricalReading[] = [];
-	
+
 	if (data.length < pointSize) return points;
-	
+
 	const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-	
+
 	for (let i = 0; i + pointSize <= data.length; i += pointSize) {
 		const timestamp = view.getUint32(i, true);
 		const value = view.getFloat32(i + 4, true);
-		
+
 		if (timestamp > 0 && Number.isFinite(value)) {
 			points.push({
 				date: new Date(timestamp * 1000),
@@ -56,7 +56,7 @@ function decodeHistoryPoints(data: Uint8Array): HistoricalReading[] {
 			});
 		}
 	}
-	
+
 	return points;
 }
 
@@ -73,7 +73,10 @@ export function initSensorWebSocket(): void {
 		if (!Array.isArray(data)) return;
 		const items = data.filter(
 			(item): item is Sensor =>
-				item && typeof item === "object" && typeof item.id === "string" && typeof item.name === "string"
+				item &&
+				typeof item === "object" &&
+				typeof item.id === "string" &&
+				typeof item.name === "string"
 		);
 		sensors.length = 0;
 		sensors.push(...items);
@@ -84,11 +87,16 @@ export function initSensorWebSocket(): void {
 		const now = new Date();
 		for (const reading of data) {
 			if (
-				reading && typeof reading === "object" &&
+				reading &&
+				typeof reading === "object" &&
 				typeof reading.id === "string" &&
 				typeof reading.value === "number"
 			) {
-				updateSensorReading(reading.id, reading.value, "timestamp" in reading ? reading.timestamp : undefined);
+				updateSensorReading(
+					reading.id,
+					reading.value,
+					"timestamp" in reading ? reading.timestamp : undefined
+				);
 
 				if (Array.isArray(reading.channels)) {
 					spectralData.current = {
@@ -103,8 +111,13 @@ export function initSensorWebSocket(): void {
 	websocket.on("history", (data: unknown) => {
 		if (!data || typeof data !== "object") return;
 		const msg = data as Record<string, unknown>;
-		if (typeof msg.sensorId !== "string" || typeof msg.range !== "string" || typeof msg.payload !== "string") return;
-		
+		if (
+			typeof msg.sensorId !== "string" ||
+			typeof msg.range !== "string" ||
+			typeof msg.payload !== "string"
+		)
+			return;
+
 		let bytes: Uint8Array;
 		try {
 			bytes = decodeBase64(msg.payload);
@@ -112,7 +125,7 @@ export function initSensorWebSocket(): void {
 			return;
 		}
 		const points = decodeHistoryPoints(bytes);
-		
+
 		if (!sensorHistory[msg.sensorId]) {
 			sensorHistory[msg.sensorId] = {};
 		}
@@ -124,9 +137,10 @@ export function initSensorWebSocket(): void {
 		const msg = data as Record<string, unknown>;
 		ppfdCalibration.loading = false;
 		if (msg.success === false) {
-			ppfdCalibration.error = msg.error === "no_reading" 
-				? "No light reading available. Make sure the AS7341 sensor is connected and the grow light is on."
-				: "Invalid calibration value.";
+			ppfdCalibration.error =
+				msg.error === "no_reading"
+					? "No light reading available. Make sure the AS7341 sensor is connected and the grow light is on."
+					: "Invalid calibration value.";
 		} else {
 			ppfdCalibration.factor = typeof msg.factor === "number" ? msg.factor : 1.0;
 			ppfdCalibration.error = null;
@@ -146,7 +160,10 @@ export function clearSensorHistory(): void {
 	historyVersion.value++;
 }
 
-export function getSensorHistory(sensorId: string, range: HistoryRange = "7d"): HistoricalReading[] {
+export function getSensorHistory(
+	sensorId: string,
+	range: HistoryRange = "7d"
+): HistoricalReading[] {
 	return sensorHistory[sensorId]?.[range] ?? [];
 }
 

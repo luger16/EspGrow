@@ -85,7 +85,11 @@
 			</div>
 			<div class="grid gap-2">
 				<Label>Device Type</Label>
-				<Select.Root type="single" value={deviceType} onValueChange={(v) => v && (deviceType = v as Device["type"])}>
+				<Select.Root
+					type="single"
+					value={deviceType}
+					onValueChange={(v) => v && (deviceType = v as Device["type"])}
+				>
 					<Select.Trigger>
 						<span>{deviceTypeOptions.find((o) => o.value === deviceType)?.label}</span>
 					</Select.Trigger>
@@ -98,7 +102,11 @@
 			</div>
 			<div class="grid gap-2">
 				<Label>Control Method</Label>
-				<Select.Root type="single" value={controlMethod} onValueChange={(v) => v && (controlMethod = v as Device["controlMethod"])}>
+				<Select.Root
+					type="single"
+					value={controlMethod}
+					onValueChange={(v) => v && (controlMethod = v as Device["controlMethod"])}
+				>
 					<Select.Trigger>
 						<span>{controlMethodOptions.find((o) => o.value === controlMethod)?.label}</span>
 					</Select.Trigger>
@@ -121,7 +129,9 @@
 				<Label for="energy-edit" class="font-normal">Energy monitoring</Label>
 			</div>
 			<Dialog.Footer class="flex-col gap-2 sm:flex-row sm:justify-between">
-				<Button type="button" variant="destructive" onclick={() => (showDeleteConfirm = true)}>Delete</Button>
+				<Button type="button" variant="destructive" onclick={() => (showDeleteConfirm = true)}
+					>Delete</Button
+				>
 				<Button type="submit" disabled={!name || !ipAddress}>Save Changes</Button>
 			</Dialog.Footer>
 		</form>

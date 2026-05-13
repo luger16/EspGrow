@@ -5,7 +5,12 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 
 	import { devices } from "$lib/stores/devices.svelte";
-	import { settings, toggleDeviceVisibility, moveDevice, reconcileOrder } from "$lib/stores/settings.svelte";
+	import {
+		settings,
+		toggleDeviceVisibility,
+		moveDevice,
+		reconcileOrder,
+	} from "$lib/stores/settings.svelte";
 	import { deviceIcons } from "$lib/icons";
 	import type { Device } from "$lib/types";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -26,7 +31,10 @@
 	const editingDevice = $derived(devices.find((d) => d.id === editingDeviceId));
 
 	const orderedDevices = $derived.by(() => {
-		const order = reconcileOrder(settings.deviceOrder, devices.map((d) => d.id));
+		const order = reconcileOrder(
+			settings.deviceOrder,
+			devices.map((d) => d.id)
+		);
 		return [...devices].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 	});
 
@@ -50,10 +58,14 @@
 	</div>
 
 	{#if devices.length === 0}
-		<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+		<div
+			class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center"
+		>
 			<PowerIcon class="size-8 text-muted-foreground/50" />
 			<p class="mt-3 text-sm font-medium">No devices</p>
-			<p class="mt-1 text-xs text-muted-foreground">Add a device to control fans, lights, or other equipment</p>
+			<p class="mt-1 text-xs text-muted-foreground">
+				Add a device to control fans, lights, or other equipment
+			</p>
 		</div>
 	{:else}
 		<div class="divide-y divide-border rounded-lg border">
@@ -87,7 +99,9 @@
 					<div class="flex-1">
 						<p class="text-sm font-medium">{device.name}</p>
 						<p class="text-xs text-muted-foreground">
-							{controlMethodLabels[device.controlMethod]}{device.ipAddress ? ` · ${device.ipAddress}` : ""}
+							{controlMethodLabels[device.controlMethod]}{device.ipAddress
+								? ` · ${device.ipAddress}`
+								: ""}
 						</p>
 					</div>
 					<Button

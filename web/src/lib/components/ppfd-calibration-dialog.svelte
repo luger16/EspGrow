@@ -9,7 +9,9 @@
 	let ppfdInput = $state("");
 
 	const isCalibrated = $derived(ppfdCalibration.factor !== 1.0);
-	const canCalibrate = $derived(ppfdInput && parseFloat(ppfdInput) > 0 && parseFloat(ppfdInput) <= 3000);
+	const canCalibrate = $derived(
+		ppfdInput && parseFloat(ppfdInput) > 0 && parseFloat(ppfdInput) <= 3000
+	);
 
 	function handleCalibrate() {
 		const value = parseFloat(ppfdInput);
@@ -36,9 +38,7 @@
 <Dialog.Root {open} onOpenChange={handleOpenChange}>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="sm">
-				Calibrate
-			</Button>
+			<Button {...props} variant="outline" size="sm">Calibrate</Button>
 		{/snippet}
 	</Dialog.Trigger>
 	<Dialog.Content class="sm:max-w-md">
@@ -69,7 +69,8 @@
 			<div class="grid gap-2">
 				<Label for="ppfd">Known PPFD Value</Label>
 				<p class="text-xs text-muted-foreground">
-					Place the sensor where you know the exact PPFD from your grow light's map, then enter that value.
+					Place the sensor where you know the exact PPFD from your grow light's map, then enter that
+					value.
 				</p>
 				<Input
 					id="ppfd"
@@ -86,10 +87,7 @@
 			</div>
 		</div>
 		<Dialog.Footer>
-			<Button
-				disabled={ppfdCalibration.loading || !canCalibrate}
-				onclick={handleCalibrate}
-			>
+			<Button disabled={ppfdCalibration.loading || !canCalibrate} onclick={handleCalibrate}>
 				{ppfdCalibration.loading ? "Calibrating..." : "Calibrate"}
 			</Button>
 		</Dialog.Footer>

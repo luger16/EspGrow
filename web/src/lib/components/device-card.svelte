@@ -24,7 +24,6 @@
 		schedule: "Sched",
 	};
 
-
 	function handleToggle() {
 		toggleDevice(device.id);
 	}

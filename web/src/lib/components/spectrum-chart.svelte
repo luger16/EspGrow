@@ -68,20 +68,13 @@
 				<defs>
 					<linearGradient id="spectrum-h" x1="0" x2="1" y1="0" y2="0">
 						{#each CHANNELS as ch, i (ch.label)}
-							<stop
-								offset="{(i / (CHANNELS.length - 1)) * 100}%"
-								stop-color={ch.color}
-							/>
+							<stop offset="{(i / (CHANNELS.length - 1)) * 100}%" stop-color={ch.color} />
 						{/each}
 					</linearGradient>
 				</defs>
 				<Axis placement="bottom" />
 				<Axis placement="left" ticks={[0, 50, 100]} format={(v) => `${v}%`} />
-				<Area
-					fill="url(#spectrum-h)"
-					line={{ stroke: "none" }}
-					curve={curveMonotoneX}
-				/>
+				<Area fill="url(#spectrum-h)" line={{ stroke: "none" }} curve={curveMonotoneX} />
 			</Svg>
 		</Chart>
 	</ChartUI.ChartContainer>

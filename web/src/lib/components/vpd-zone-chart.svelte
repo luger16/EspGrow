@@ -68,7 +68,13 @@
 	);
 
 	const zoneRects = $derived.by(() => {
-		const rects: { tempMin: number; tempMax: number; humMin: number; humMax: number; color: string }[] = [];
+		const rects: {
+			tempMin: number;
+			tempMax: number;
+			humMin: number;
+			humMax: number;
+			color: string;
+		}[] = [];
 		for (let temp = TEMP_MIN_C; temp < TEMP_MAX_C; temp += TEMP_STEP) {
 			for (let hum = HUM_MIN; hum < HUM_MAX; hum += HUM_STEP) {
 				const vpd = calculateVPD(temp + TEMP_STEP / 2, hum + HUM_STEP / 2, leafOffset);
@@ -128,11 +134,16 @@
 </Dialog.Header>
 
 {#if !hasRequiredSensors}
-	<div class="text-muted-foreground mx-6 flex h-64 w-auto items-center justify-center rounded-lg border border-dashed text-sm">
+	<div
+		class="text-muted-foreground mx-6 flex h-64 w-auto items-center justify-center rounded-lg border border-dashed text-sm"
+	>
 		Add temperature and humidity sensors to view VPD chart
 	</div>
 {:else}
-	<ChartUI.ChartContainer config={chartConfig} class="aspect-auto h-64 w-full px-6 sm:h-72 [&_.lc-axis-tick-label]:text-[10px] sm:[&_.lc-axis-tick-label]:text-xs">
+	<ChartUI.ChartContainer
+		config={chartConfig}
+		class="aspect-auto h-64 w-full px-6 sm:h-72 [&_.lc-axis-tick-label]:text-[10px] sm:[&_.lc-axis-tick-label]:text-xs"
+	>
 		<Chart
 			xDomain={[HUM_MIN, HUM_MAX]}
 			yDomain={[tempMin, tempMax]}
@@ -142,55 +153,40 @@
 		>
 			{#snippet children({ context })}
 				<Svg>
-					<Axis
-						placement="bottom"
-						ticks={humTicks}
-						format={(v) => `${v}%`}
-					/>
-					<Axis
-						placement="left"
-						ticks={tempTicks}
-						format={(v) => `${Math.round(v as number)}°`}
-					/>
+					<Axis placement="bottom" ticks={humTicks} format={(v) => `${v}%`} />
+					<Axis placement="left" ticks={tempTicks} format={(v) => `${Math.round(v as number)}°`} />
 
 					{#if true}
-					{@const gridX = context.xScale(HUM_MIN)}
-					{@const gridY = context.yScale(tempMax)}
-					{@const gridW = context.xScale(HUM_MAX) - gridX}
-					{@const gridH = context.yScale(tempMin) - gridY}
-					<defs>
-						<clipPath id="vpd-grid-clip">
-							<rect x={gridX} y={gridY} width={gridW} height={gridH} rx="8" ry="8" />
-						</clipPath>
-					</defs>
-					<g clip-path="url(#vpd-grid-clip)">
-						{#each zoneRects as rect, i (i)}
-							{@const x1 = context.xScale(rect.humMin)}
-							{@const x2 = context.xScale(rect.humMax)}
-							{@const y1 = context.yScale(convertTemperature(rect.tempMax, tempUnit))}
-							{@const y2 = context.yScale(convertTemperature(rect.tempMin, tempUnit))}
-							<rect
-								x={x1}
-								y={y1}
-								width={x2 - x1 + 0.5}
-								height={y2 - y1 + 0.5}
-								fill={rect.color}
-							/>
-						{/each}
-					</g>
-				{/if}
+						{@const gridX = context.xScale(HUM_MIN)}
+						{@const gridY = context.yScale(tempMax)}
+						{@const gridW = context.xScale(HUM_MAX) - gridX}
+						{@const gridH = context.yScale(tempMin) - gridY}
+						<defs>
+							<clipPath id="vpd-grid-clip">
+								<rect x={gridX} y={gridY} width={gridW} height={gridH} rx="8" ry="8" />
+							</clipPath>
+						</defs>
+						<g clip-path="url(#vpd-grid-clip)">
+							{#each zoneRects as rect, i (i)}
+								{@const x1 = context.xScale(rect.humMin)}
+								{@const x2 = context.xScale(rect.humMax)}
+								{@const y1 = context.yScale(convertTemperature(rect.tempMax, tempUnit))}
+								{@const y2 = context.yScale(convertTemperature(rect.tempMin, tempUnit))}
+								<rect
+									x={x1}
+									y={y1}
+									width={x2 - x1 + 0.5}
+									height={y2 - y1 + 0.5}
+									fill={rect.color}
+								/>
+							{/each}
+						</g>
+					{/if}
 
 					{#if currentTempDisplay !== undefined && currentHum !== undefined}
 						{@const cx = context.xScale(currentHum)}
 						{@const cy = context.yScale(currentTempDisplay)}
-						<circle
-							{cx}
-							{cy}
-							r="5"
-							fill="rgba(255,255,255,0.3)"
-							stroke="white"
-							stroke-width="2"
-						/>
+						<circle {cx} {cy} r="5" fill="rgba(255,255,255,0.3)" stroke="white" stroke-width="2" />
 					{/if}
 				</Svg>
 			{/snippet}

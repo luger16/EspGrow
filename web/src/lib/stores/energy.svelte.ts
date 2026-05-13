@@ -5,7 +5,7 @@ export const deviceEnergies = $state<DeviceEnergy[]>([]);
 
 const _totalWatts = $derived(deviceEnergies.reduce((sum, d) => sum + d.watts, 0));
 const _totalKWh = $derived(
-	Math.round(deviceEnergies.reduce((sum, d) => sum + d.kWh, 0) * 100) / 100,
+	Math.round(deviceEnergies.reduce((sum, d) => sum + d.kWh, 0) * 100) / 100
 );
 
 export function getTotalWatts(): number {
@@ -26,7 +26,9 @@ export function initEnergyWebSocket(): void {
 
 		const items = data.filter(
 			(item): item is Record<string, unknown> =>
-				item !== null && typeof item === "object" && typeof (item as Record<string, unknown>).deviceId === "string",
+				item !== null &&
+				typeof item === "object" &&
+				typeof (item as Record<string, unknown>).deviceId === "string"
 		);
 
 		deviceEnergies.length = 0;

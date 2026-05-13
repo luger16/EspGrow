@@ -11,17 +11,15 @@ const CACHE = `espgrow-${version}`;
 const PRECACHE = [...build, ...files];
 
 sw.addEventListener("install", (event) => {
-	event.waitUntil(
-		caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)),
-	);
+	event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)));
 	sw.skipWaiting();
 });
 
 sw.addEventListener("activate", (event) => {
 	event.waitUntil(
-		caches.keys().then((keys) =>
-			Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))),
-		),
+		caches
+			.keys()
+			.then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
 	);
 	sw.clients.claim();
 });
@@ -39,9 +37,7 @@ sw.addEventListener("fetch", (event) => {
 
 	// Build assets have content hashes — serve from cache
 	if (PRECACHE.includes(url.pathname)) {
-		event.respondWith(
-			caches.match(request).then((cached) => cached ?? fetch(request)),
-		);
+		event.respondWith(caches.match(request).then((cached) => cached ?? fetch(request)));
 		return;
 	}
 
@@ -54,11 +50,10 @@ sw.addEventListener("fetch", (event) => {
 					caches.open(CACHE).then((cache) => cache.put(request, clone));
 					return response;
 				})
-				.catch(() =>
-					caches.match(request).then((cached) =>
-						cached ?? caches.match("/"),
-					) as Promise<Response>,
-				),
+				.catch(
+					() =>
+						caches.match(request).then((cached) => cached ?? caches.match("/")) as Promise<Response>
+				)
 		);
 		return;
 	}

@@ -25,10 +25,18 @@
 	let leafTempOffset = $state(2);
 	let showDeleteConfirm = $state(false);
 
-	const hardwareOptions: { value: Sensor["hardwareType"]; label: string; types: Sensor["type"][] }[] = [
+	const hardwareOptions: {
+		value: Sensor["hardwareType"];
+		label: string;
+		types: Sensor["type"][];
+	}[] = [
 		{ value: "sht3x", label: "SHT3x (Temp + Humidity)", types: ["temperature", "humidity"] },
 		{ value: "sht4x", label: "SHT4x (Temp + Humidity)", types: ["temperature", "humidity"] },
-		{ value: "scd4x", label: "SCD4x (CO₂ + Temp + Humidity)", types: ["co2", "temperature", "humidity"] },
+		{
+			value: "scd4x",
+			label: "SCD4x (CO₂ + Temp + Humidity)",
+			types: ["co2", "temperature", "humidity"],
+		},
 		{ value: "as7341", label: "AS7341 (Light Spectrum)", types: ["light"] },
 		{ value: "calculated", label: "Calculated (VPD, Dew Point)", types: ["vpd", "dewpoint"] },
 	];
@@ -50,7 +58,9 @@
 		sensorTypeOptions.filter((opt) => availableSensorTypes.includes(opt.value))
 	);
 
-	const needsSources = $derived(hardwareType === "calculated" && (sensorType === "vpd" || sensorType === "dewpoint"));
+	const needsSources = $derived(
+		hardwareType === "calculated" && (sensorType === "vpd" || sensorType === "dewpoint")
+	);
 	const isVpd = $derived(hardwareType === "calculated" && sensorType === "vpd");
 
 	const tempSensors = $derived(sensors.filter((s) => s.type === "temperature"));
@@ -133,7 +143,11 @@
 			</div>
 			<div class="grid gap-2">
 				<Label>Sensor Type</Label>
-				<Select.Root type="single" value={sensorType} onValueChange={(v) => v && (sensorType = v as Sensor["type"])}>
+				<Select.Root
+					type="single"
+					value={sensorType}
+					onValueChange={(v) => v && (sensorType = v as Sensor["type"])}
+				>
 					<Select.Trigger>
 						<span>{sensorTypeOptions.find((o) => o.value === sensorType)?.label}</span>
 					</Select.Trigger>
@@ -151,9 +165,15 @@
 			{#if needsSources}
 				<div class="grid gap-2">
 					<Label>Temperature Source</Label>
-					<Select.Root type="single" value={tempSourceId} onValueChange={(v) => v && (tempSourceId = v)}>
+					<Select.Root
+						type="single"
+						value={tempSourceId}
+						onValueChange={(v) => v && (tempSourceId = v)}
+					>
 						<Select.Trigger>
-							<span>{tempSensors.find((s) => s.id === tempSourceId)?.name ?? "Select sensor..."}</span>
+							<span
+								>{tempSensors.find((s) => s.id === tempSourceId)?.name ?? "Select sensor..."}</span
+							>
 						</Select.Trigger>
 						<Select.Content>
 							{#each tempSensors as s (s.id)}
@@ -167,9 +187,14 @@
 				</div>
 				<div class="grid gap-2">
 					<Label>Humidity Source</Label>
-					<Select.Root type="single" value={humSourceId} onValueChange={(v) => v && (humSourceId = v)}>
+					<Select.Root
+						type="single"
+						value={humSourceId}
+						onValueChange={(v) => v && (humSourceId = v)}
+					>
 						<Select.Trigger>
-							<span>{humSensors.find((s) => s.id === humSourceId)?.name ?? "Select sensor..."}</span>
+							<span>{humSensors.find((s) => s.id === humSourceId)?.name ?? "Select sensor..."}</span
+							>
 						</Select.Trigger>
 						<Select.Content>
 							{#each humSensors as s (s.id)}
@@ -185,13 +210,26 @@
 			{#if isVpd}
 				<div class="grid gap-2">
 					<Label for="leafOffset">Leaf Temperature Offset (°C)</Label>
-					<Input id="leafOffset" type="number" bind:value={leafTempOffset} min={0} max={10} step={0.5} />
-					<p class="text-muted-foreground text-xs">How much cooler leaves are than air. Typical: 2°C.</p>
+					<Input
+						id="leafOffset"
+						type="number"
+						bind:value={leafTempOffset}
+						min={0}
+						max={10}
+						step={0.5}
+					/>
+					<p class="text-muted-foreground text-xs">
+						How much cooler leaves are than air. Typical: 2°C.
+					</p>
 				</div>
 			{/if}
 			<Dialog.Footer class="flex-col gap-2 sm:flex-row sm:justify-between">
-				<Button type="button" variant="destructive" onclick={() => (showDeleteConfirm = true)}>Delete</Button>
-				<Button type="submit" disabled={!name || (needsSources && (!tempSourceId || !humSourceId))}>Save Changes</Button>
+				<Button type="button" variant="destructive" onclick={() => (showDeleteConfirm = true)}
+					>Delete</Button
+				>
+				<Button type="submit" disabled={!name || (needsSources && (!tempSourceId || !humSourceId))}
+					>Save Changes</Button
+				>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

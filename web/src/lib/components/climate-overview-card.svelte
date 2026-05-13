@@ -39,7 +39,9 @@
 		dry: "Drying",
 	};
 
-	const activePhaseLabel = $derived(PHASE_LABELS[climateConfig.activePhase] ?? climateConfig.activePhase);
+	const activePhaseLabel = $derived(
+		PHASE_LABELS[climateConfig.activePhase] ?? climateConfig.activePhase
+	);
 	const dayNight = $derived(getIsDay());
 	const DayNightIcon = $derived(dayNight ? Sun : Moon);
 	const dayNightText = $derived(dayNight ? "Day" : "Night");
@@ -82,20 +84,28 @@
 				</div>
 				{#if hasLightSensor && dliTarget > 0}
 					<span class="text-muted-foreground/40">·</span>
-					<span class="text-sm tabular-nums text-muted-foreground">{dli.toFixed(1)}/{dliTarget} DLI</span>
+					<span class="text-sm tabular-nums text-muted-foreground"
+						>{dli.toFixed(1)}/{dliTarget} DLI</span
+					>
 				{/if}
 			</div>
 			<Button variant="outline" size="icon" class="relative size-8" onclick={onhistoryclick}>
 				<History class="size-4" />
 				{#if eventCount > 0}
-					<span class="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground tabular-nums">
+					<span
+						class="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground tabular-nums"
+					>
 						{eventCount > 99 ? "99" : eventCount}
 					</span>
 				{/if}
 			</Button>
 		</div>
 		<div class="flex items-center gap-3 border-t border-border/50 pt-2">
-			<div class="flex items-center gap-1 text-sm {activeAlerts > 0 ? 'text-amber-500' : 'text-muted-foreground'}">
+			<div
+				class="flex items-center gap-1 text-sm {activeAlerts > 0
+					? 'text-amber-500'
+					: 'text-muted-foreground'}"
+			>
 				<TriangleAlert class="size-3.5" />
 				<span>{activeAlerts} {activeAlerts === 1 ? "alert" : "alerts"}</span>
 			</div>

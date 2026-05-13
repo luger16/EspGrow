@@ -11,7 +11,10 @@
 	];
 </script>
 
-<nav class="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background md:hidden" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom))">
+<nav
+	class="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background md:hidden"
+	style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom))"
+>
 	<div class="flex h-16 items-center justify-around">
 		{#each navItems as item (item.title)}
 			{@const isActive = page.url.pathname === item.url}

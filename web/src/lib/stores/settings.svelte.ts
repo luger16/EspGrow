@@ -34,10 +34,18 @@ function loadSettings(): Settings {
 			temperatureUnit: parsed.temperatureUnit === "fahrenheit" ? "fahrenheit" : "celsius",
 			theme: parsed.theme === "light" || parsed.theme === "dark" ? parsed.theme : "system",
 			timeFormat: parsed.timeFormat === "12h" ? "12h" : "24h",
-			sensorOrder: Array.isArray(parsed.sensorOrder) ? parsed.sensorOrder.filter((v): v is string => typeof v === "string") : [],
-			hiddenSensors: Array.isArray(parsed.hiddenSensors) ? parsed.hiddenSensors.filter((v): v is string => typeof v === "string") : [],
-			deviceOrder: Array.isArray(parsed.deviceOrder) ? parsed.deviceOrder.filter((v): v is string => typeof v === "string") : [],
-			hiddenDevices: Array.isArray(parsed.hiddenDevices) ? parsed.hiddenDevices.filter((v): v is string => typeof v === "string") : [],
+			sensorOrder: Array.isArray(parsed.sensorOrder)
+				? parsed.sensorOrder.filter((v): v is string => typeof v === "string")
+				: [],
+			hiddenSensors: Array.isArray(parsed.hiddenSensors)
+				? parsed.hiddenSensors.filter((v): v is string => typeof v === "string")
+				: [],
+			deviceOrder: Array.isArray(parsed.deviceOrder)
+				? parsed.deviceOrder.filter((v): v is string => typeof v === "string")
+				: [],
+			hiddenDevices: Array.isArray(parsed.hiddenDevices)
+				? parsed.hiddenDevices.filter((v): v is string => typeof v === "string")
+				: [],
 		};
 	} catch {
 		return { ...defaultSettings };
@@ -68,7 +76,8 @@ export function resetSettings(): void {
 export function applyTheme(theme: Theme): void {
 	if (typeof document === "undefined") return;
 	const isDark =
-		theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+		theme === "dark" ||
+		(theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 	document.documentElement.classList.toggle("dark", isDark);
 }
 
@@ -111,8 +120,10 @@ export function formatTime(utcTime: string): string {
 	if (!utcTime) return "??:??";
 	const [hours, minutes] = utcTime.split(":").map(Number);
 	const now = new Date();
-	const utcDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes));
-	
+	const utcDate = new Date(
+		Date.UTC(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes)
+	);
+
 	if (settings.timeFormat === "12h") {
 		const h = utcDate.getHours();
 		const m = String(utcDate.getMinutes()).padStart(2, "0");
@@ -120,20 +131,20 @@ export function formatTime(utcTime: string): string {
 		const hour12 = h % 12 || 12;
 		return `${hour12}:${m} ${ampm}`;
 	}
-	
+
 	return `${String(utcDate.getHours()).padStart(2, "0")}:${String(utcDate.getMinutes()).padStart(2, "0")}`;
 }
 
 export function formatTimeFromDate(date: Date): string {
 	const h = date.getHours();
 	const m = String(date.getMinutes()).padStart(2, "0");
-	
+
 	if (settings.timeFormat === "12h") {
 		const ampm = h >= 12 ? "PM" : "AM";
 		const hour12 = h % 12 || 12;
 		return `${hour12}:${m} ${ampm}`;
 	}
-	
+
 	return `${String(h).padStart(2, "0")}:${m}`;
 }
 
@@ -159,7 +170,11 @@ export function reconcileOrder(savedOrder: string[], currentIds: string[]): stri
 	return [...kept, ...added];
 }
 
-export function moveSensor(sensorId: string, direction: "up" | "down", allSensorIds: string[]): void {
+export function moveSensor(
+	sensorId: string,
+	direction: "up" | "down",
+	allSensorIds: string[]
+): void {
 	const order = reconcileOrder(settings.sensorOrder, allSensorIds);
 	const idx = order.indexOf(sensorId);
 	if (idx === -1) return;
@@ -169,7 +184,11 @@ export function moveSensor(sensorId: string, direction: "up" | "down", allSensor
 	updateSettings({ sensorOrder: order });
 }
 
-export function moveDevice(deviceId: string, direction: "up" | "down", allDeviceIds: string[]): void {
+export function moveDevice(
+	deviceId: string,
+	direction: "up" | "down",
+	allDeviceIds: string[]
+): void {
 	const order = reconcileOrder(settings.deviceOrder, allDeviceIds);
 	const idx = order.indexOf(deviceId);
 	if (idx === -1) return;
@@ -178,4 +197,3 @@ export function moveDevice(deviceId: string, direction: "up" | "down", allDevice
 	[order[idx], order[swapIdx]] = [order[swapIdx], order[idx]];
 	updateSettings({ deviceOrder: order });
 }
-

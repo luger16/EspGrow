@@ -9,7 +9,13 @@
 	import { curveMonotoneX, curveStepAfter } from "d3-shape";
 	import DownloadIcon from "@lucide/svelte/icons/download";
 	import type { Sensor, DeviceType } from "$lib/types";
-	import { sensors, sensorReadings, requestHistory, getSensorHistory, historyVersion } from "$lib/stores/sensors.svelte";
+	import {
+		sensors,
+		sensorReadings,
+		requestHistory,
+		getSensorHistory,
+		historyVersion,
+	} from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { settings, convertTemperature, formatTimeFromDate } from "$lib/stores/settings.svelte";
@@ -130,13 +136,16 @@
 		const STAGGER_MS = 200;
 		const timeouts: ReturnType<typeof setTimeout>[] = [];
 
-		const interval = setInterval(() => {
-			const currentIds = allRequestIds();
-			for (let i = 0; i < currentIds.length; i++) {
-				const id = currentIds[i];
-				timeouts.push(setTimeout(() => requestHistory(id, range, true), i * STAGGER_MS));
-			}
-		}, 2 * 60 * 1000);
+		const interval = setInterval(
+			() => {
+				const currentIds = allRequestIds();
+				for (let i = 0; i < currentIds.length; i++) {
+					const id = currentIds[i];
+					timeouts.push(setTimeout(() => requestHistory(id, range, true), i * STAGGER_MS));
+				}
+			},
+			2 * 60 * 1000
+		);
 
 		return () => {
 			for (const t of timeouts) clearTimeout(t);
@@ -146,9 +155,7 @@
 
 	const visibleSensors = $derived(sensors.filter((s) => !hiddenSensors.has(s.id)));
 	const visibleDevices = $derived(
-		devices
-			.filter((d) => d.isOnline !== false)
-			.filter((d) => !hiddenDevices.has(d.id))
+		devices.filter((d) => d.isOnline !== false).filter((d) => !hiddenDevices.has(d.id))
 	);
 	const deviceIds = $derived(new Set(visibleDevices.map((d) => d.id)));
 
@@ -156,7 +163,10 @@
 		if (visibleSensors.length === 0 && visibleDevices.length === 0) return [];
 
 		const threshold = gapThresholds[timeRange];
-		const timestampMap = new Map<number, Record<string, { normalized: number; raw: number } | null>>();
+		const timestampMap = new Map<
+			number,
+			Record<string, { normalized: number; raw: number } | null>
+		>();
 
 		for (const sensor of visibleSensors) {
 			const history = getSensorHistory(sensor.id, timeRange);
@@ -165,7 +175,9 @@
 			for (let i = 1; i < history.length; i++) {
 				const timeDiff = history[i].date.getTime() - history[i - 1].date.getTime();
 				if (timeDiff > threshold) {
-					const gapMid = Math.floor((history[i - 1].date.getTime() + history[i].date.getTime()) / 2);
+					const gapMid = Math.floor(
+						(history[i - 1].date.getTime() + history[i].date.getTime()) / 2
+					);
 					if (!timestampMap.has(gapMid)) {
 						timestampMap.set(gapMid, {});
 					}
@@ -197,7 +209,9 @@
 				for (let i = 1; i < history.length; i++) {
 					const timeDiff = history[i].date.getTime() - history[i - 1].date.getTime();
 					if (timeDiff > threshold) {
-						const gapMid = Math.floor((history[i - 1].date.getTime() + history[i].date.getTime()) / 2);
+						const gapMid = Math.floor(
+							(history[i - 1].date.getTime() + history[i].date.getTime()) / 2
+						);
 						if (!timestampMap.has(gapMid)) {
 							timestampMap.set(gapMid, {});
 						}
@@ -220,7 +234,10 @@
 		}
 
 		const latestHistoricalTs = timestampMap.size > 0 ? Math.max(...timestampMap.keys()) : null;
-		const liveEntries = new Map<number, Record<string, { normalized: number; raw: number } | null>>();
+		const liveEntries = new Map<
+			number,
+			Record<string, { normalized: number; raw: number } | null>
+		>();
 		let hasLive = false;
 
 		for (const sensor of visibleSensors) {
@@ -262,7 +279,11 @@
 		if (hasLive) {
 			const liveTimestamps = Array.from(liveEntries.keys());
 			const latestLiveTs = liveTimestamps.length > 0 ? Math.max(...liveTimestamps) : null;
-			if (latestHistoricalTs !== null && latestLiveTs !== null && latestLiveTs - latestHistoricalTs > threshold) {
+			if (
+				latestHistoricalTs !== null &&
+				latestLiveTs !== null &&
+				latestLiveTs - latestHistoricalTs > threshold
+			) {
 				const liveGapTs = Math.floor((latestHistoricalTs + latestLiveTs) / 2);
 				if (!timestampMap.has(liveGapTs)) {
 					timestampMap.set(liveGapTs, {});
@@ -308,7 +329,9 @@
 		return data?.raw ?? null;
 	}
 
-	const lightSensorIds = $derived(new Set(visibleSensors.filter((s) => s.type === "light").map((s) => s.id)));
+	const lightSensorIds = $derived(
+		new Set(visibleSensors.filter((s) => s.type === "light").map((s) => s.id))
+	);
 
 	const series = $derived([
 		...visibleSensors.map((sensor) => ({
@@ -341,7 +364,9 @@
 		return Array.from({ length: count }, (_, i) => new Date(first + step * i));
 	});
 
-	const hasData = $derived((visibleSensors.length > 0 || visibleDevices.length > 0) && chartData.length >= 2);
+	const hasData = $derived(
+		(visibleSensors.length > 0 || visibleDevices.length > 0) && chartData.length >= 2
+	);
 	const hasFullInterval = $derived.by(() => {
 		if (!hasData) return false;
 		const now = new Date();
@@ -460,38 +485,42 @@
 		</Card.Action>
 	</Card.Header>
 	<Card.Content>
-	{#if sensors.length === 0 && devices.length === 0}
-		<div class="text-muted-foreground flex h-64 w-full items-center justify-center rounded-lg border border-dashed text-sm">
-			No sensors or devices configured
-		</div>
-	{:else}
-		<div class="flex flex-col gap-4 sm:flex-row">
-			<div class="min-w-0 flex-1">
-				{#if !hasData}
-					<div class="text-muted-foreground flex h-64 w-full items-center justify-center rounded-lg border border-dashed text-sm sm:h-80">
-						{#if visibleSensors.length === 0 && visibleDevices.length === 0}
-							Select at least one sensor or device to view analytics
-						{:else}
-							No data available for this time range
-						{/if}
-					</div>
-				{:else}
-					{#if !hasFullInterval}
-						<div class="bg-muted text-muted-foreground mb-2 rounded-md border px-3 py-2 text-sm">
-							<strong>Note:</strong> Data is incomplete for this time range. Showing available data.
+		{#if sensors.length === 0 && devices.length === 0}
+			<div
+				class="text-muted-foreground flex h-64 w-full items-center justify-center rounded-lg border border-dashed text-sm"
+			>
+				No sensors or devices configured
+			</div>
+		{:else}
+			<div class="flex flex-col gap-4 sm:flex-row">
+				<div class="min-w-0 flex-1">
+					{#if !hasData}
+						<div
+							class="text-muted-foreground flex h-64 w-full items-center justify-center rounded-lg border border-dashed text-sm sm:h-80"
+						>
+							{#if visibleSensors.length === 0 && visibleDevices.length === 0}
+								Select at least one sensor or device to view analytics
+							{:else}
+								No data available for this time range
+							{/if}
 						</div>
-					{/if}
-					<Chart.ChartContainer
-						config={chartConfig}
-						class="h-64 w-full sm:h-80 [&_.lc-axis-tick-label]:text-[10px] sm:[&_.lc-axis-tick-label]:text-xs"
-					>
-						{#key timeRange}
-							<LineChart
+					{:else}
+						{#if !hasFullInterval}
+							<div class="bg-muted text-muted-foreground mb-2 rounded-md border px-3 py-2 text-sm">
+								<strong>Note:</strong> Data is incomplete for this time range. Showing available data.
+							</div>
+						{/if}
+						<Chart.ChartContainer
+							config={chartConfig}
+							class="h-64 w-full sm:h-80 [&_.lc-axis-tick-label]:text-[10px] sm:[&_.lc-axis-tick-label]:text-xs"
+						>
+							{#key timeRange}
+								<LineChart
 									data={chartData}
 									x="date"
 									xScale={scaleUtc()}
 									{series}
-									yDomain={yDomain}
+									{yDomain}
 									padding={{ top: 8, right: 12, bottom: 28, left: 40 }}
 									props={{
 										spline: { curve: curveMonotoneX, class: "stroke-2" },
@@ -499,7 +528,10 @@
 											ticks: xTicks,
 											format: (v: Date) => {
 												if (timeRange === "7d") {
-													return v.toLocaleDateString(navigator.language, { month: "short", day: "numeric" });
+													return v.toLocaleDateString(navigator.language, {
+														month: "short",
+														day: "numeric",
+													});
 												}
 												return formatTimeFromDate(v);
 											},
@@ -509,9 +541,9 @@
 											format: (v: number) =>
 												v.toLocaleString(navigator.language, { maximumFractionDigits: 0 }) + "%",
 										},
-									grid: {
-										yTicks: yTickInfo.ticks,
-									},
+										grid: {
+											yTicks: yTickInfo.ticks,
+										},
 									}}
 								>
 									{#snippet marks({ visibleSeries, getSplineProps })}
@@ -550,12 +582,28 @@
 												return formatTimeFromDate(date);
 											}}
 										>
-											{#snippet formatter(args: { value: unknown; name: string; item: { payload: Record<string, unknown>; key: string; color?: string }; index: number })}
-												{@const sensor = visibleSensors.find(s => s.id === args.item.key)}
-												{@const device = visibleDevices.find(d => d.id === args.item.key)}
-												{@const itemColor = sensor ? getSensorColor(sensor) : device ? getDeviceColor(device) : (args.item.color ?? 'currentColor')}
-												{@const timestamp = args.item.payload?.date instanceof Date ? args.item.payload.date.getTime() : 0}
-												{@const rawValue = sensor ? getRawValueAtTimestamp(sensor.id, timestamp) : device ? getRawValueAtTimestamp(device.id, timestamp) : null}
+											{#snippet formatter(args: {
+												value: unknown;
+												name: string;
+												item: { payload: Record<string, unknown>; key: string; color?: string };
+												index: number;
+											})}
+												{@const sensor = visibleSensors.find((s) => s.id === args.item.key)}
+												{@const device = visibleDevices.find((d) => d.id === args.item.key)}
+												{@const itemColor = sensor
+													? getSensorColor(sensor)
+													: device
+														? getDeviceColor(device)
+														: (args.item.color ?? "currentColor")}
+												{@const timestamp =
+													args.item.payload?.date instanceof Date
+														? args.item.payload.date.getTime()
+														: 0}
+												{@const rawValue = sensor
+													? getRawValueAtTimestamp(sensor.id, timestamp)
+													: device
+														? getRawValueAtTimestamp(device.id, timestamp)
+														: null}
 												<div
 													class="shrink-0 rounded-[2px] border bg-[var(--indicator-color)]"
 													style="--indicator-color: {itemColor}; border-color: {itemColor}; width: 4px;"
@@ -569,7 +617,9 @@
 															{rawValue >= 0.5 ? "ON" : "OFF"}
 														{:else if sensor && rawValue !== null}
 															{#if sensor.type === "temperature" || sensor.type === "dewpoint"}
-																{rawValue.toFixed(1)}{settings.temperatureUnit === "fahrenheit" ? "°F" : "°C"}
+																{rawValue.toFixed(1)}{settings.temperatureUnit === "fahrenheit"
+																	? "°F"
+																	: "°C"}
 															{:else}
 																{rawValue}{formatUnit(sensor.unit)}
 															{/if}
@@ -603,7 +653,10 @@
 							)}
 						>
 							<div class="flex items-center gap-2">
-								<div class="h-4 w-1 shrink-0 rounded-[2px]" style="background-color: {getSensorColor(sensor)}"></div>
+								<div
+									class="h-4 w-1 shrink-0 rounded-[2px]"
+									style="background-color: {getSensorColor(sensor)}"
+								></div>
 								<span class="truncate">{sensor.name}</span>
 								<Checkbox.Root
 									class="pointer-events-none ml-auto"
@@ -612,9 +665,9 @@
 							</div>
 						</button>
 					{/each}
-					{#if devices.filter(d => d.isOnline !== false).length > 0}
+					{#if devices.filter((d) => d.isOnline !== false).length > 0}
 						<span class="text-muted-foreground mt-2 w-full px-1 text-xs">Devices</span>
-						{#each devices.filter(d => d.isOnline !== false) as device (device.id)}
+						{#each devices.filter((d) => d.isOnline !== false) as device (device.id)}
 							<button
 								onclick={() => toggleDeviceVisibility(device.id)}
 								class={cn(
@@ -626,7 +679,10 @@
 								)}
 							>
 								<div class="flex items-center gap-2">
-									<div class="h-4 w-1 shrink-0 rounded-[2px]" style="background-color: {getDeviceColor(device)}"></div>
+									<div
+										class="h-4 w-1 shrink-0 rounded-[2px]"
+										style="background-color: {getDeviceColor(device)}"
+									></div>
 									<span class="truncate">{device.name}</span>
 									<Checkbox.Root
 										class="pointer-events-none ml-auto"

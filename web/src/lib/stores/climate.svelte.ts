@@ -35,8 +35,12 @@ function formatAlert(alert: ClimateAlert): { title: string; description: string 
 	const label = SENSOR_TYPE_LABELS[alert.sensorType] ?? alert.sensorType;
 	const unit = SENSOR_TYPE_UNITS[alert.sensorType] ?? "";
 	const direction = alert.value > alert.target.max ? "high" : "low";
-	const precision = alert.sensorType === "vpd" || alert.sensorType === "dewpoint" ? 2
-		: alert.sensorType === "temperature" ? 1 : 0;
+	const precision =
+		alert.sensorType === "vpd" || alert.sensorType === "dewpoint"
+			? 2
+			: alert.sensorType === "temperature"
+				? 1
+				: 0;
 	const valueStr = `${alert.value.toFixed(precision)}${unit}`;
 	const rangeStr = `${alert.target.min}–${alert.target.max}${unit}`;
 	return {
@@ -89,12 +93,13 @@ let lastDayState: boolean | null = null;
 
 const HYSTERESIS_OFFSET = 5;
 
-const SENSOR_TYPE_TO_TARGET_KEY: Partial<Record<SensorType, "temp" | "humidity" | "vpd" | "co2">> = {
-	temperature: "temp",
-	humidity: "humidity",
-	vpd: "vpd",
-	co2: "co2",
-};
+const SENSOR_TYPE_TO_TARGET_KEY: Partial<Record<SensorType, "temp" | "humidity" | "vpd" | "co2">> =
+	{
+		temperature: "temp",
+		humidity: "humidity",
+		vpd: "vpd",
+		co2: "co2",
+	};
 
 export const WARNING_MARGIN: Record<"temp" | "humidity" | "vpd" | "co2", number> = {
 	temp: 2,
@@ -367,8 +372,8 @@ export function initClimateWebSocket(): void {
 
 		const eventType = String(msg.eventType ?? msg.type ?? "system") as SystemEventType;
 		const severity = String(msg.severity ?? "info") as "info" | "warning" | "critical";
-		const timestamp = typeof msg.timestamp === "number"
-			? new Date(msg.timestamp * 1000) : new Date();
+		const timestamp =
+			typeof msg.timestamp === "number" ? new Date(msg.timestamp * 1000) : new Date();
 
 		pushEvent({
 			id: String(msg.id ?? crypto.randomUUID()),
@@ -390,8 +395,8 @@ export function initClimateWebSocket(): void {
 			if (existingIds.has(id)) continue;
 			const eventType = String(msg.type ?? "system") as SystemEventType;
 			const severity = String(msg.severity ?? "info") as "info" | "warning" | "critical";
-			const timestamp = typeof msg.timestamp === "number"
-				? new Date(msg.timestamp * 1000) : new Date();
+			const timestamp =
+				typeof msg.timestamp === "number" ? new Date(msg.timestamp * 1000) : new Date();
 
 			systemEvents.push({
 				id,

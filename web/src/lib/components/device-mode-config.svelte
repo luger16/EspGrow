@@ -42,7 +42,7 @@
 			.map((sensor) => ({
 				value: sensor.id,
 				label: `${sensor.name} (${sensor.type})`,
-			})),
+			}))
 	);
 
 	$effect(() => {
@@ -146,7 +146,9 @@
 						{/if}
 					</div>
 					{#if triggers.length === 0}
-						<p class="text-xs text-muted-foreground">Add at least one trigger. Any trigger matching will turn the device on (OR logic).</p>
+						<p class="text-xs text-muted-foreground">
+							Add at least one trigger. Any trigger matching will turn the device on (OR logic).
+						</p>
 					{/if}
 					{#each triggers as trigger, i (i)}
 						<div class="rounded-lg border p-3">
@@ -157,17 +159,21 @@
 								</Button>
 							</div>
 							<div class="grid gap-3">
-							<div class="grid gap-1.5">
-								<Label class="text-xs">Sensor</Label>
-								<Select.Root type="single" value={trigger.sensorId} onValueChange={(v) => v && (trigger.sensorId = v)}>
-									<Select.Trigger class="h-8 text-xs">
-										<span>{getTriggerSensorLabel(trigger)}</span>
-									</Select.Trigger>
-									<Select.Content>
-										{#each triggerSensorOptions as option (option.value)}
-											<Select.Item value={option.value}>{option.label}</Select.Item>
-										{/each}
-									</Select.Content>
+								<div class="grid gap-1.5">
+									<Label class="text-xs">Sensor</Label>
+									<Select.Root
+										type="single"
+										value={trigger.sensorId}
+										onValueChange={(v) => v && (trigger.sensorId = v)}
+									>
+										<Select.Trigger class="h-8 text-xs">
+											<span>{getTriggerSensorLabel(trigger)}</span>
+										</Select.Trigger>
+										<Select.Content>
+											{#each triggerSensorOptions as option (option.value)}
+												<Select.Item value={option.value}>{option.label}</Select.Item>
+											{/each}
+										</Select.Content>
 									</Select.Root>
 								</div>
 								<div class="flex items-center gap-2">
@@ -189,16 +195,32 @@
 								<div class="grid grid-cols-2 gap-2">
 									<div class="grid gap-1.5">
 										<Label class="text-xs">Day threshold</Label>
-										<Input type="number" step="0.1" class="h-8 text-xs" bind:value={trigger.dayThreshold} />
+										<Input
+											type="number"
+											step="0.1"
+											class="h-8 text-xs"
+											bind:value={trigger.dayThreshold}
+										/>
 									</div>
 									<div class="grid gap-1.5">
 										<Label class="text-xs">Night threshold</Label>
-										<Input type="number" step="0.1" class="h-8 text-xs" bind:value={trigger.nightThreshold} />
+										<Input
+											type="number"
+											step="0.1"
+											class="h-8 text-xs"
+											bind:value={trigger.nightThreshold}
+										/>
 									</div>
 								</div>
 								<div class="grid gap-1.5">
 									<Label class="text-xs">Deadzone</Label>
-									<Input type="number" step="0.1" min="0" class="h-8 text-xs" bind:value={trigger.deadzone} />
+									<Input
+										type="number"
+										step="0.1"
+										min="0"
+										class="h-8 text-xs"
+										bind:value={trigger.deadzone}
+									/>
 									<p class="text-[10px] text-muted-foreground">
 										Distance from threshold before switching on or off
 									</p>
@@ -228,13 +250,15 @@
 				</div>
 			{/if}
 
-		{#if mode === "schedule"}
-			<CircularTimePicker bind:startTime={scheduleStart} bind:endTime={scheduleEnd} />
-		{/if}
+			{#if mode === "schedule"}
+				<CircularTimePicker bind:startTime={scheduleStart} bind:endTime={scheduleEnd} />
+			{/if}
 		</div>
 		<Dialog.Footer class="flex-col gap-2 sm:flex-row sm:justify-between">
 			{#if getDeviceMode(device.id)}
-				<Button type="button" variant="destructive" size="sm" onclick={handleRemove}>Remove Mode</Button>
+				<Button type="button" variant="destructive" size="sm" onclick={handleRemove}
+					>Remove Mode</Button
+				>
 			{:else}
 				<div></div>
 			{/if}

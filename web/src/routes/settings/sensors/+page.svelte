@@ -5,7 +5,12 @@
 	import { Button } from "$lib/components/ui/button/index.js";
 
 	import { sensors } from "$lib/stores/sensors.svelte";
-	import { settings, toggleSensorVisibility, moveSensor, reconcileOrder } from "$lib/stores/settings.svelte";
+	import {
+		settings,
+		toggleSensorVisibility,
+		moveSensor,
+		reconcileOrder,
+	} from "$lib/stores/settings.svelte";
 	import { sensorIcons } from "$lib/icons";
 	import type { Sensor } from "$lib/types";
 	import PencilIcon from "@lucide/svelte/icons/pencil";
@@ -28,7 +33,10 @@
 	const editingSensor = $derived(sensors.find((s) => s.id === editingSensorId));
 
 	const orderedSensors = $derived.by(() => {
-		const order = reconcileOrder(settings.sensorOrder, sensors.map((s) => s.id));
+		const order = reconcileOrder(
+			settings.sensorOrder,
+			sensors.map((s) => s.id)
+		);
 		return [...sensors].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 	});
 
@@ -52,10 +60,14 @@
 	</div>
 
 	{#if sensors.length === 0}
-		<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+		<div
+			class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center"
+		>
 			<ThermometerIcon class="size-8 text-muted-foreground/50" />
 			<p class="mt-3 text-sm font-medium">No sensors</p>
-			<p class="mt-1 text-xs text-muted-foreground">Add a sensor to start monitoring your grow tent</p>
+			<p class="mt-1 text-xs text-muted-foreground">
+				Add a sensor to start monitoring your grow tent
+			</p>
 		</div>
 	{:else}
 		<div class="divide-y divide-border rounded-lg border">

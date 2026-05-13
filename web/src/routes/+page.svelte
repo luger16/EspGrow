@@ -22,13 +22,19 @@
 
 	const visibleSensors = $derived.by(() => {
 		const visible = sensors.filter((s) => !settings.hiddenSensors.includes(s.id));
-		const order = reconcileOrder(settings.sensorOrder, visible.map((s) => s.id));
+		const order = reconcileOrder(
+			settings.sensorOrder,
+			visible.map((s) => s.id)
+		);
 		return [...visible].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 	});
 
 	const visibleDevices = $derived.by(() => {
 		const visible = devices.filter((d) => !settings.hiddenDevices.includes(d.id));
-		const order = reconcileOrder(settings.deviceOrder, visible.map((d) => d.id));
+		const order = reconcileOrder(
+			settings.deviceOrder,
+			visible.map((d) => d.id)
+		);
 		return [...visible].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 	});
 </script>
@@ -43,20 +49,24 @@
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Sensors</h2>
 		{#if visibleSensors.length === 0}
-			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+			<div
+				class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center"
+			>
 				<ThermometerIcon class="size-8 text-muted-foreground/50" />
 				<p class="mt-3 text-sm font-medium">No sensors</p>
-				<p class="mt-1 text-xs text-muted-foreground">Add sensors in <a href="/settings/sensors" class="underline">Settings</a> to start monitoring</p>
+				<p class="mt-1 text-xs text-muted-foreground">
+					Add sensors in <a href="/settings/sensors" class="underline">Settings</a> to start monitoring
+				</p>
 			</div>
 		{:else}
 			<div class="grid grid-cols-2 gap-3 @lg:grid-cols-3 @2xl:grid-cols-4">
 				{#each visibleSensors as sensor (sensor.id)}
-				<SensorCard
-					{sensor}
-					reading={sensorReadings[sensor.id]}
-					onvpdclick={sensor.type === "vpd" ? () => (vpdChartOpen = true) : undefined}
-					onspectrumclick={sensor.type === "light" ? () => (spectrumChartOpen = true) : undefined}
-				/>
+					<SensorCard
+						{sensor}
+						reading={sensorReadings[sensor.id]}
+						onvpdclick={sensor.type === "vpd" ? () => (vpdChartOpen = true) : undefined}
+						onspectrumclick={sensor.type === "light" ? () => (spectrumChartOpen = true) : undefined}
+					/>
 				{/each}
 			</div>
 		{/if}
@@ -71,10 +81,14 @@
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Devices</h2>
 		{#if visibleDevices.length === 0}
-			<div class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+			<div
+				class="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center"
+			>
 				<PowerIcon class="size-8 text-muted-foreground/50" />
 				<p class="mt-3 text-sm font-medium">No devices</p>
-				<p class="mt-1 text-xs text-muted-foreground">Add devices in <a href="/settings/devices" class="underline">Settings</a> to control equipment</p>
+				<p class="mt-1 text-xs text-muted-foreground">
+					Add devices in <a href="/settings/devices" class="underline">Settings</a> to control equipment
+				</p>
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

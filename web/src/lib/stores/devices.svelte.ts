@@ -11,7 +11,6 @@ function parseTimestamp(value: unknown): Date | undefined {
 export const devices = $state<Device[]>([]);
 export const pendingDevices = $state<Set<string>>(new Set());
 
-
 function getDeviceTarget(device: Device): string {
 	return device.ipAddress ?? "";
 }
@@ -28,7 +27,7 @@ export function toggleDevice(deviceId: string): void {
 
 	pendingDevices.add(deviceId);
 	const newState = !device.isOn;
-	
+
 	websocket.send("device_control", {
 		method: device.controlMethod,
 		target: getDeviceTarget(device),
@@ -69,14 +68,15 @@ export function updateDevice(deviceId: string, updates: Partial<Omit<Device, "id
 	});
 }
 
-
-
 export function initDeviceWebSocket(): void {
 	websocket.on("devices", (data: unknown) => {
 		if (!Array.isArray(data)) return;
 		const items = data.filter(
 			(item): item is Device & { timestamp?: unknown } =>
-				item && typeof item === "object" && typeof item.id === "string" && typeof item.name === "string"
+				item &&
+				typeof item === "object" &&
+				typeof item.id === "string" &&
+				typeof item.name === "string"
 		);
 		devices.length = 0;
 		items.forEach((d) => {
@@ -94,12 +94,13 @@ export function initDeviceWebSocket(): void {
 		if (!data || typeof data !== "object") return;
 		const msg = data as Record<string, unknown>;
 		if (typeof msg.on !== "boolean" || typeof msg.success !== "boolean") return;
-		
-		const device = typeof msg.deviceId === "string"
-			? devices.find((d) => d.id === msg.deviceId)
-			: typeof msg.target === "string"
-				? devices.find((d) => d.ipAddress === msg.target)
-				: undefined;
+
+		const device =
+			typeof msg.deviceId === "string"
+				? devices.find((d) => d.id === msg.deviceId)
+				: typeof msg.target === "string"
+					? devices.find((d) => d.ipAddress === msg.target)
+					: undefined;
 		if (device) {
 			device.isOnline = msg.success as boolean;
 			if (msg.success) device.isOn = msg.on;

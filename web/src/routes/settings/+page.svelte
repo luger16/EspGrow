@@ -11,7 +11,15 @@
 
 	import { sensors, ppfdCalibration, clearSensorHistory } from "$lib/stores/sensors.svelte";
 	import { devices } from "$lib/stores/devices.svelte";
-	import { settings, updateSettings, resetSettings, applyTheme, type Theme, type TemperatureUnit, type TimeFormat } from "$lib/stores/settings.svelte";
+	import {
+		settings,
+		updateSettings,
+		resetSettings,
+		applyTheme,
+		type Theme,
+		type TemperatureUnit,
+		type TimeFormat,
+	} from "$lib/stores/settings.svelte";
 	import { systemInfo, initSystemInfoWebSocket } from "$lib/stores/system.svelte";
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { toast } from "svelte-sonner";
@@ -52,7 +60,9 @@
 	let restoring = $state(false);
 	let fileInput: HTMLInputElement | null = $state(null);
 	let firmwareFileInput: HTMLInputElement | null = $state(null);
-	let otaStatus = $state<"idle" | "uploading" | "downloading" | "installing" | "success" | "error" | "rebooting">("idle");
+	let otaStatus = $state<
+		"idle" | "uploading" | "downloading" | "installing" | "success" | "error" | "rebooting"
+	>("idle");
 	let otaProgress = $state(0);
 	let otaError = $state("");
 	let checkingUpdate = $state(false);
@@ -68,7 +78,6 @@
 
 	const hasAs7341 = $derived(sensors.some((s) => s.hardwareType === "as7341"));
 	const otaInProgress = $derived(otaStatus !== "idle" && otaStatus !== "error");
-
 
 	$effect(() => {
 		const unsubscribe = websocket.on("ota_status", (data: unknown) => {
@@ -100,7 +109,6 @@
 
 		return () => unsubscribe();
 	});
-
 
 	async function handleBackupConfig() {
 		backingUp = true;
@@ -138,17 +146,23 @@
 			const config = JSON.parse(text);
 
 			if (!config.devices || !config.device_modes || !config.sensors) {
-				throw new Error("Invalid backup file: missing required keys (devices, device_modes, sensors)");
+				throw new Error(
+					"Invalid backup file: missing required keys (devices, device_modes, sensors)"
+				);
 			}
 
-			if (!Array.isArray(config.devices) || !Array.isArray(config.device_modes) || !Array.isArray(config.sensors)) {
+			if (
+				!Array.isArray(config.devices) ||
+				!Array.isArray(config.device_modes) ||
+				!Array.isArray(config.sensors)
+			) {
 				throw new Error("Invalid backup file: devices, device_modes, and sensors must be arrays");
 			}
 
 			const response = await fetch("/api/config/restore", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: text
+				body: text,
 			});
 
 			if (!response.ok) {
@@ -272,7 +286,7 @@
 			const response = await fetch("/api/ota/install", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ url: downloadUrl })
+				body: JSON.stringify({ url: downloadUrl }),
 			});
 
 			if (!response.ok) {
@@ -337,7 +351,10 @@
 					onValueChange={(v) => v && updateSettings({ temperatureUnit: v as TemperatureUnit })}
 				>
 					<Select.Trigger class="w-44">
-						<span>{temperatureUnitOptions.find((o) => o.value === settings.temperatureUnit)?.label}</span>
+						<span
+							>{temperatureUnitOptions.find((o) => o.value === settings.temperatureUnit)
+								?.label}</span
+						>
 					</Select.Trigger>
 					<Select.Content>
 						{#each temperatureUnitOptions as option (option.value)}
@@ -386,14 +403,18 @@
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Climate</h2>
 		<div class="rounded-lg border">
-			<a href="/settings/climate" class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50">
+			<a
+				href="/settings/climate"
+				class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50"
+			>
 				<div class="flex size-9 items-center justify-center rounded-md bg-muted">
 					<LeafIcon class="size-4 text-muted-foreground" />
 				</div>
 				<div class="flex-1">
 					<p class="text-sm font-medium">Climate Settings</p>
 					<p class="text-xs text-muted-foreground">
-						{climateConfig.activePhase.charAt(0).toUpperCase() + climateConfig.activePhase.slice(1)} phase · {climateConfig.dayNightMode === "auto" ? "Auto" : "Manual"} day/night
+						{climateConfig.activePhase.charAt(0).toUpperCase() + climateConfig.activePhase.slice(1)} phase
+						· {climateConfig.dayNightMode === "auto" ? "Auto" : "Manual"} day/night
 					</p>
 				</div>
 				<ChevronRightIcon class="size-4 text-muted-foreground" />
@@ -425,26 +446,36 @@
 	<section>
 		<h2 class="mb-3 text-sm font-medium text-muted-foreground">Hardware</h2>
 		<div class="divide-y divide-border rounded-lg border">
-			<a href="/settings/sensors" class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50">
+			<a
+				href="/settings/sensors"
+				class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50"
+			>
 				<div class="flex size-9 items-center justify-center rounded-md bg-muted">
 					<ThermometerIcon class="size-4 text-muted-foreground" />
 				</div>
 				<div class="flex-1">
 					<p class="text-sm font-medium">Sensors</p>
 					<p class="text-xs text-muted-foreground">
-						{sensors.length === 0 ? "No sensors configured" : `${sensors.length} sensor${sensors.length === 1 ? "" : "s"} configured`}
+						{sensors.length === 0
+							? "No sensors configured"
+							: `${sensors.length} sensor${sensors.length === 1 ? "" : "s"} configured`}
 					</p>
 				</div>
 				<ChevronRightIcon class="size-4 text-muted-foreground" />
 			</a>
-			<a href="/settings/devices" class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50">
+			<a
+				href="/settings/devices"
+				class="flex items-center gap-3 p-3 transition-colors hover:bg-muted/50"
+			>
 				<div class="flex size-9 items-center justify-center rounded-md bg-muted">
 					<PowerIcon class="size-4 text-muted-foreground" />
 				</div>
 				<div class="flex-1">
 					<p class="text-sm font-medium">Devices</p>
 					<p class="text-xs text-muted-foreground">
-						{devices.length === 0 ? "No devices configured" : `${devices.length} device${devices.length === 1 ? "" : "s"} configured`}
+						{devices.length === 0
+							? "No devices configured"
+							: `${devices.length} device${devices.length === 1 ? "" : "s"} configured`}
 					</p>
 				</div>
 				<ChevronRightIcon class="size-4 text-muted-foreground" />
@@ -512,12 +543,21 @@
 						Check
 					</Button>
 					{#if updateAvailable && !rateLimited}
-						<Button size="sm" disabled={otaInProgress || !firmwareFits} onclick={handleInstallUpdate}>
+						<Button
+							size="sm"
+							disabled={otaInProgress || !firmwareFits}
+							onclick={handleInstallUpdate}
+						>
 							<DownloadIcon class="size-4" />
 							Install
 						</Button>
 					{/if}
-					<Button variant="outline" size="sm" disabled={otaInProgress} onclick={handleFirmwareUploadClick}>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={otaInProgress}
+						onclick={handleFirmwareUploadClick}
+					>
 						<UploadIcon class="size-4" />
 						Upload
 					</Button>
@@ -541,7 +581,8 @@
 						<span>
 							{#if otaStatus === "uploading"}Uploading...{:else if otaStatus === "downloading"}Downloading...{:else if otaStatus === "installing"}Installing...{:else if otaStatus === "success"}Done!{:else if otaStatus === "error"}Failed{/if}
 						</span>
-						{#if otaInProgress}<span class="text-xs text-muted-foreground">{otaProgress}%</span>{/if}
+						{#if otaInProgress}<span class="text-xs text-muted-foreground">{otaProgress}%</span
+							>{/if}
 					</div>
 					<Progress value={otaProgress} class="mt-1.5 h-1.5" />
 					{#if otaStatus === "error" && otaError}
@@ -580,7 +621,8 @@
 						<AlertDialog.Header>
 							<AlertDialog.Title>Clear all history?</AlertDialog.Title>
 							<AlertDialog.Description>
-								This will permanently delete all sensor and device history from the device. Chart data for all time ranges will be lost.
+								This will permanently delete all sensor and device history from the device. Chart
+								data for all time ranges will be lost.
 							</AlertDialog.Description>
 						</AlertDialog.Header>
 						<AlertDialog.Footer>
@@ -593,7 +635,9 @@
 			<div class="flex items-center justify-between p-3">
 				<div>
 					<p class="text-sm font-medium">Reset Settings</p>
-					<p class="text-xs text-muted-foreground">Reset preferences, ordering, and visibility to defaults</p>
+					<p class="text-xs text-muted-foreground">
+						Reset preferences, ordering, and visibility to defaults
+					</p>
 				</div>
 				<AlertDialog.Root>
 					<AlertDialog.Trigger>
@@ -608,7 +652,8 @@
 						<AlertDialog.Header>
 							<AlertDialog.Title>Reset all settings?</AlertDialog.Title>
 							<AlertDialog.Description>
-								This will reset theme, temperature unit, time format, sensor/device ordering, and visibility to their defaults. Hardware configuration is not affected.
+								This will reset theme, temperature unit, time format, sensor/device ordering, and
+								visibility to their defaults. Hardware configuration is not affected.
 							</AlertDialog.Description>
 						</AlertDialog.Header>
 						<AlertDialog.Footer>
@@ -636,7 +681,8 @@
 						<AlertDialog.Header>
 							<AlertDialog.Title>Restart device?</AlertDialog.Title>
 							<AlertDialog.Description>
-								The ESP32 will reboot. The page will automatically reconnect once the device is back online.
+								The ESP32 will reboot. The page will automatically reconnect once the device is back
+								online.
 							</AlertDialog.Description>
 						</AlertDialog.Header>
 						<AlertDialog.Footer>
@@ -653,7 +699,9 @@
 </div>
 
 {#if reconnecting}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+	>
 		<div class="flex flex-col items-center gap-4 rounded-lg border bg-card p-8 shadow-lg">
 			<div class="size-12 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
 			<div class="text-center">
