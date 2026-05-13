@@ -1,16 +1,36 @@
-export type SensorType = "temperature" | "humidity" | "co2" | "light" | "vpd" | "dewpoint";
+import type * as v from "valibot";
+import type {
+	SensorTypeSchema,
+	DeviceTypeSchema,
+	DeviceModeSchema,
+	ClimatePhaseSchema,
+	SystemEventTypeSchema,
+	DeviceControlMethodSchema,
+	DeviceControlModeSchema,
+	SensorSchema,
+	DeviceModeConfigSchema,
+	AutoTriggerSchema,
+	ClimateConfigPayloadSchema,
+	PhaseTargetsSchema,
+	SystemInfoMessage,
+} from "$lib/contract/ws";
 
-export interface Sensor {
-	id: string;
-	name: string;
-	type: SensorType;
-	unit: string;
-	hardwareType: "sht3x" | "sht4x" | "scd4x" | "as7341" | "calculated";
-	address?: string;
-	tempSourceId?: string;
-	humSourceId?: string;
-	leafTempOffset?: number;
-}
+// Wire types are derived from the WS contract — do not hand-edit; add new fields in `$lib/contract/ws.ts`.
+export type SensorType = v.InferOutput<typeof SensorTypeSchema>;
+export type DeviceType = v.InferOutput<typeof DeviceTypeSchema>;
+export type DeviceControlMethod = v.InferOutput<typeof DeviceControlMethodSchema>;
+export type DeviceControlMode = v.InferOutput<typeof DeviceControlModeSchema>;
+export type DeviceMode = v.InferOutput<typeof DeviceModeSchema>;
+export type ClimatePhase = v.InferOutput<typeof ClimatePhaseSchema>;
+export type SystemEventType = v.InferOutput<typeof SystemEventTypeSchema>;
+export type Sensor = v.InferOutput<typeof SensorSchema>;
+export type DeviceModeConfig = v.InferOutput<typeof DeviceModeConfigSchema>;
+export type AutoTrigger = v.InferOutput<typeof AutoTriggerSchema>;
+export type ClimateConfig = v.InferOutput<typeof ClimateConfigPayloadSchema>;
+export type PhaseTargets = v.InferOutput<typeof PhaseTargetsSchema>;
+export type SystemInfo = v.InferOutput<typeof SystemInfoMessage>["data"];
+
+export type SensorStatus = "optimal" | "warning" | "critical";
 
 export interface SensorReading {
 	sensorId: string;
@@ -23,9 +43,10 @@ export interface HistoricalReading {
 	value: number;
 }
 
-export type DeviceType = "fan" | "light" | "heater" | "pump" | "humidifier" | "dehumidifier";
-export type DeviceControlMethod = "shelly_gen1" | "shelly_gen2" | "tasmota";
-export type DeviceControlMode = "manual" | "automatic";
+export interface SpectralData {
+	channels: number[];
+	timestamp: Date;
+}
 
 export interface Device {
 	id: string;
@@ -40,90 +61,6 @@ export interface Device {
 	timestamp?: Date;
 }
 
-export type DeviceMode = "off" | "on" | "auto" | "cycle" | "schedule";
-
-export interface AutoTrigger {
-	sensorId: string;
-	sensorType?: string;
-	dayThreshold: number;
-	nightThreshold: number;
-	deadzone: number;
-	triggerAbove: boolean;
-}
-
-export interface CycleConfig {
-	onDurationSec: number;
-	offDurationSec: number;
-	dayOnly: boolean;
-}
-
-export interface ScheduleConfig {
-	startTime: string;
-	endTime: string;
-}
-
-export interface DeviceModeConfig {
-	deviceId: string;
-	mode: DeviceMode;
-	triggers?: AutoTrigger[];
-	cycle?: CycleConfig;
-	schedule?: ScheduleConfig;
-}
-
-export interface SystemInfo {
-	uptime: number;
-	freeHeap: number;
-	chipModel: string;
-	wifiRssi: number;
-	ipAddress: string;
-	firmwareVersion: string;
-}
-
-// Climate supervision
-
-export type ClimatePhase = "seedling" | "veg" | "flower" | "dry";
-
-export type SensorStatus = "optimal" | "warning" | "critical";
-
-export interface PhaseTargets {
-	temp: { day: number; night: number };
-	humidity: { day: number; night: number };
-	vpd: { day: number; night: number };
-	co2: { day: number; night: number };
-	dli: number;
-}
-
-export interface ClimateConfig {
-	activePhase: ClimatePhase;
-	phases: Record<ClimatePhase, PhaseTargets>;
-	phaseStartDate?: string;
-}
-
-export interface ClimateAlert {
-	id: string;
-	sensorId: string;
-	sensorType: SensorType;
-	value: number;
-	target: { min: number; max: number };
-	severity: "warning" | "critical";
-	timestamp: Date;
-}
-
-// System events (unified event history)
-
-export type SystemEventType = "alert" | "automation" | "device" | "system";
-
-export interface SystemEvent {
-	id: string;
-	type: SystemEventType;
-	title: string;
-	description: string;
-	severity?: "info" | "warning" | "critical";
-	timestamp: Date;
-}
-
-// Energy tracking
-
 export interface DeviceEnergy {
 	deviceId: string;
 	deviceName: string;
@@ -132,7 +69,11 @@ export interface DeviceEnergy {
 	resetTimestamp: Date;
 }
 
-export interface SpectralData {
-	channels: number[];
+export interface SystemEvent {
+	id: string;
+	type: SystemEventType;
+	title: string;
+	description: string;
+	severity?: "info" | "warning" | "critical";
 	timestamp: Date;
 }
