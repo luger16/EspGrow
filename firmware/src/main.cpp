@@ -47,119 +47,24 @@ namespace {
         }
     }
 
-    void sendDeviceModes(uint32_t clientId = 0) {
+    void sendTyped(const char* type, const String& json, uint32_t clientId) {
         JsonDocument doc;
-        doc["type"] = "device_modes";
-        
-        String modesJson;
-        DeviceModes::getModesJson(modesJson);
-        
+        doc["type"] = type;
         JsonDocument dataDoc;
-        deserializeJson(dataDoc, modesJson);
-        doc["data"] = dataDoc.as<JsonArray>();
-        
-        String out;
-        serializeJson(doc, out);
-        sendMessage(out, clientId);
-    }
-
-    void sendDevices(uint32_t clientId = 0) {
-        Devices::computeControlModes();
-        
-        JsonDocument doc;
-        doc["type"] = "devices";
-        
-        String devicesJson;
-        Devices::getDevicesJson(devicesJson);
-        
-        JsonDocument dataDoc;
-        deserializeJson(dataDoc, devicesJson);
-        doc["data"] = dataDoc.as<JsonArray>();
-        
-        String out;
-        serializeJson(doc, out);
-        sendMessage(out, clientId);
-    }
-
-    void sendClimateConfig(uint32_t clientId = 0) {
-        JsonDocument doc;
-        doc["type"] = "climate_config";
-
-        String configJson;
-        ClimateConfig::getConfigJson(configJson);
-
-        JsonDocument dataDoc;
-        deserializeJson(dataDoc, configJson);
+        deserializeJson(dataDoc, json);
         doc["data"] = dataDoc;
-
         String out;
         serializeJson(doc, out);
         sendMessage(out, clientId);
     }
 
-    void sendEvents(uint32_t clientId = 0) {
-        JsonDocument doc;
-        doc["type"] = "events";
-
-        String eventsJson;
-        EventLog::getEventsJson(eventsJson);
-
-        JsonDocument dataDoc;
-        deserializeJson(dataDoc, eventsJson);
-        doc["data"] = dataDoc.as<JsonArray>();
-
-        String out;
-        serializeJson(doc, out);
-        sendMessage(out, clientId);
-    }
-
-    void sendEnergy(uint32_t clientId = 0) {
-        JsonDocument doc;
-        doc["type"] = "energy";
-        
-        String energyJson;
-        EnergyTracker::getEnergiesJson(energyJson);
-        
-        JsonDocument dataDoc;
-        deserializeJson(dataDoc, energyJson);
-        doc["data"] = dataDoc.as<JsonArray>();
-        
-        String out;
-        serializeJson(doc, out);
-        sendMessage(out, clientId);
-    }
-
-    void sendDli(uint32_t clientId = 0) {
-        JsonDocument doc;
-        doc["type"] = "dli";
-        
-        String dliJson;
-        DliTracker::getDliJson(dliJson);
-        
-        JsonDocument dataDoc;
-        deserializeJson(dataDoc, dliJson);
-        doc["data"] = dataDoc;
-        
-        String out;
-        serializeJson(doc, out);
-        sendMessage(out, clientId);
-    }
-
-    void sendSensors(uint32_t clientId = 0) {
-        JsonDocument doc;
-        doc["type"] = "sensor_config";
-        
-        String sensorsJson;
-        SensorConfig::getSensorsJson(sensorsJson);
-        
-        JsonDocument dataDoc;
-        deserializeJson(dataDoc, sensorsJson);
-        doc["data"] = dataDoc.as<JsonArray>();
-        
-        String out;
-        serializeJson(doc, out);
-        sendMessage(out, clientId);
-    }
+    void sendDeviceModes(uint32_t clientId = 0)   { String j; DeviceModes::getModesJson(j);     sendTyped("device_modes",   j, clientId); }
+    void sendDevices(uint32_t clientId = 0)       { Devices::computeControlModes(); String j; Devices::getDevicesJson(j); sendTyped("devices", j, clientId); }
+    void sendClimateConfig(uint32_t clientId = 0) { String j; ClimateConfig::getConfigJson(j);  sendTyped("climate_config", j, clientId); }
+    void sendEvents(uint32_t clientId = 0)        { String j; EventLog::getEventsJson(j);       sendTyped("events",         j, clientId); }
+    void sendEnergy(uint32_t clientId = 0)        { String j; EnergyTracker::getEnergiesJson(j);sendTyped("energy",         j, clientId); }
+    void sendDli(uint32_t clientId = 0)           { String j; DliTracker::getDliJson(j);        sendTyped("dli",            j, clientId); }
+    void sendSensors(uint32_t clientId = 0)       { String j; SensorConfig::getSensorsJson(j);  sendTyped("sensor_config",  j, clientId); }
 
     void sendHistory(const char* sensorId, const char* range, uint32_t clientId = 0) {
         History::Range r;

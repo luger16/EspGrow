@@ -249,65 +249,23 @@ void init() {
             ClimateConfig::init();
             Devices::computeControlModes();
             
-            JsonDocument broadcastDoc;
-            JsonDocument dataDoc;
-            String jsonStr;
-            String output;
-            
-            broadcastDoc["type"] = "devices";
-            Devices::getDevicesJson(jsonStr);
-            deserializeJson(dataDoc, jsonStr);
-            broadcastDoc["data"] = dataDoc.as<JsonArray>();
-            serializeJson(broadcastDoc, output);
-            broadcast(output);
-            
-            broadcastDoc.clear();
-            dataDoc.clear();
-            jsonStr.clear();
-            output.clear();
-            
-            broadcastDoc["type"] = "device_modes";
-            DeviceModes::getModesJson(jsonStr);
-            deserializeJson(dataDoc, jsonStr);
-            broadcastDoc["data"] = dataDoc.as<JsonArray>();
-            serializeJson(broadcastDoc, output);
-            broadcast(output);
-            
-            broadcastDoc.clear();
-            dataDoc.clear();
-            jsonStr.clear();
-            output.clear();
-            
-            broadcastDoc["type"] = "sensor_config";
-            SensorConfig::getSensorsJson(jsonStr);
-            deserializeJson(dataDoc, jsonStr);
-            broadcastDoc["data"] = dataDoc.as<JsonArray>();
-            serializeJson(broadcastDoc, output);
-            broadcast(output);
-            
-            broadcastDoc.clear();
-            dataDoc.clear();
-            jsonStr.clear();
-            output.clear();
-            
-            broadcastDoc["type"] = "energy";
-            EnergyTracker::getEnergiesJson(jsonStr);
-            deserializeJson(dataDoc, jsonStr);
-            broadcastDoc["data"] = dataDoc.as<JsonArray>();
-            serializeJson(broadcastDoc, output);
-            broadcast(output);
-            
-            broadcastDoc.clear();
-            dataDoc.clear();
-            jsonStr.clear();
-            output.clear();
-            
-            broadcastDoc["type"] = "climate_config";
-            ClimateConfig::getConfigJson(jsonStr);
-            deserializeJson(dataDoc, jsonStr);
-            broadcastDoc["data"] = dataDoc;
-            serializeJson(broadcastDoc, output);
-            broadcast(output);
+            auto rebroadcast = [](const char* type, const String& json) {
+                JsonDocument doc;
+                doc["type"] = type;
+                JsonDocument dataDoc;
+                deserializeJson(dataDoc, json);
+                doc["data"] = dataDoc;
+                String out;
+                serializeJson(doc, out);
+                broadcast(out);
+            };
+
+            String j;
+            Devices::getDevicesJson(j);       rebroadcast("devices", j);
+            DeviceModes::getModesJson(j);     rebroadcast("device_modes", j);
+            SensorConfig::getSensorsJson(j);  rebroadcast("sensor_config", j);
+            EnergyTracker::getEnergiesJson(j);rebroadcast("energy", j);
+            ClimateConfig::getConfigJson(j);  rebroadcast("climate_config", j);
             
             request->send(200, "application/json", "{\"success\":true}");
         } else {
