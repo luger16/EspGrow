@@ -19,6 +19,10 @@ just check          # Type-check web + compile firmware
 npm run check       # svelte-check — primary quality gate
 npm run build       # Production build (static site + gzip)
 npm run dev:mock    # Dev server + mock WebSocket server
+npm run lint        # oxlint
+npm run format      # prettier --write
+npm run format:check
+npm run test        # vitest run
 
 # Firmware only (from /firmware)
 pio run -e c3               # Compile for ESP32-C3
@@ -26,7 +30,7 @@ pio run -e xiao-s3          # Compile for ESP32-S3
 pio run -t upload -e c3     # Flash to device
 ```
 
-**No ESLint, Prettier, or tests.** TypeScript strict mode is the quality gate.
+Quality gates: TypeScript strict mode (`npm run check`), oxlint, Prettier, Vitest. CI enforces all of them on every push.
 
 ---
 
@@ -44,7 +48,7 @@ pio run -t upload -e c3     # Flash to device
 /firmware/src/
 ├── main.cpp                   # Entry point (setup + loop)
 ├── sensors.h/cpp              # I²C sensor reading
-├── automation.h/cpp           # Rule engine with hysteresis
+├── device_modes.h/cpp         # Automation rule engine (triggers, cycles, schedules, day/night)
 ├── device_controller.h/cpp    # Shelly Gen1/Gen2, Tasmota HTTP control
 ├── websocket_server.h/cpp     # WebSocket broadcast + PROGMEM web serving
 ├── ota_manager.h/cpp          # OTA updates (file upload + GitHub releases)
