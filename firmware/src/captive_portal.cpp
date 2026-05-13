@@ -242,18 +242,27 @@ void start(const Config& config, SuccessCallback onSuccess) {
         request->send(200, "text/html", generateConnectingHTML());
     });
     
-    server->on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request){
+    // OS captive-portal probes — all redirect to portal root so the
+    // "Sign in to network" notification fires reliably on iOS/Android/Windows.
+    auto probeRedirect = [](AsyncWebServerRequest *request){
         if (!portalActive) { request->send(404); return; }
         request->redirect("http://" + WiFi.softAPIP().toString());
-    });
-    server->on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest *request){
-        if (!portalActive) { request->send(404); return; }
-        request->redirect("http://" + WiFi.softAPIP().toString());
-    });
-    server->on("/fwlink", HTTP_GET, [](AsyncWebServerRequest *request){
-        if (!portalActive) { request->send(404); return; }
-        request->redirect("http://" + WiFi.softAPIP().toString());
-    });
+    };
+    const char* probes[] = {
+        "/generate_204",                    // Android
+        "/gen_204",                         // Android (alt)
+        "/hotspot-detect.html",             // iOS / macOS
+        "/library/test/success.html",       // iOS (older)
+        "/success.txt",                     // Firefox / Ubuntu
+        "/canonical.html",                  // Firefox (alt)
+        "/connecttest.txt",                 // Windows 10/11
+        "/ncsi.txt",                        // Windows (legacy)
+        "/redirect",                        // Windows
+        "/fwlink",                          // Windows (legacy)
+    };
+    for (const char* path : probes) {
+        server->on(path, HTTP_GET, probeRedirect);
+    }
     
     server->onNotFound([](AsyncWebServerRequest *request){
         if (!portalActive) { request->send(404); return; }
