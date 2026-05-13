@@ -1,5 +1,8 @@
 type MessageHandler = (data: unknown) => void;
 
+import * as v from "valibot";
+import { ServerToClientMessage } from "$lib/contract";
+
 interface WebSocketState {
 	connected: boolean;
 	error: string | null;
@@ -97,20 +100,30 @@ export function connect(url?: string): void {
 
 	ws.onmessage = (event) => {
 		lastMessageTime = Date.now();
+		let raw: unknown;
 		try {
-			const msg = JSON.parse(event.data);
-			if (typeof msg !== "object" || msg === null || !("type" in msg)) return;
-
-			const type = (msg as { type: unknown }).type;
-			if (typeof type !== "string") return;
-
-			const typeHandlers = handlers.get(type);
-			if (typeHandlers) {
-				const payload = (msg as Record<string, unknown>).data ?? msg;
-				typeHandlers.forEach((handler) => handler(payload));
-			}
+			raw = JSON.parse(event.data);
 		} catch (err) {
 			console.error("WebSocket parse error:", err);
+			return;
+		}
+
+		const result = v.safeParse(ServerToClientMessage, raw);
+		if (!result.success) {
+			const summary = v.flatten(result.issues);
+			if (import.meta.env.DEV) {
+				console.error("WebSocket contract violation:", summary, raw);
+				throw new Error(`WebSocket contract violation: ${JSON.stringify(summary)}`);
+			}
+			console.warn("WebSocket contract violation (dropped):", summary);
+			return;
+		}
+
+		const msg = result.output;
+		const typeHandlers = handlers.get(msg.type);
+		if (typeHandlers) {
+			const payload = (msg as { data?: unknown }).data;
+			typeHandlers.forEach((handler) => handler(payload));
 		}
 	};
 }
