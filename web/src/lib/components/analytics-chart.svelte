@@ -118,39 +118,22 @@
 		if (ids.length === 0) return;
 
 		const force = version > 0 || connCount > 1;
-
-		const STAGGER_MS = 200;
-		const timeouts: ReturnType<typeof setTimeout>[] = [];
-		for (let i = 0; i < ids.length; i++) {
-			const id = ids[i];
-			timeouts.push(setTimeout(() => requestHistory(id, range, force), i * STAGGER_MS));
+		for (const id of ids) {
+			requestHistory(id, range, force);
 		}
-
-		return () => {
-			for (const t of timeouts) clearTimeout(t);
-		};
 	});
 
 	$effect(() => {
 		const range = timeRange;
-		const STAGGER_MS = 200;
-		const timeouts: ReturnType<typeof setTimeout>[] = [];
+		const REFRESH_MS = 2 * 60 * 1000;
+		const interval = setInterval(() => {
+			if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+			for (const id of allRequestIds()) {
+				requestHistory(id, range, true);
+			}
+		}, REFRESH_MS);
 
-		const interval = setInterval(
-			() => {
-				const currentIds = allRequestIds();
-				for (let i = 0; i < currentIds.length; i++) {
-					const id = currentIds[i];
-					timeouts.push(setTimeout(() => requestHistory(id, range, true), i * STAGGER_MS));
-				}
-			},
-			2 * 60 * 1000
-		);
-
-		return () => {
-			for (const t of timeouts) clearTimeout(t);
-			clearInterval(interval);
-		};
+		return () => clearInterval(interval);
 	});
 
 	const visibleSensors = $derived(sensors.filter((s) => !hiddenSensors.has(s.id)));
@@ -303,7 +286,7 @@
 
 			for (const [ts, entry] of liveEntries) {
 				const existing = timestampMap.get(ts);
-				timestampMap.set(ts, { ...(existing ?? {}), ...entry });
+				timestampMap.set(ts, { ...existing, ...entry });
 			}
 		}
 

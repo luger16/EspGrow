@@ -34,11 +34,14 @@
 	});
 
 	$effect(() => {
-		if (websocket.connectCount > 1) {
+		const count = websocket.connectCount;
+		if (count <= 1) return;
+		const handle = setTimeout(() => {
 			clearSensorHistory();
 			websocket.send("get_init");
 			websocket.send("get_events");
-		}
+		}, 250);
+		return () => clearTimeout(handle);
 	});
 </script>
 
