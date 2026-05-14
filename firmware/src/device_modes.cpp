@@ -203,20 +203,13 @@ namespace {
                 reportThreshold = threshold;
             }
 
-            bool met = false;
-            if (trigger.triggerAbove) {
-                if (wasTriggered) {
-                    if (value > (threshold - trigger.deadzone)) met = true;
-                } else {
-                    if (value > (threshold + trigger.deadzone)) met = true;
-                }
-            } else {
-                if (wasTriggered) {
-                    if (value < (threshold + trigger.deadzone)) met = true;
-                } else {
-                    if (value < (threshold - trigger.deadzone)) met = true;
-                }
-            }
+            // Hysteresis: tighten or loosen the threshold by deadzone based on current state.
+            // For triggerAbove: ON when value > threshold + dz, stay ON until value < threshold - dz.
+            // For triggerBelow: ON when value < threshold - dz, stay ON until value > threshold + dz.
+            float effectiveThreshold = wasTriggered
+                ? (trigger.triggerAbove ? threshold - trigger.deadzone : threshold + trigger.deadzone)
+                : (trigger.triggerAbove ? threshold + trigger.deadzone : threshold - trigger.deadzone);
+            bool met = trigger.triggerAbove ? (value > effectiveThreshold) : (value < effectiveThreshold);
 
             if (met) {
                 anyTriggerMet = true;
@@ -324,6 +317,41 @@ namespace {
         Serial.printf("[DeviceModes] Saved %d mode configs\n", configs.size());
     }
 
+    void parseConfig(JsonObject obj, DeviceModeConfig& cfg) {
+        strlcpy(cfg.deviceId, obj["deviceId"] | "", sizeof(cfg.deviceId));
+        cfg.mode = stringToMode(obj["mode"] | "off");
+
+        if (obj["triggers"].is<JsonArray>()) {
+            JsonArray triggers = obj["triggers"].as<JsonArray>();
+            cfg.triggerCount = 0;
+            for (JsonObject t : triggers) {
+                if (cfg.triggerCount >= MAX_TRIGGERS) break;
+                AutoTrigger& trigger = cfg.triggers[cfg.triggerCount];
+                strlcpy(trigger.sensorId, t["sensorId"] | "", sizeof(trigger.sensorId));
+                strlcpy(trigger.sensorType, t["sensorType"] | "", sizeof(trigger.sensorType));
+                resolveLegacyTrigger(trigger);
+                trigger.dayThreshold = t["dayThreshold"] | 0.0f;
+                trigger.nightThreshold = t["nightThreshold"] | 0.0f;
+                trigger.deadzone = t["deadzone"] | 0.5f;
+                trigger.triggerAbove = t["triggerAbove"] | true;
+                cfg.triggerCount++;
+            }
+        }
+
+        if (obj["cycle"].is<JsonObject>()) {
+            JsonObject cycle = obj["cycle"].as<JsonObject>();
+            cfg.cycle.onDurationSec = max((unsigned long)MIN_CYCLE_SEC, (unsigned long)(cycle["onDurationSec"] | 300));
+            cfg.cycle.offDurationSec = max((unsigned long)MIN_CYCLE_SEC, (unsigned long)(cycle["offDurationSec"] | 300));
+            cfg.cycle.dayOnly = cycle["dayOnly"] | false;
+        }
+
+        if (obj["schedule"].is<JsonObject>()) {
+            JsonObject sched = obj["schedule"].as<JsonObject>();
+            strlcpy(cfg.schedule.startTime, sched["startTime"] | "06:00", sizeof(cfg.schedule.startTime));
+            strlcpy(cfg.schedule.endTime, sched["endTime"] | "22:00", sizeof(cfg.schedule.endTime));
+        }
+    }
+
     void loadModes() {
         configs.clear();
         JsonDocument doc;
@@ -335,40 +363,7 @@ namespace {
         JsonArray arr = doc.as<JsonArray>();
         for (JsonObject obj : arr) {
             DeviceModeConfig cfg = {};
-            strlcpy(cfg.deviceId, obj["deviceId"] | "", sizeof(cfg.deviceId));
-            cfg.mode = stringToMode(obj["mode"] | "off");
-
-            if (obj["triggers"].is<JsonArray>()) {
-                JsonArray triggers = obj["triggers"].as<JsonArray>();
-                cfg.triggerCount = 0;
-                for (JsonObject t : triggers) {
-                    if (cfg.triggerCount >= MAX_TRIGGERS) break;
-                    AutoTrigger& trigger = cfg.triggers[cfg.triggerCount];
-                    const char* sensorId = t["sensorId"] | "";
-                    strlcpy(trigger.sensorId, sensorId, sizeof(trigger.sensorId));
-                    strlcpy(trigger.sensorType, t["sensorType"] | "", sizeof(trigger.sensorType));
-                    resolveLegacyTrigger(trigger);
-                    trigger.dayThreshold = t["dayThreshold"] | 0.0f;
-                    trigger.nightThreshold = t["nightThreshold"] | 0.0f;
-                    trigger.deadzone = t["deadzone"] | 0.5f;
-                    trigger.triggerAbove = t["triggerAbove"] | true;
-                    cfg.triggerCount++;
-                }
-            }
-
-            if (obj["cycle"].is<JsonObject>()) {
-                JsonObject cycle = obj["cycle"].as<JsonObject>();
-                cfg.cycle.onDurationSec = cycle["onDurationSec"] | 300UL;
-                cfg.cycle.offDurationSec = cycle["offDurationSec"] | 300UL;
-                cfg.cycle.dayOnly = cycle["dayOnly"] | false;
-            }
-
-            if (obj["schedule"].is<JsonObject>()) {
-                JsonObject sched = obj["schedule"].as<JsonObject>();
-                strlcpy(cfg.schedule.startTime, sched["startTime"] | "06:00", sizeof(cfg.schedule.startTime));
-                strlcpy(cfg.schedule.endTime, sched["endTime"] | "22:00", sizeof(cfg.schedule.endTime));
-            }
-
+            parseConfig(obj, cfg);
             configs.push_back(cfg);
         }
 
@@ -433,39 +428,7 @@ bool setMode(JsonDocument& doc) {
     if (!device) return false;
 
     DeviceModeConfig cfg = {};
-    strlcpy(cfg.deviceId, deviceId, sizeof(cfg.deviceId));
-    cfg.mode = stringToMode(doc["mode"] | "off");
-
-    if (doc["triggers"].is<JsonArray>()) {
-        JsonArray triggers = doc["triggers"].as<JsonArray>();
-        cfg.triggerCount = 0;
-        for (JsonObject t : triggers) {
-            if (cfg.triggerCount >= MAX_TRIGGERS) break;
-            AutoTrigger& trigger = cfg.triggers[cfg.triggerCount];
-            const char* sensorId = t["sensorId"] | "";
-            strlcpy(trigger.sensorId, sensorId, sizeof(trigger.sensorId));
-            strlcpy(trigger.sensorType, t["sensorType"] | "", sizeof(trigger.sensorType));
-            resolveLegacyTrigger(trigger);
-            trigger.dayThreshold = t["dayThreshold"] | 0.0f;
-            trigger.nightThreshold = t["nightThreshold"] | 0.0f;
-            trigger.deadzone = t["deadzone"] | 0.5f;
-            trigger.triggerAbove = t["triggerAbove"] | true;
-            cfg.triggerCount++;
-        }
-    }
-
-    if (doc["cycle"].is<JsonObject>()) {
-        JsonObject cycle = doc["cycle"].as<JsonObject>();
-        cfg.cycle.onDurationSec = max((unsigned long)MIN_CYCLE_SEC, (unsigned long)(cycle["onDurationSec"] | 300));
-        cfg.cycle.offDurationSec = max((unsigned long)MIN_CYCLE_SEC, (unsigned long)(cycle["offDurationSec"] | 300));
-        cfg.cycle.dayOnly = cycle["dayOnly"] | false;
-    }
-
-    if (doc["schedule"].is<JsonObject>()) {
-        JsonObject sched = doc["schedule"].as<JsonObject>();
-        strlcpy(cfg.schedule.startTime, sched["startTime"] | "06:00", sizeof(cfg.schedule.startTime));
-        strlcpy(cfg.schedule.endTime, sched["endTime"] | "22:00", sizeof(cfg.schedule.endTime));
-    }
+    parseConfig(doc.as<JsonObject>(), cfg);
 
     for (auto& existing : configs) {
         if (strcmp(existing.deviceId, deviceId) == 0) {
