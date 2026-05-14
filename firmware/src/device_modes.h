@@ -51,7 +51,6 @@ void onDeviceControlResult(const char* deviceId, bool success, bool requestedSta
 
 bool setMode(JsonDocument& doc);
 bool removeMode(const char* deviceId);
-void removeModeForDevice(const char* deviceId);
 
 void getModesJson(String& out);
 const char* getDeviceMode(const char* deviceId);

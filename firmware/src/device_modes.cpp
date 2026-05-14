@@ -282,10 +282,8 @@ namespace {
         applyDeviceState(cfg, inRange);
     }
 
-    void saveModes() {
-        JsonDocument doc;
+    void serializeConfigs(JsonDocument& doc) {
         JsonArray arr = doc.to<JsonArray>();
-
         for (const auto& cfg : configs) {
             JsonObject obj = arr.add<JsonObject>();
             obj["deviceId"] = cfg.deviceId;
@@ -317,7 +315,11 @@ namespace {
                 sched["endTime"] = cfg.schedule.endTime;
             }
         }
+    }
 
+    void saveModes() {
+        JsonDocument doc;
+        serializeConfigs(doc);
         Storage::writeJson(MODES_PATH, doc);
         Serial.printf("[DeviceModes] Saved %d mode configs\n", configs.size());
     }
@@ -496,46 +498,9 @@ bool removeMode(const char* deviceId) {
     return false;
 }
 
-void removeModeForDevice(const char* deviceId) {
-    removeMode(deviceId);
-}
-
 void getModesJson(String& out) {
     JsonDocument doc;
-    JsonArray arr = doc.to<JsonArray>();
-
-    for (const auto& cfg : configs) {
-        JsonObject obj = arr.add<JsonObject>();
-        obj["deviceId"] = cfg.deviceId;
-        obj["mode"] = modeToString(cfg.mode);
-
-        if (cfg.mode == MODE_AUTO && cfg.triggerCount > 0) {
-            JsonArray triggers = obj["triggers"].to<JsonArray>();
-            for (uint8_t i = 0; i < cfg.triggerCount; i++) {
-                JsonObject t = triggers.add<JsonObject>();
-                t["sensorId"] = cfg.triggers[i].sensorId;
-                if (cfg.triggers[i].sensorType[0] != '\0') t["sensorType"] = cfg.triggers[i].sensorType;
-                t["dayThreshold"] = cfg.triggers[i].dayThreshold;
-                t["nightThreshold"] = cfg.triggers[i].nightThreshold;
-                t["deadzone"] = cfg.triggers[i].deadzone;
-                t["triggerAbove"] = cfg.triggers[i].triggerAbove;
-            }
-        }
-
-        if (cfg.mode == MODE_CYCLE) {
-            JsonObject cycle = obj["cycle"].to<JsonObject>();
-            cycle["onDurationSec"] = cfg.cycle.onDurationSec;
-            cycle["offDurationSec"] = cfg.cycle.offDurationSec;
-            cycle["dayOnly"] = cfg.cycle.dayOnly;
-        }
-
-        if (cfg.mode == MODE_SCHEDULE) {
-            JsonObject sched = obj["schedule"].to<JsonObject>();
-            sched["startTime"] = cfg.schedule.startTime;
-            sched["endTime"] = cfg.schedule.endTime;
-        }
-    }
-
+    serializeConfigs(doc);
     serializeJson(doc, out);
 }
 
