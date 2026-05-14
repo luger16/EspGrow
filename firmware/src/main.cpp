@@ -290,7 +290,7 @@ namespace {
         }
         case WsContract::ClientMessage::RemoveDevice: {
             const char* deviceId = payload["id"];
-            DeviceModes::removeModeForDevice(deviceId);
+            DeviceModes::removeMode(deviceId);
             Devices::removeDevice(deviceId);
             sendDevices();
             sendDeviceModes();
@@ -594,6 +594,7 @@ void setup() {
 			respData["target"] = ar.target;
 			respData["on"] = ar.result.reachable ? ar.result.isOn : ar.requestedState;
 			respData["success"] = ar.result.reachable;
+			respData["online"] = device->isOnline;
 			uint32_t statusTimestamp = (uint32_t)time(nullptr);
 			if (statusTimestamp >= MIN_VALID_EPOCH) {
 				respData["timestamp"] = statusTimestamp;

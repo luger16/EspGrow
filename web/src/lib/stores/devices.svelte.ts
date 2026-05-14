@@ -102,7 +102,7 @@ export function initDeviceWebSocket(): void {
 					? devices.find((d) => d.ipAddress === msg.target)
 					: undefined;
 		if (device) {
-			device.isOnline = msg.success as boolean;
+			device.isOnline = typeof msg.online === "boolean" ? msg.online : msg.success;
 			if (msg.success) device.isOn = msg.on;
 			device.timestamp = parseTimestamp(msg.timestamp) ?? new Date();
 			pendingDevices.delete(device.id);
