@@ -66,18 +66,11 @@ namespace {
         QueryResult result;
         String url = "http://" + ip + "/cm?cmnd=Power%20" + (on ? "On" : "Off");
         auto resp = httpGet(url, CONTROL_TIMEOUT_MS);
-        
         if (resp.ok) {
             result.reachable = true;
             const char* power = resp.doc["POWER"];
-            if (power) {
-                result.isOn = (strcmp(power, "ON") == 0);
-            }
-            Serial.printf("[DeviceCtrl] Tasmota %s -> %s\n", ip.c_str(), result.isOn ? "ON" : "OFF");
-        } else {
-            Serial.printf("[DeviceCtrl] Tasmota %s failed\n", ip.c_str());
+            if (power) result.isOn = (strcmp(power, "ON") == 0);
         }
-        
         return result;
     }
 
@@ -85,15 +78,10 @@ namespace {
         QueryResult result;
         String url = "http://" + ip + "/relay/0?turn=" + (on ? "on" : "off");
         auto resp = httpGet(url, CONTROL_TIMEOUT_MS);
-        
         if (resp.ok) {
             result.reachable = true;
             result.isOn = resp.doc["ison"] | false;
-            Serial.printf("[DeviceCtrl] Shelly Gen1 %s -> %s\n", ip.c_str(), result.isOn ? "ON" : "OFF");
-        } else {
-            Serial.printf("[DeviceCtrl] Shelly Gen1 %s failed\n", ip.c_str());
         }
-        
         return result;
     }
 
@@ -101,40 +89,9 @@ namespace {
         QueryResult result;
         String url = "http://" + ip + "/rpc/Switch.Set?id=0&on=" + (on ? "true" : "false");
         auto resp = httpGet(url, CONTROL_TIMEOUT_MS);
-        
         if (resp.ok) {
             result.reachable = true;
-            bool wasOn = resp.doc["was_on"] | !on;
             result.isOn = on;
-            Serial.printf("[DeviceCtrl] Shelly Gen2 %s -> %s (was %s)\n",
-                ip.c_str(), result.isOn ? "ON" : "OFF", wasOn ? "ON" : "OFF");
-        } else {
-            Serial.printf("[DeviceCtrl] Shelly Gen2 %s failed\n", ip.c_str());
-        }
-        
-        return result;
-    }
-
-    QueryResult doControl(const String& method, const String& target, bool on) {
-        auto dispatch = [&]() -> QueryResult {
-            if (method == "tasmota") return setTasmota(target, on);
-            if (method == "shelly_gen1") return setShellyGen1(target, on);
-            if (method == "shelly_gen2") return setShellyGen2(target, on);
-            Serial.printf("[DeviceCtrl] Unknown method: %s\n", method.c_str());
-            return QueryResult{};
-        };
-
-        QueryResult result;
-        for (int attempt = 0; attempt < CONTROL_MAX_ATTEMPTS; ++attempt) {
-            result = dispatch();
-            if (result.reachable) return result;
-            if (attempt < CONTROL_MAX_ATTEMPTS - 1) {
-                int delayMs = CONTROL_BACKOFF_MS[attempt];
-                Serial.printf("[DeviceCtrl] Retry %d/%d in %dms (%s %s)\n",
-                    attempt + 2, CONTROL_MAX_ATTEMPTS, delayMs,
-                    method.c_str(), target.c_str());
-                vTaskDelay(pdMS_TO_TICKS(delayMs));
-            }
         }
         return result;
     }
@@ -142,65 +99,96 @@ namespace {
     QueryResult queryTasmota(const String& ip) {
         QueryResult result;
         auto resp = httpGet("http://" + ip + "/cm?cmnd=Status%200", QUERY_TIMEOUT_MS);
-        
         if (resp.ok) {
             result.reachable = true;
             const char* power = resp.doc["StatusSTS"]["POWER"];
-            if (power) {
-                result.isOn = (strcmp(power, "ON") == 0);
-            }
+            if (power) result.isOn = (strcmp(power, "ON") == 0);
             float watts = resp.doc["StatusSNS"]["ENERGY"]["Power"] | NAN;
             if (!isnan(watts)) result.watts = watts;
-        } else {
-            Serial.printf("[DeviceCtrl] Tasmota query %s failed\n", ip.c_str());
         }
-        
         return result;
     }
 
     QueryResult queryShellyGen1(const String& ip) {
         QueryResult result;
         auto resp = httpGet("http://" + ip + "/relay/0", QUERY_TIMEOUT_MS);
-        
         if (resp.ok) {
             result.reachable = true;
             result.isOn = resp.doc["ison"] | false;
             float watts = resp.doc["power"] | NAN;
             if (!isnan(watts)) result.watts = watts;
-        } else {
-            Serial.printf("[DeviceCtrl] Shelly Gen1 query %s failed\n", ip.c_str());
         }
-        
         return result;
     }
 
     QueryResult queryShellyGen2(const String& ip) {
         QueryResult result;
         auto resp = httpGet("http://" + ip + "/rpc/Switch.GetStatus?id=0", QUERY_TIMEOUT_MS);
-        
         if (resp.ok) {
             result.reachable = true;
             result.isOn = resp.doc["output"] | false;
             float watts = resp.doc["apower"] | NAN;
             if (!isnan(watts)) result.watts = watts;
-        } else {
-            Serial.printf("[DeviceCtrl] Shelly Gen2 query %s failed\n", ip.c_str());
         }
-        
+        return result;
+    }
+
+    struct Protocol {
+        const char* name;
+        QueryResult (*set)(const String&, bool);
+        QueryResult (*query)(const String&);
+    };
+
+    static constexpr Protocol PROTOCOLS[] = {
+        {"tasmota",     setTasmota,     queryTasmota},
+        {"shelly_gen1", setShellyGen1,  queryShellyGen1},
+        {"shelly_gen2", setShellyGen2,  queryShellyGen2},
+    };
+
+    const Protocol* findProtocol(const String& method) {
+        for (const auto& p : PROTOCOLS) {
+            if (method == p.name) return &p;
+        }
+        return nullptr;
+    }
+
+    QueryResult doControl(const String& method, const String& target, bool on) {
+        const Protocol* p = findProtocol(method);
+        if (!p) {
+            Serial.printf("[DeviceCtrl] Unknown method: %s\n", method.c_str());
+            return QueryResult{};
+        }
+        QueryResult result;
+        for (int attempt = 0; attempt < CONTROL_MAX_ATTEMPTS; ++attempt) {
+            result = p->set(target, on);
+            if (result.reachable) {
+                Serial.printf("[DeviceCtrl] %s %s -> %s\n",
+                    p->name, target.c_str(), result.isOn ? "ON" : "OFF");
+                return result;
+            }
+            if (attempt < CONTROL_MAX_ATTEMPTS - 1) {
+                int delayMs = CONTROL_BACKOFF_MS[attempt];
+                Serial.printf("[DeviceCtrl] Retry %d/%d in %dms (%s %s)\n",
+                    attempt + 2, CONTROL_MAX_ATTEMPTS, delayMs,
+                    p->name, target.c_str());
+                vTaskDelay(pdMS_TO_TICKS(delayMs));
+            }
+        }
+        Serial.printf("[DeviceCtrl] %s %s failed\n", p->name, target.c_str());
         return result;
     }
 
     QueryResult doQuery(const String& method, const String& target) {
-        if (method == "tasmota") {
-            return queryTasmota(target);
-        } else if (method == "shelly_gen1") {
-            return queryShellyGen1(target);
-        } else if (method == "shelly_gen2") {
-            return queryShellyGen2(target);
+        const Protocol* p = findProtocol(method);
+        if (!p) {
+            Serial.printf("[DeviceCtrl] Unknown query method: %s\n", method.c_str());
+            return QueryResult{};
         }
-        
-        Serial.printf("[DeviceCtrl] Unknown query method: %s\n", method.c_str());
-        return QueryResult{};
+        QueryResult result = p->query(target);
+        if (!result.reachable) {
+            Serial.printf("[DeviceCtrl] %s query %s failed\n", p->name, target.c_str());
+        }
+        return result;
     }
 
     void workerTaskFn(void* param) {
