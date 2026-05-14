@@ -68,14 +68,10 @@
 	let endPos = $derived(polarToCartesian(endDeg, radius));
 
 	let arcPath = $derived.by(() => {
-		const s = polarToCartesian(startDeg, radius);
-		const e = polarToCartesian(endDeg, radius);
-
 		let sweep = endDeg - startDeg;
 		if (sweep < 0) sweep += 360;
 		const largeArc = sweep > 180 ? 1 : 0;
-
-		return `M ${s.x} ${s.y} A ${radius} ${radius} 0 ${largeArc} 1 ${e.x} ${e.y}`;
+		return `M ${startPos.x} ${startPos.y} A ${radius} ${radius} 0 ${largeArc} 1 ${endPos.x} ${endPos.y}`;
 	});
 
 	let durationMinutes = $derived.by(() => {
@@ -139,10 +135,8 @@
 		if (!svgEl) return null;
 		const rect = svgEl.getBoundingClientRect();
 		const scale = rect.width / size;
-		const svgCx = rect.left + rect.width / 2;
-		const svgCy = rect.top + rect.height / 2;
-		const dx = event.clientX - svgCx;
-		const dy = event.clientY - svgCy;
+		const dx = event.clientX - (rect.left + rect.width / 2);
+		const dy = event.clientY - (rect.top + rect.height / 2);
 		const dist = Math.sqrt(dx * dx + dy * dy) / scale;
 		const trackMin = radius - trackWidth / 2;
 		const trackMax = radius + trackWidth / 2;
