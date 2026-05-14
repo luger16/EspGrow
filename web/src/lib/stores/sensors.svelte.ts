@@ -10,12 +10,12 @@ export const spectralData = $state<{ current: SpectralData | null }>({ current: 
 const pendingReadings = new Map<string, SensorReading>();
 const pendingHistory = new Map<string, HistoricalReading[]>();
 let pendingSpectral: SpectralData | null = null;
-let flushHandle: number | null = null;
+let flushHandle: ReturnType<typeof setTimeout> | number | null = null;
 
 function scheduleFlush(): void {
 	if (flushHandle !== null) return;
 	if (typeof requestAnimationFrame === "undefined") {
-		flushHandle = setTimeout(flush, 16) as unknown as number;
+		flushHandle = setTimeout(flush, 16);
 		return;
 	}
 	flushHandle = requestAnimationFrame(flush);
