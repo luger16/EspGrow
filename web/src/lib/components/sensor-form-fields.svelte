@@ -121,11 +121,7 @@
 {#if needsSources}
 	<div class="grid gap-2">
 		<Label>Temperature Source</Label>
-		<Select.Root
-			type="single"
-			value={tempSourceId}
-			onValueChange={(v) => v && (tempSourceId = v)}
-		>
+		<Select.Root type="single" value={tempSourceId} onValueChange={(v) => v && (tempSourceId = v)}>
 			<Select.Trigger>
 				<span>{tempSensors.find((s) => s.id === tempSourceId)?.name ?? "Select sensor..."}</span>
 			</Select.Trigger>
@@ -141,11 +137,7 @@
 	</div>
 	<div class="grid gap-2">
 		<Label>Humidity Source</Label>
-		<Select.Root
-			type="single"
-			value={humSourceId}
-			onValueChange={(v) => v && (humSourceId = v)}
-		>
+		<Select.Root type="single" value={humSourceId} onValueChange={(v) => v && (humSourceId = v)}>
 			<Select.Trigger>
 				<span>{humSensors.find((s) => s.id === humSourceId)?.name ?? "Select sensor..."}</span>
 			</Select.Trigger>
@@ -163,16 +155,7 @@
 {#if isVpd}
 	<div class="grid gap-2">
 		<Label for="leafOffset">Leaf Temperature Offset (°C)</Label>
-		<Input
-			id="leafOffset"
-			type="number"
-			bind:value={leafTempOffset}
-			min={0}
-			max={10}
-			step={0.5}
-		/>
-		<p class="text-muted-foreground text-xs">
-			How much cooler leaves are than air. Typical: 2°C.
-		</p>
+		<Input id="leafOffset" type="number" bind:value={leafTempOffset} min={0} max={10} step={0.5} />
+		<p class="text-muted-foreground text-xs">How much cooler leaves are than air. Typical: 2°C.</p>
 	</div>
 {/if}
