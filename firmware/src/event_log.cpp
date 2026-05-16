@@ -109,12 +109,7 @@ namespace {
         WebSocketServer::broadcast(out);
     }
 
-    void saveEvents() {
-        if (eventCount == 0) return;
-
-        JsonDocument doc;
-        JsonArray arr = doc.to<JsonArray>();
-
+    void serializeEvents(JsonArray arr) {
         size_t start = (eventCount >= MAX_EVENTS) ? eventHead : 0;
         for (size_t i = 0; i < eventCount; i++) {
             size_t idx = (start + i) % MAX_EVENTS;
@@ -127,7 +122,12 @@ namespace {
             obj["severity"] = e.severity;
             obj["timestamp"] = e.timestamp;
         }
+    }
 
+    void saveEvents() {
+        if (eventCount == 0) return;
+        JsonDocument doc;
+        serializeEvents(doc.to<JsonArray>());
         Storage::writeJson(EVENTS_PATH, doc);
     }
 
@@ -271,21 +271,7 @@ void flush() {
 
 void getEventsJson(String& out) {
     JsonDocument doc;
-    JsonArray arr = doc.to<JsonArray>();
-
-    size_t start = (eventCount >= MAX_EVENTS) ? eventHead : 0;
-    for (size_t i = 0; i < eventCount; i++) {
-        size_t idx = (start + i) % MAX_EVENTS;
-        const Event& e = events[idx];
-        JsonObject obj = arr.add<JsonObject>();
-        obj["id"] = e.id;
-        obj["type"] = e.type;
-        obj["title"] = e.title;
-        obj["description"] = e.description;
-        obj["severity"] = e.severity;
-        obj["timestamp"] = e.timestamp;
-    }
-
+    serializeEvents(doc.to<JsonArray>());
     serializeJson(doc, out);
 }
 
