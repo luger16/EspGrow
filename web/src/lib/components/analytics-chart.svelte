@@ -8,7 +8,7 @@
 	import { LineChart, Area, Spline } from "layerchart";
 	import { curveMonotoneX, curveStepAfter } from "d3-shape";
 	import DownloadIcon from "@lucide/svelte/icons/download";
-	import type { Sensor, DeviceType } from "$lib/types";
+	import type { Sensor } from "$lib/types";
 	import {
 		sensors,
 		sensorReadings,
@@ -21,34 +21,14 @@
 	import { websocket } from "$lib/stores/websocket.svelte";
 	import { settings, convertTemperature, formatTimeFromDate } from "$lib/stores/settings.svelte";
 	import { formatUnit, cn } from "$lib/utils";
-
-	const SENSOR_TYPE_COLORS: Record<string, string> = {
-		temperature: "hsl(0, 72%, 51%)",
-		humidity: "hsl(199, 89%, 48%)",
-		co2: "hsl(220, 15%, 55%)",
-		light: "hsl(45, 93%, 47%)",
-		vpd: "hsl(280, 65%, 60%)",
-		dewpoint: "hsl(175, 70%, 45%)",
-	};
-
-	function getSensorColor(sensor: Sensor): string {
-		return SENSOR_TYPE_COLORS[sensor.type] ?? "hsl(0, 0%, 50%)";
-	}
-
-	const DEVICE_TYPE_COLORS: Record<DeviceType, string> = {
-		fan: "hsl(145, 45%, 55%)",
-		light: "hsl(38, 70%, 55%)",
-		heater: "hsl(8, 65%, 58%)",
-		pump: "hsl(230, 45%, 60%)",
-		humidifier: "hsl(185, 40%, 55%)",
-		dehumidifier: "hsl(310, 40%, 58%)",
-	};
-
-	function getDeviceColor(device: { type: DeviceType }): string {
-		return DEVICE_TYPE_COLORS[device.type] ?? "hsl(0, 0%, 60%)";
-	}
-
-	type TimeRange = "6h" | "24h" | "7d";
+	import {
+		getSensorColor,
+		getDeviceColor,
+		NORMALIZATION_RANGES,
+		SENSOR_TYPE_LABELS,
+		GAP_THRESHOLDS,
+		type TimeRange,
+	} from "$lib/utils/chart-constants";
 
 	let timeRange = $state<TimeRange>("6h");
 	let hiddenSensors = $state<Set<string>>(new Set());
@@ -60,30 +40,9 @@
 		{ value: "7d", label: "7d" },
 	];
 
-	const normalizationRanges: Record<string, [number, number]> = {
-		temperature: [10, 40],
-		dewpoint: [10, 40],
-		humidity: [0, 100],
-		co2: [300, 2000],
-		light: [0, 1500],
-		vpd: [0, 2.5],
-		device: [0, 1],
-	};
-
-	const sensorTypeLabels: Record<string, string> = {
-		temperature: "Temperature",
-		humidity: "Humidity",
-		co2: "CO₂",
-		light: "Light",
-		vpd: "VPD",
-		dewpoint: "Dew Point",
-	};
-
-	const gapThresholds: Record<TimeRange, number> = {
-		"6h": 4 * 60 * 1000,
-		"24h": 15 * 60 * 1000,
-		"7d": 90 * 60 * 1000,
-	};
+	const normalizationRanges = NORMALIZATION_RANGES;
+	const sensorTypeLabels = SENSOR_TYPE_LABELS;
+	const gapThresholds = GAP_THRESHOLDS;
 
 	function toggleSensorVisibility(sensorId: string): void {
 		const newSet = new Set(hiddenSensors);
